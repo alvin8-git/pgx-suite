@@ -1,0 +1,29 @@
+# Large data volumes (volume-mounted at runtime, not committed)
+pypgx/pypgx-bundle/
+StellarPGx/containers/
+StellarPGx/tests/reference/
+
+# Nextflow working directories
+work/
+.nextflow/
+.nextflow.log*
+results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Build artifacts
+*.log
+*.tmp
+
+# Archives already extracted
+Stargazer_v2.0.3.zip
+
+# Stargazer large data files (reference VCFs 237MB + unit test 163MB)
+# Only the example/ dir is committed (needed for smoke tests)
+stargazer-grc38-2.0.3/stargazer/1kgp_vcf/
+stargazer-grc38-2.0.3/unit_test/

@@ -1,0 +1,13 @@
+# Exclude large directories not needed in build context
+StellarPGx/
+pypgx/pypgx-bundle/
+Stargazer_v2.0.3.zip
+.pytest_cache/
+docs/
+*.log
+work/
+results/
+.nextflow/
+.nextflow.log
+**/__pycache__/
+**/*.pyc

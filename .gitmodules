@@ -1,0 +1,6 @@
+[submodule "pypgx"]
+	path = pypgx
+	url = https://github.com/sbslee/pypgx
+[submodule "StellarPGx"]
+	path = StellarPGx
+	url = https://github.com/SBIMB/StellarPGx.git
