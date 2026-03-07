@@ -1,62 +1,99 @@
 # PGx Suite
 
-> A Docker container that installs and runs four open-source pharmacogenomics (PGx) star allele callers — **PyPGx**, **Stargazer**, **Aldy**, and **StellarPGx** — all configured for **GRCh38 (hg38)**.
+A Docker container that bundles four open-source pharmacogenomics (PGx) star allele callers — **PyPGx**, **Stargazer**, **Aldy**, and **StellarPGx** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table.
 
----
-
-## Tools
-
-| Tool | Version | Method | License |
-|------|---------|--------|---------|
-| [PyPGx](https://github.com/sbslee/pypgx) | 0.26.0 | pip (local source) | MIT |
-| [Stargazer](https://stargazer.gs.washington.edu/stargazerweb/) | 2.0.3 | wrapper script | **Non-commercial academic only (UW)** |
-| [Aldy](https://github.com/0xTCG/aldy) | 4.8.3 | pip | **Non-commercial academic only (IURTC)** |
-| [StellarPGx](https://github.com/SBIMB/StellarPGx) | 1.2.7 | Nextflow + Apptainer SIF | MIT |
-
-> **⚠️ License Notice:** Stargazer and Aldy are restricted to non-commercial academic use.
+> **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.
 > This image **must not be published to any public registry** (Docker Hub, GHCR, etc.).
 
 ---
 
-## Prerequisites
+## Table of Contents
 
-- Docker Engine (Linux) or Docker Desktop (macOS/Windows) with `--privileged` support
-- ~3 GB disk for the built image
-- The following local directories (already present in this repo):
-  - `pypgx/` — PyPGx source
-  - `pypgx/pypgx-bundle/` — 500 MB 1KGP VCF panel + CNV data (volume-mounted at runtime)
-  - `stargazer-grc38-2.0.3/` — Stargazer GRCh38 source
-  - `StellarPGx/` — Nextflow pipeline, database, resources
-  - `StellarPGx/containers/stellarpgx-dev.sif` — 31 MB Apptainer SIF image
-  - `nextflow` — Nextflow binary (already downloaded)
-- **User-supplied** (for Phase 2 full analysis):
-  - GRCh38 reference FASTA + `.fai` index (3–50 GB, not included)
-  - Input BAM/CRAM file(s) + index
+- [Bundled Tools](#bundled-tools)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Run a single gene](#run-a-single-gene)
+  - [Volume mounts reference](#volume-mounts-reference)
+  - [Expected output](#expected-output)
+- [Gene Coverage](#gene-coverage)
+- [Output Fields](#output-fields)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [Repository Layout](#repository-layout)
+- [Documentation](#documentation)
+- [License](#license)
 
 ---
 
-## Quick Start
+## Bundled Tools
 
-### 1. Build the image
+| Tool | Version | Algorithm | Genes | License |
+|------|---------|-----------|-------|---------|
+| [PyPGx](https://github.com/sbslee/pypgx) | 0.26.0 | Bayesian / Beagle phasing | 88 | MIT |
+| [Stargazer](https://stargazer.gs.washington.edu/stargazerweb/) | 2.0.3 | Bayesian / Beagle phasing | 58 | Non-commercial academic (UW) |
+| [Aldy](https://github.com/0xTCG/aldy) | 4.8.3 | Integer Linear Programming | 39 | Non-commercial academic (IURTC) |
+| [StellarPGx](https://github.com/SBIMB/StellarPGx) | 1.2.7 | Genome graph (graphtyper) | 21 | MIT |
+
+See [`ToolsDocumentation.md`](ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations.
+
+---
+
+## Requirements
+
+### Software
+
+- **Docker Engine** (Linux) or **Docker Desktop** (macOS / Windows) with `--privileged` support
+- ~3 GB free disk space for the built image
+
+### Data (user-supplied)
+
+| File | Notes |
+|------|-------|
+| GRCh38 reference FASTA + `.fai` index | 3–50 GB; not included |
+| Input BAM or CRAM + `.bai` / `.crai` index | Sorted, GRCh38-aligned |
+
+### Repo contents (already present after cloning)
+
+| Path | Contents |
+|------|----------|
+| `pypgx/` | PyPGx source (pip-installable) |
+| `pypgx/pypgx-bundle/` | 1KGP VCF panel + CNV data (~500 MB, volume-mounted at runtime) |
+| `stargazer-grc38-2.0.3/` | Stargazer GRCh38 source |
+| `StellarPGx/` | Nextflow pipeline, gene databases, resources |
+| `StellarPGx/containers/stellarpgx-dev.sif` | Apptainer SIF image (31 MB) |
+| `nextflow` | Nextflow binary (pre-downloaded) |
+
+---
+
+## Installation
+
+### 1. Clone the repository
 
 ```bash
-cd /data/alvin/PGxCallers
+git clone https://github.com/<org>/pgx-suite.git
+cd pgx-suite
+```
+
+### 2. Build the Docker image
+
+```bash
 docker build -t pgx-suite:latest .
 ```
 
-First build: ~15–25 minutes. Subsequent builds use Docker layer cache.
+First build takes 15–25 minutes. Subsequent builds are fast due to Docker layer caching.
 
-### 2. Run smoke tests
+### 3. Verify with smoke tests
 
 ```bash
-# PyPGx, Aldy, Stargazer — fast, no data volumes required:
+# Fast check — no data volumes required:
 docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 
-# Full suite including StellarPGx (volumes required):
+# Full check — includes StellarPGx (volumes required):
 ./docker/docker-run.sh bash /opt/pgx/test.sh
 ```
 
-Expected output (all PASS):
+All 12 checks should report `PASS`:
 
 ```
 ============================================================
@@ -89,136 +126,13 @@ Expected output (all PASS):
 ============================================================
 ```
 
-### 3. Interactive shell
+---
+
+## Usage
+
+### Run a single gene
 
 ```bash
-./docker/docker-run.sh bash
-```
-
-Or manually:
-
-```bash
-docker run --privileged --rm -it \
-  -v "$(pwd)/StellarPGx:/pgx/stellarpgx" \
-  -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
-  -v "$(pwd)/pypgx/pypgx-bundle:/pgx/bundle" \
-  pgx-suite:latest bash
-```
-
----
-
-## Volume Mounts
-
-| Host Path | Container Path | Purpose |
-|-----------|---------------|---------|
-| `./StellarPGx` | `/pgx/stellarpgx` | StellarPGx pipeline scripts, database, resources |
-| `./StellarPGx/containers` | `/pgx/containers` | `stellarpgx-dev.sif` Apptainer image |
-| `./pypgx/pypgx-bundle` | `/pgx/bundle` | 1KGP VCFs + CNV data for PyPGx phasing |
-| `/path/to/ref` | `/pgx/ref` | GRCh38 reference FASTA + `.fai` |
-| `/path/to/data` | `/pgx/data` | Input BAM/CRAM + index |
-| `/path/to/results` | `/pgx/results` | Analysis output |
-
----
-
-## Gene Support Matrix
-
-| Gene | PyPGx | Stargazer | Aldy | StellarPGx |
-|------|:-----:|:---------:|:----:|:----------:|
-| CYP2D6 | ✓ | ✓ | ✓ | ✓ |
-| CYP2C19 | ✓ | ✓ | ✓ | ✓ |
-| CYP2C9 | ✓ | ✓ | ✓ | ✓ |
-| CYP2B6 | ✓ | ✓ | ✓ | ✓ |
-| CYP2C8 | ✓ | ✓ | ✓ | ✓ |
-| CYP3A4 | ✓ | ✓ | ✓ | ✓ |
-| CYP3A5 | ✓ | ✓ | ✓ | ✓ |
-| CYP4F2 | ✓ | ✓ | ✓ | ✓ |
-| SLCO1B1 | ✓ | ✓ | ✓ | ✓ |
-| NUDT15 | ✓ | — | ✓ | ✓ |
-| TPMT | ✓ | — | ✓ | ✓ |
-| UGT1A1 | ✓ | — | ✓ | ✓ |
-| DPYD | ✓ | — | ✓ | — |
-| NAT1 | ✓ | — | — | ✓ |
-| NAT2 | ✓ | — | — | ✓ |
-| G6PD | ✓ | ✓ | — | — |
-| GSTM1 | ✓ | — | — | ✓ |
-| GSTT1 | — | — | — | ✓ |
-| POR/CYPOR | — | — | — | ✓ |
-| VKORC1 | ✓ | ✓ | — | — |
-| CYP1A1 | — | ✓ | ✓ | ✓ |
-| CYP1A2 | — | ✓ | ✓ | ✓ |
-| CYP2A6 | — | ✓ | ✓ | ✓ |
-| CYP2E1 | — | ✓ | — | ✓ |
-| IFNL3 | ✓ | — | — | — |
-| RYR1 | ✓ | — | — | — |
-
----
-
-## Output Field Reference
-
-The table below maps equivalent output fields across all four tools (N = 17 rows of output fields, 4 columns of tools). Field names use each tool's native terminology; `—` means the field is not reported by that tool.
-
-| # | Output Field | PyPGx (`data.tsv`) | Stargazer (`report.tsv` / `genotype-calls.tsv`) | Aldy (`.aldy`) | StellarPGx (`.alleles`) |
-|---|---|---|---|---|---|
-| 1 | **Sample ID** | `Sample` | `name` / `Sample` (report) | `Sample` | Filename stem (e.g. `HG03130`) |
-| 2 | **Gene** | Implicit (one run per gene) | `Gene` (report) | `Gene` | Header line in file |
-| 3 | **Diplotype** | `Genotype` (e.g. `*2/*4`) | `Diplotype` (report) / `hap1_main`+`hap2_main` | `Major` (e.g. `*2+*4`) | `Result` (e.g. `*17/*29`) |
-| 4 | **Haplotype 1** | `Haplotype1` (e.g. `*2;`) | `hap1_main` | First allele in `Major` | First allele in `Result` |
-| 5 | **Haplotype 2** | `Haplotype2` (e.g. `*4;*10;*74;`) | `hap2_main` | Second allele in `Major` | Second allele in `Result` |
-| 6 | **Sub-alleles / tag variants** | Semicolon list in `Haplotype1`/`Haplotype2` (e.g. `*4;*10;*74;`) | `hap1_main_core`+`hap1_main_tag`; `hap2_main_core`+`hap2_main_tag` | `Minor` column | `Candidate alleles` (raw haplotype codes) |
-| 7 | **Alternative diplotypes** | `AlternativePhase` (semicolon list) | `dip_cand` / `May also be` (report) | Multiple `SolutionID` rows (each is a valid alternative) | — |
-| 8 | **Phenotype** | `Phenotype` (e.g. `Intermediate Metabolizer`) | `Phenotype` (e.g. `intermediate_metabolizer`) | `Status` | `Metaboliser status` (e.g. `Intermediate metaboliser (IM)`) |
-| 9 | **Activity score** | `ActivityScore` | `Score` (report) | — | `Activity score` |
-| 10 | **SV / CNV type** | `CNV` (e.g. `Normal`, `Deletion`, `Duplication`) | `dip_sv` / `hap1_sv` / `hap2_sv` (e.g. `no_sv`, `dup`) | Implicit in `Major` allele name + `Copy` | `Initially computed CN` (integer) |
-| 11 | **Copy number** | Derived from `CNV` | Derived from `dip_sv` | `Copy` column (integer per allele) | `Initially computed CN` |
-| 12 | **Supporting variants** | `VariantData` (`allele:pos-ref-alt:AF;…`) | `hap1_main_core`/`hap2_main_core` (pos, AD, AF, effect) | `Location` + `Coverage` columns | `Sample core variants` (`pos~ref>alt~GT`) |
-| 13 | **Functional effect** | Embedded in `VariantData` | Embedded in `hap1_main_core` (e.g. `splice_acceptor_variant`) | `Effect` + `Type` columns | — |
-| 14 | **dbSNP rsID** | Embedded in `VariantData` (where available) | — | `dbSNP` column | — |
-| 15 | **Allele score / confidence** | — | `dip_score`, `hap1_score`, `hap2_score` | `SolutionID` rank (lower = better fit) | — |
-| 16 | **Mean allele fraction** | Per-variant AF embedded in `VariantData` | `hap1_af_mean_gene` / `hap2_af_mean_gene` / `hap1_af_mean_main` / `hap2_af_mean_main` | `Coverage` (read depth per variant) | — |
-| 17 | **Phasing method** | Beagle statistical (1KGP panel) | Beagle; `BEAGLE imputed` flag (report) + `ssr` marker | ILP joint optimisation (no separate phase step) | Graph-based (graphtyper) |
-
----
-
-## Container Architecture
-
-```
-docker run --privileged pgx-suite:latest
-┌───────────────────────────────────────────────────────────────┐
-│  Ubuntu 22.04                                                  │
-│                                                                │
-│  Python 3.11                                                   │
-│  ├── pypgx 0.26.0      (pip from copied source)               │
-│  ├── aldy 4.8.3        (pip install)                          │
-│  └── shared deps: pysam, pandas, numpy, scipy, ortools, etc. │
-│                                                                │
-│  Stargazer 2.0.3       (/usr/local/bin/stargazer wrapper)     │
-│                                                                │
-│  Java 21 JRE           (Beagle phasing in PyPGx + Stargazer) │
-│                                                                │
-│  Nextflow              (copied from host binary)              │
-│                                                                │
-│  Apptainer             (Singularity fork, from PPA)           │
-│  └── runs stellarpgx-dev.sif [volume-mounted]                 │
-│      ├── graphtyper (variant calling)                         │
-│      ├── bcftools, samtools, tabix                            │
-│      └── stellarpgx.py (star allele caller)                   │
-│                                                                │
-│  bcftools + samtools + tabix  (system packages)               │
-└───────────────────────────────────────────────────────────────┘
-```
-
-### Why `--privileged`?
-
-StellarPGx runs Nextflow processes inside `stellarpgx-dev.sif` via Apptainer (the open-source Singularity fork). Running Apptainer inside Docker requires `SYS_ADMIN` capability to unpack SIF overlay filesystems — `--privileged` is the simplest way to grant this on a local workstation.
-
----
-
-## Phase 2 — `pgx-run.sh` (coming soon)
-
-A single command will run all supported tools for a given gene and produce a side-by-side comparison table:
-
-```bash
-# Example (awaiting test BAM file):
 docker run --privileged --rm \
   -v "$(pwd)/StellarPGx:/pgx/stellarpgx" \
   -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
@@ -230,26 +144,158 @@ docker run --privileged --rm \
   pgx-run.sh CYP2D6 /pgx/data/sample.bam
 ```
 
-Expected output:
+Or use the convenience wrapper (sets all standard volume mounts):
 
-```
-===== PGx Star Allele Results =================================
-Gene:   CYP2D6
-Sample: sample
-Build:  GRCh38
-──────────────────────────────────────────────────────────────
-Tool         Diplotype    Activity Score   Phenotype
-──────────────────────────────────────────────────────────────
-PyPGx        *1/*4        1.0              Normal Metabolizer
-Stargazer    *1/*4        1.0              Normal Metabolizer
-Aldy         *2/*4        1.0              Normal Metabolizer
-StellarPGx   *1/*4        -                -
-──────────────────────────────────────────────────────────────
-Concordant: 3/4 tools agree on *1/*4
-Full results saved to: /pgx/results/CYP2D6_sample_comparison.tsv
+```bash
+./docker/docker-run.sh pgx-run.sh CYP2D6 /pgx/data/sample.bam
 ```
 
-See `TODO.md` for the full Phase 2 roadmap.
+**Supported options:**
+
+```
+pgx-run.sh <GENE> <BAM> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]
+```
+
+`pgx-run.sh` automatically:
+- Validates the BAM index, reference FASTA, and gene support
+- Extracts the sample name from the BAM `@RG SM:` tag
+- Generates a gene-region VCF via `bcftools mpileup | bcftools call | tabix`
+- Runs SV-aware preprocessing (depth-of-coverage + VDR control stats) for PyPGx SV genes
+- Runs GDF depth-profile creation for Stargazer's three paralog genes (CYP2A6, CYP2B6, CYP2D6)
+- Calls all applicable tools sequentially; individual failures are logged without aborting
+- Invokes `pgx-compare.py` to produce the comparison table and TSV
+
+### Volume mounts reference
+
+| Host path | Container path | Purpose |
+|-----------|---------------|---------|
+| `./StellarPGx` | `/pgx/stellarpgx` | StellarPGx pipeline scripts, databases, resources |
+| `./StellarPGx/containers` | `/pgx/containers` | `stellarpgx-dev.sif` Apptainer image |
+| `./pypgx/pypgx-bundle` | `/pgx/bundle` | 1KGP VCFs + CNV data for PyPGx phasing |
+| `/path/to/ref` | `/pgx/ref` | GRCh38 reference FASTA + `.fai` |
+| `/path/to/data` | `/pgx/data` | Input BAM/CRAM + index |
+| `/path/to/results` | `/pgx/results` | Analysis output directory |
+
+### Expected output
+
+```
+========================================================================
+ PGx Star Allele Results
+ Gene:   CYP2D6
+ Sample: HG002
+ Build:  GRCh38
+ SV:     PyPGx: depth-of-coverage + VDR control stats
+         Stargazer: GDF from BAM (paralog CN normalisation)
+========================================================================
+Tool          Diplotype         Activity Score    Phenotype
+────────────────────────────────────────────────────────────────────────
+PyPGx         *1/*4             1.0               Normal Metabolizer
+Stargazer     *1/*4             1.0               Normal Metabolizer
+Aldy          *2/*4             1.0               Normal Metabolizer
+StellarPGx    *1/*4             -                 -
+────────────────────────────────────────────────────────────────────────
+Concordance: 3/4 tools agree on *1/*4
+========================================================================
+
+Full results saved to: /pgx/results/CYP2D6_HG002_comparison.tsv
+```
+
+The TSV (`<GENE>_<SAMPLE>_comparison.tsv`) contains one row per tool with columns: `Tool`, `Diplotype`, `ActivityScore`, `Phenotype`, `SVMode`.
+
+---
+
+## Gene Coverage
+
+Genes supported by all four tools are shown below. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
+
+| Gene | PyPGx | Stargazer | Aldy | StellarPGx | SV? |
+|------|:-----:|:---------:|:----:|:----------:|:---:|
+| CYP2A6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog |
+| CYP2B6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog |
+| CYP2C8 | ✓ | ✓ | ✓ | ✓ | |
+| CYP2C9 | ✓ | ✓ | ✓ | ✓ | |
+| CYP2C19 | ✓ | ✓ | ✓ | ✓ | |
+| CYP2D6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog + tandem |
+| CYP2E1 | ✓ | ✓ | ✓ | ✓ | ✓ CN |
+| CYP3A4 | ✓ | ✓ | ✓ | ✓ | |
+| CYP3A5 | ✓ | ✓ | ✓ | ✓ | |
+| CYP4F2 | ✓ | ✓ | ✓ | ✓ | ✓ CN |
+| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | |
+| UGT1A1 | ✓ | ✓ | ✓ | ✓ | |
+| NAT1 | ✓ | ✓ | ✓ | ✓ | |
+| NAT2 | ✓ | ✓ | ✓ | ✓ | |
+| GSTM1 | ✓ | ✓ | ✓ | ✓ | ✓ deletion |
+| NUDT15 | ✓ | — | ✓ | ✓ | |
+| TPMT | ✓ | — | ✓ | ✓ | |
+| CYP1A1 | — | ✓ | ✓ | ✓ | |
+| CYP1A2 | — | ✓ | ✓ | ✓ | |
+| DPYD | ✓ | — | ✓ | — | |
+| G6PD | ✓ | ✓ | ✓ | — | ✓ CN |
+| GSTT1 | ✓† | — | — | ✓ | ✓ deletion |
+| VKORC1 | ✓ | ✓ | ✓ | — | |
+| CYPOR/POR | — | ✓ | — | ✓ | |
+| IFNL3 | ✓ | ✓ | ✓ | — | |
+| RYR1 | ✓ | ✓ | ✓ | — | |
+
+† GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
+
+---
+
+## Output Fields
+
+Each tool reports different field names for equivalent concepts. The table below provides the mapping (N = 17 fields × 4 tools).
+
+| # | Field | PyPGx (`data.tsv`) | Stargazer (`report.tsv` / `genotype-calls.tsv`) | Aldy (`.aldy`) | StellarPGx (`.alleles`) |
+|---|---|---|---|---|---|
+| 1 | **Sample ID** | `Sample` | `name` / `Sample` (report) | `Sample` | Filename stem |
+| 2 | **Gene** | Implicit (one run per gene) | `Gene` (report) | `Gene` | Header line |
+| 3 | **Diplotype** | `Genotype` (e.g. `*2/*4`) | `Diplotype` / `hap1_main`+`hap2_main` | `Major` (e.g. `*2+*4`) | `Result` (e.g. `*17/*29`) |
+| 4 | **Haplotype 1** | `Haplotype1` (e.g. `*2;`) | `hap1_main` | First allele in `Major` | First allele in `Result` |
+| 5 | **Haplotype 2** | `Haplotype2` (e.g. `*4;*10;*74;`) | `hap2_main` | Second allele in `Major` | Second allele in `Result` |
+| 6 | **Sub-alleles / tag variants** | Semicolon list in `Haplotype1`/`Haplotype2` | `hap1_main_core`+`hap1_main_tag`; `hap2_main_core`+`hap2_main_tag` | `Minor` column | `Candidate alleles` |
+| 7 | **Alternative diplotypes** | `AlternativePhase` (semicolon list) | `dip_cand` / `May also be` | Multiple `SolutionID` rows | — |
+| 8 | **Phenotype** | `Phenotype` (e.g. `Intermediate Metabolizer`) | `Phenotype` (e.g. `intermediate_metabolizer`) | `Status` | `Metaboliser status` |
+| 9 | **Activity score** | `ActivityScore` | `Score` (report) | — | `Activity score` |
+| 10 | **SV / CNV type** | `CNV` (e.g. `Normal`, `Deletion`) | `dip_sv` / `hap1_sv` / `hap2_sv` | Implicit in `Major` + `Copy` | `Initially computed CN` |
+| 11 | **Copy number** | Derived from `CNV` | Derived from `dip_sv` | `Copy` (integer per allele) | `Initially computed CN` |
+| 12 | **Supporting variants** | `VariantData` (`allele:pos-ref-alt:AF;…`) | `hap1_main_core`/`hap2_main_core` | `Location` + `Coverage` | `Sample core variants` (`pos~ref>alt~GT`) |
+| 13 | **Functional effect** | Embedded in `VariantData` | Embedded in `hap1_main_core` | `Effect` + `Type` columns | — |
+| 14 | **dbSNP rsID** | Embedded in `VariantData` | — | `dbSNP` column | — |
+| 15 | **Allele score / confidence** | — | `dip_score`, `hap1_score`, `hap2_score` | `SolutionID` rank | — |
+| 16 | **Mean allele fraction** | Per-variant AF in `VariantData` | `hap1_af_mean_gene` / `hap2_af_mean_gene` / `hap1_af_mean_main` / `hap2_af_mean_main` | `Coverage` per variant | — |
+| 17 | **Phasing method** | Beagle statistical (1KGP panel) | Beagle; `BEAGLE imputed` flag + `ssr` marker | ILP joint optimisation | Graph-based (graphtyper) |
+
+---
+
+## Architecture
+
+```
+docker run --privileged pgx-suite:latest
+┌───────────────────────────────────────────────────────────────┐
+│  Ubuntu 22.04                                                  │
+│                                                                │
+│  Python 3.11                                                   │
+│  ├── pypgx 0.26.0      (pip from source)                      │
+│  ├── aldy 4.8.3        (pip install)                          │
+│  └── shared deps: pysam, pandas, numpy, scipy, ortools, …    │
+│                                                                │
+│  Stargazer 2.0.3       (/usr/local/bin/stargazer wrapper)     │
+│                                                                │
+│  Java 21 JRE           (Beagle phasing for PyPGx + Stargazer)│
+│                                                                │
+│  Nextflow              (copied from host binary)              │
+│                                                                │
+│  Apptainer             (Singularity fork, from PPA)           │
+│  └── runs stellarpgx-dev.sif  [volume-mounted]                │
+│      ├── graphtyper (graph-based variant calling)             │
+│      ├── bcftools, samtools, tabix                            │
+│      └── stellarpgx.py (star allele caller)                   │
+│                                                                │
+│  bcftools + samtools + tabix  (system packages)               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Why `--privileged`?** StellarPGx runs its core tools inside `stellarpgx-dev.sif` via Apptainer. Apptainer inside Docker requires `SYS_ADMIN` capability to unpack SIF overlay filesystems; `--privileged` is the standard approach for local workstations.
 
 ---
 
@@ -258,46 +304,65 @@ See `TODO.md` for the full Phase 2 roadmap.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `FATAL: could not open image` | SIF not mounted | Add `-v $(pwd)/StellarPGx/containers:/pgx/containers` |
-| `FATAL: kernel too old` | Need privilege | Run with `--privileged` |
-| `ModuleNotFoundError: apt_pkg` during build | Build order issue | Ensure Apptainer PPA step is before Python 3.11 switch in Dockerfile |
-| `pypgx` not found | Python path | Verify `python3 --version` is 3.11 in container |
-| Nextflow hangs at startup | JAR download | Ensure internet access on first `nextflow` invocation |
-| `beagle.jar` error | Java not in PATH | Verify `java -version` in container; `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64` |
-| Stargazer: `no data for target gene` with GDF | hg19-aligned GDF on grc38 mode | Use VCF-only mode (omit `-c` and `-g` flags) |
+| `FATAL: kernel too old` | Missing privilege | Run with `--privileged` |
+| `ModuleNotFoundError: apt_pkg` during build | Build order issue | Apptainer PPA step must run before Python 3.11 switch in Dockerfile |
+| `pypgx` not found in container | Python path | Verify `python3 --version` → 3.11 inside container |
+| Nextflow hangs on first start | JAR download | Ensure outbound internet access on first `nextflow` run |
+| `beagle.jar` error | Java not in PATH | `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`; verify with `java -version` |
+| Stargazer: `no data for target gene` with GDF | hg19 GDF used in grc38 mode | Regenerate GDF with `-a grc38`, or use VCF-only mode (omit `-c` and `-g`) |
+| bcftools VCF empty for GSTT1 | Alt contig `chr22_KI270879v1_alt` | Expected — `pgx-run.sh` skips bcftools for GSTT1 automatically |
 
 ---
 
-## Repository Structure
+## Repository Layout
 
 ```
-PGxCallers/
-├── Dockerfile                         # Multi-stage Ubuntu 22.04 build
-├── .dockerignore                      # Exclude large data dirs from build context
-├── nextflow                           # Nextflow binary (pre-downloaded)
+pgx-suite/
+├── Dockerfile                          # Ubuntu 22.04 image with all 4 tools
+├── .dockerignore
+├── nextflow                            # Nextflow binary (pre-downloaded)
 ├── docker/
-│   ├── test.sh                        # Phase 1 smoke tests
-│   ├── docker-run.sh                  # Convenience run wrapper
-│   └── README.md                      # Container-specific docs
-├── pypgx/                             # PyPGx source (pip-installable)
-│   └── pypgx-bundle/                  # 500MB 1KGP VCF panel (volume-mounted)
-├── stargazer-grc38-2.0.3/             # Stargazer GRCh38 source + example data
-├── StellarPGx/                        # Nextflow pipeline (volume-mounted)
-│   ├── containers/
-│   │   └── stellarpgx-dev.sif         # Apptainer image (31 MB)
-│   ├── database/                      # CYP450 star allele database
-│   └── resources/                     # Reference sequences, panel data
-├── docs/
-│   └── plans/
-│       ├── 2026-03-06-pgx-docker-design.md
-│       └── 2026-03-06-pgx-docker-implementation.md
-├── README.md                          # This file
-└── TODO.md                            # Phase 2 roadmap
+│   ├── pgx-run.sh                      # Main orchestration entry point
+│   ├── pgx-compare.py                  # Result parser and comparison table
+│   ├── test.sh                         # Smoke tests (no BAM required)
+│   ├── docker-run.sh                   # Convenience docker run wrapper
+│   └── README.md                       # Container-specific notes
+├── pypgx/                              # PyPGx source
+│   └── pypgx-bundle/                   # 1KGP VCF panel (volume-mounted)
+├── stargazer-grc38-2.0.3/              # Stargazer GRCh38 source
+├── StellarPGx/                         # Nextflow pipeline (volume-mounted)
+│   ├── containers/stellarpgx-dev.sif   # Apptainer image (31 MB)
+│   ├── database/                       # Star allele databases
+│   └── resources/                      # Reference sequences, panel data
+├── TestData/                           # Test BAM files
+├── docs/plans/                         # Design and implementation documents
+├── CHANGES.md                          # Changelog
+├── ToolsDocumentation.md               # Detailed tool reference
+├── README.md                           # This file
+└── TODO.md                             # Roadmap
 ```
 
 ---
 
-## Development Notes
+## Documentation
 
-- Stargazer cannot be installed with `pip install` because its source tree lacks `__init__.py` and uses Python 2-style bare imports. The wrapper at `/usr/local/bin/stargazer` runs `python3 /opt/stargazer/stargazer/__main__.py "$@"` directly, which puts the script directory in `sys.path[0]` and resolves all internal imports correctly.
-- Java 21 is required (not 17) because Nextflow 25.x dropped support for Java < 17, and Ubuntu 22.04's `openjdk-17-jre-headless` had compatibility issues with Nextflow's JAR resolution.
-- The Apptainer PPA (`add-apt-repository`) must run *before* switching the Python 3 default to 3.11, because `add-apt-repository` depends on `python3/apt_pkg` which is compiled for the system Python (3.10).
+| Document | Description |
+|----------|-------------|
+| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 4 callers: algorithms, gene lists, SV handling, output formats, limitations |
+| [`CHANGES.md`](CHANGES.md) | Reverse-chronological changelog |
+| [`TODO.md`](TODO.md) | Roadmap and open tasks |
+| [`docker/README.md`](docker/README.md) | Container-specific notes and examples |
+
+---
+
+## License
+
+| Component | License |
+|-----------|---------|
+| pgx-suite (this repo) | MIT |
+| PyPGx | MIT |
+| StellarPGx | MIT |
+| Stargazer | Non-commercial academic (University of Washington) |
+| Aldy | Non-commercial academic (Indiana University Research and Technology Corporation) |
+
+Stargazer and Aldy source code is bundled in this image for academic research use only. **Do not publish this image to Docker Hub, GHCR, or any public container registry.**
