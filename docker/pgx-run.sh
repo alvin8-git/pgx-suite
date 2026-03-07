@@ -1,26 +1,42 @@
 #!/usr/bin/env bash
 # docker/pgx-run.sh — Phase 2 orchestration: run all supported PGx callers for a single gene
 #
-# Usage: pgx-run.sh <GENE> <BAM_FILE> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]
-# Example: pgx-run.sh CYP2D6 /pgx/data/NA12878.bam
+# Usage: pgx-run.sh <GENE> <BAM_FILE> [--ref /pgx/ref/hg38.fa] \
+#                   [--output /pgx/results] [--sequential]
+#
+# Execution model (default: parallel):
+#
+#   Phase 1 — all launched simultaneously (read BAM independently):
+#     bcftools mpileup → VCF
+#     Aldy genotype
+#     StellarPGx nextflow
+#     PyPGx prepare-depth-of-coverage  [SV genes only]
+#     PyPGx compute-control-statistics [SV genes only]
+#     Stargazer bam2gdf                [CYP2A6/2B6/2D6 only]
+#
+#   Phase 2 — launched once their prerequisites are ready:
+#     PyPGx run-ngs-pipeline    (waits for VCF + depth/ctrl zips)
+#     Stargazer genotyping      (waits for VCF + GDF)
+#
+#   Phase 3:
+#     pgx-compare.py            (waits for all tools)
+#
+# Use --sequential to disable parallelism (useful for debugging / low-RAM hosts).
 #
 # SV handling notes:
-#   PyPGx:      SV genes (CYP2A6/2B6/2D6/2E1/4F2/G6PD/GSTM1/GSTT1) need an extra
-#               prepare-depth-of-coverage + compute-control-statistics (VDR) step.
-#               These intermediate files feed --depth-of-coverage and
-#               --control-statistics flags in run-ngs-pipeline.
-#   Stargazer:  Paralog genes (CYP2A6/2B6/2D6) need a GDF depth-profile
-#               generated from the BAM (-G flag). Without the GDF, Stargazer
-#               runs in VCF-only mode and cannot detect gene duplications/deletions.
-#   Aldy:       CN/SV detection is automatic — handled internally by the ILP solver.
-#               No special parameters required.
-#   StellarPGx: SV detection is automatic — graphtyper calls SVs natively.
-#               No special parameters required.
-set -euo pipefail
+#   PyPGx:      SV genes (CYP2A6/2B6/2D6/2E1/4F2/G6PD/GSTM1/GSTT1) need
+#               prepare-depth-of-coverage + compute-control-statistics (VDR).
+#   Stargazer:  Paralog genes (CYP2A6/2B6/2D6) need a GDF depth profile from
+#               the BAM. Falls back to VCF-only mode if GDF creation fails.
+#   Aldy:       CN/SV handled automatically by the ILP solver.
+#   StellarPGx: SVs detected natively by graphtyper.
+
+set -uo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 REF="/pgx/ref/hg38.fa"
 OUTPUT="/pgx/results"
+SEQUENTIAL=0
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -30,11 +46,12 @@ Usage: pgx-run.sh <GENE> <BAM_FILE> [options]
 Options:
   --ref PATH       GRCh38 reference FASTA (default: /pgx/ref/hg38.fa)
   --output PATH    Output directory (default: /pgx/results)
+  --sequential     Disable parallel execution (for debugging)
   -h, --help       Show this help
 
 Examples:
   pgx-run.sh CYP2D6  /pgx/data/sample.bam
-  pgx-run.sh CYP2C19 /pgx/data/sample.bam --output /pgx/results
+  pgx-run.sh CYP2C19 /pgx/data/sample.bam --output /pgx/results/cyp2c19
 EOF
 }
 
@@ -47,16 +64,17 @@ shift 2
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --ref)     REF="$2";    shift 2 ;;
-        --output)  OUTPUT="$2"; shift 2 ;;
-        -h|--help) usage; exit 0 ;;
+        --ref)        REF="$2";    shift 2 ;;
+        --output)     OUTPUT="$2"; shift 2 ;;
+        --sequential) SEQUENTIAL=1; shift ;;
+        -h|--help)    usage; exit 0 ;;
         *) echo "ERROR: Unknown argument: $1" >&2; usage; exit 1 ;;
     esac
 done
 
 # ── GRCh38 gene coordinate table ──────────────────────────────────────────────
-# Sourced from pypgx gene-table.csv (authoritative regions including upstream/downstream).
-# GSTT1 is on an alt contig (chr22_KI270879v1_alt) — bcftools mpileup is skipped for it.
+# Sourced from pypgx gene-table.csv (authoritative regions with upstream/downstream buffer).
+# GSTT1 is on chr22_KI270879v1_alt — bcftools mpileup is skipped for it.
 declare -A GENE_COORDS
 GENE_COORDS=(
     [CYP1A1]="chr15:74716541-74728528"
@@ -88,8 +106,8 @@ GENE_COORDS=(
     [VKORC1]="chr16:31087853-31097797"
 )
 
-# ── Gene support matrix (pypgx stargazer aldy stellarpgx) ────────────────────
-# 1=supported, 0=not supported by that tool
+# ── Gene support matrix (pypgx stargazer aldy stellarpgx) ─────────────────────
+# 1=supported, 0=not supported
 declare -A GENE_SUPPORT
 GENE_SUPPORT=(
     [CYP2D6]="1 1 1 1"
@@ -122,41 +140,30 @@ GENE_SUPPORT=(
 )
 
 # ── PyPGx SV genes — need depth-of-coverage + control-statistics (VDR) ───────
-# Source: pypgx gene-table.csv SV=TRUE column, filtered to our supported set.
-# Control gene is always VDR (the only one demonstrated in pypgx tutorials).
 PYPGX_SV_GENES=(CYP2A6 CYP2B6 CYP2D6 CYP2E1 CYP4F2 G6PD GSTM1 GSTT1)
 
 # ── Stargazer SV genes — need GDF depth profile created from BAM ──────────────
-# Only the three paralog genes benefit from GDF-based CN normalization in Stargazer.
-# Source: Stargazer gene_table.tsv, genes where paralog != '.'
-# Control gene: vdr (Stargazer accepts: egfr, ryr1, vdr)
 STARGAZER_SV_GENES=(CYP2A6 CYP2B6 CYP2D6)
 
-# ── Stargazer control gene mapping (for VCF-only mode, used for non-SV genes) ─
+# ── Stargazer control gene mapping ────────────────────────────────────────────
 declare -A STARGAZER_CONTROL
 STARGAZER_CONTROL=(
-    [CYP2D6]="vdr"
-    [CYP2C19]="vdr"
-    [CYP2C9]="vdr"
-    [CYP2B6]="vdr"
-    [CYP2C8]="vdr"
-    [CYP3A4]="vdr"
-    [CYP3A5]="vdr"
-    [CYP4F2]="vdr"
-    [CYP1A1]="vdr"
-    [CYP1A2]="vdr"
-    [CYP2A6]="vdr"
-    [CYP2E1]="vdr"
-    [SLCO1B1]="vdr"
-    [G6PD]="vdr"
-    [VKORC1]="vdr"
+    [CYP2D6]="vdr" [CYP2C19]="vdr" [CYP2C9]="vdr"  [CYP2B6]="vdr"
+    [CYP2C8]="vdr" [CYP3A4]="vdr"  [CYP3A5]="vdr"  [CYP4F2]="vdr"
+    [CYP1A1]="vdr" [CYP1A2]="vdr"  [CYP2A6]="vdr"  [CYP2E1]="vdr"
+    [SLCO1B1]="vdr" [G6PD]="vdr"   [VKORC1]="vdr"
 )
 
-# ── Helper: check if value is in array ───────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 in_array() {
     local needle="$1"; shift
     for item in "$@"; do [[ "$item" == "$needle" ]] && return 0; done
     return 1
+}
+
+log_status() {
+    # Print a timestamped status line to stdout
+    echo "[$(date '+%H:%M:%S')] $*"
 }
 
 GENE_LOWER="${GENE,,}"
@@ -168,70 +175,60 @@ echo " BAM:    ${BAM}"
 echo " Ref:    ${REF}"
 echo " Output: ${OUTPUT}"
 echo " Build:  GRCh38"
+echo " Mode:   $([[ $SEQUENTIAL -eq 1 ]] && echo sequential || echo parallel)"
 echo "============================================================"
 echo ""
 
 # ── Input validation ──────────────────────────────────────────────────────────
-echo "[Validate] Checking inputs..."
+log_status "Validating inputs..."
 
 if [[ -z "${GENE_SUPPORT[$GENE]:-}" ]]; then
     echo "ERROR: Gene '${GENE}' is not in the supported gene list." >&2
     echo "Supported: ${!GENE_SUPPORT[*]}" >&2
     exit 1
 fi
-
 if [[ ! -f "$BAM" ]]; then
     echo "ERROR: BAM file not found: $BAM" >&2; exit 1
 fi
-
 BAI="${BAM}.bai"
 [[ ! -f "$BAI" ]] && BAI="${BAM%.bam}.bai"
 if [[ ! -f "$BAI" ]]; then
     echo "ERROR: BAM index not found. Run: samtools index $BAM" >&2; exit 1
 fi
-
 if [[ ! -f "$REF" ]]; then
-    echo "ERROR: Reference FASTA not found: $REF" >&2
-    echo "       Mount GRCh38 FASTA with: -v /path/to/ref:/pgx/ref" >&2; exit 1
+    echo "ERROR: Reference FASTA not found: $REF" >&2; exit 1
 fi
 if [[ ! -f "${REF}.fai" ]]; then
-    echo "ERROR: Reference index not found: ${REF}.fai — run: samtools faidx $REF" >&2; exit 1
+    echo "ERROR: Reference index not found: ${REF}.fai" >&2; exit 1
 fi
 
-echo "  Gene:      ${GENE} — OK"
-echo "  BAM:       ${BAM} — OK"
-echo "  BAM index: ${BAI} — OK"
-echo "  Reference: ${REF} — OK"
+echo "  Gene / BAM / Ref — OK"
 echo ""
 
 # ── Sample name from BAM read group ──────────────────────────────────────────
 SAMPLE=$(samtools view -H "$BAM" | grep '^@RG' | grep -oP 'SM:\K[^\t]+' | head -1 || true)
 [[ -z "$SAMPLE" ]] && SAMPLE=$(basename "$BAM" .bam)
-echo "[Info] Sample name: ${SAMPLE}"
+log_status "Sample: ${SAMPLE}"
 echo ""
 
 # ── Parse tool support flags ──────────────────────────────────────────────────
 read -r DO_PYPGX DO_STARGAZER DO_ALDY DO_STELLARPGX <<< "${GENE_SUPPORT[$GENE]}"
 
 IS_PYPGX_SV=0
-in_array "$GENE" "${PYPGX_SV_GENES[@]}" && IS_PYPGX_SV=1
+in_array "$GENE" "${PYPGX_SV_GENES[@]}"    && IS_PYPGX_SV=1
 
 IS_STARGAZER_SV=0
 in_array "$GENE" "${STARGAZER_SV_GENES[@]}" && IS_STARGAZER_SV=1
 
-# StellarPGx requires mounted volumes
 if [[ "$DO_STELLARPGX" -eq 1 ]] && \
    [[ ! -d "/pgx/stellarpgx" || ! -f "/pgx/containers/stellarpgx-dev.sif" ]]; then
-    echo "[Warn] StellarPGx volumes not mounted — skipping"
-    echo "       Requires: -v \$(pwd)/StellarPGx:/pgx/stellarpgx"
-    echo "                 -v \$(pwd)/StellarPGx/containers:/pgx/containers"
+    log_status "WARN StellarPGx volumes not mounted — skipping"
     DO_STELLARPGX=0
 fi
 
-echo "[Info] Tool support for ${GENE}:"
-echo "  PyPGx:      $([[ $DO_PYPGX -eq 1 ]] && echo YES || echo NO)  (SV mode: $([[ $IS_PYPGX_SV -eq 1 ]] && echo YES || echo NO))"
-echo "  Stargazer:  $([[ $DO_STARGAZER -eq 1 ]] && echo YES || echo NO)  (SV/GDF mode: $([[ $IS_STARGAZER_SV -eq 1 ]] && echo YES || echo NO))"
-echo "  Aldy:       $([[ $DO_ALDY -eq 1 ]] && echo YES || echo NO)  (SV: auto from BAM)"
+echo "  PyPGx:      $([[ $DO_PYPGX      -eq 1 ]] && echo YES || echo NO)  (SV preprocessing: $([[ $IS_PYPGX_SV    -eq 1 ]] && echo YES || echo NO))"
+echo "  Stargazer:  $([[ $DO_STARGAZER  -eq 1 ]] && echo YES || echo NO)  (GDF/SV mode:      $([[ $IS_STARGAZER_SV -eq 1 ]] && echo YES || echo NO))"
+echo "  Aldy:       $([[ $DO_ALDY       -eq 1 ]] && echo YES || echo NO)  (SV: auto via ILP)"
 echo "  StellarPGx: $([[ $DO_STELLARPGX -eq 1 ]] && echo YES || echo NO)  (SV: auto via graphtyper)"
 echo ""
 
@@ -240,27 +237,22 @@ mkdir -p \
     "${OUTPUT}/pypgx" \
     "${OUTPUT}/stargazer" \
     "${OUTPUT}/aldy" \
-    "${OUTPUT}/stellarpgx"
+    "${OUTPUT}/stellarpgx" \
+    "${OUTPUT}/logs"
 
 VCF="${OUTPUT}/${GENE}.vcf.gz"
+DEPTH_ZIP="${OUTPUT}/depth-of-coverage.zip"
+CTRL_ZIP="${OUTPUT}/control-stats-VDR.zip"
 COORDS="${GENE_COORDS[$GENE]:-}"
 
-# ── Shared preprocessing: bcftools mpileup → gene-region VCF ─────────────────
-# Used by PyPGx (variant input) and Stargazer (variant input).
-# Skipped for GSTT1 (alt contig) and when neither tool is run.
-NEED_VCF=$(( (DO_PYPGX + DO_STARGAZER) > 0 ? 1 : 0 ))
+# ── Tool runner functions ─────────────────────────────────────────────────────
+# Each writes its own log to ${OUTPUT}/logs/<tool>.log
+# Returns 0 on success, non-zero on failure.
 
-if [[ "$NEED_VCF" -eq 1 ]]; then
-    if [[ "$COORDS" == "ALT_CONTIG" ]]; then
-        echo "[Step 1] Skipping bcftools — ${GENE} is on an alt contig (${GENE_COORDS[$GENE]})"
-        echo "         PyPGx will use depth-of-coverage only; Stargazer requires manual VCF"
-        echo ""
-        NEED_VCF=0
-    elif [[ -z "$COORDS" ]]; then
-        echo "ERROR: No GRCh38 coordinates defined for ${GENE}" >&2; exit 1
-    else
-        echo "[Step 1] Variant calling — region: ${COORDS}"
-        bcftools mpileup \
+run_bcftools() {
+    local log="${OUTPUT}/logs/bcftools.log"
+    log_status "START  bcftools mpileup  (region: ${COORDS})"
+    if bcftools mpileup \
             -r "$COORDS" \
             -f "$REF" \
             -a AD,DP \
@@ -270,169 +262,252 @@ if [[ "$NEED_VCF" -eq 1 ]]; then
         | bcftools call \
             -m -v \
             --output-type z \
-            -o "$VCF"
-        tabix -p vcf "$VCF"
-        echo "  VCF written: ${VCF}"
-        echo ""
-    fi
-fi
-
-# ── PyPGx SV pre-processing ───────────────────────────────────────────────────
-# For SV genes: compute depth-of-coverage and control statistics (VDR) from BAM.
-# These are required inputs for run-ngs-pipeline to call copy number variations.
-DEPTH_ZIP="${OUTPUT}/depth-of-coverage.zip"
-CTRL_ZIP="${OUTPUT}/control-stats-VDR.zip"
-
-if [[ "$DO_PYPGX" -eq 1 && "$IS_PYPGX_SV" -eq 1 ]]; then
-    echo "[Step 2a-pre] PyPGx SV preprocessing for ${GENE}"
-    echo "  Computing depth-of-coverage..."
-    pypgx prepare-depth-of-coverage \
-        "$DEPTH_ZIP" \
-        "$BAM" \
-        --assembly GRCh38
-    echo "  Computing VDR control statistics..."
-    pypgx compute-control-statistics \
-        VDR \
-        "$CTRL_ZIP" \
-        "$BAM" \
-        --assembly GRCh38
-    echo "  PyPGx SV inputs ready."
-    echo ""
-fi
-
-# ── PyPGx ─────────────────────────────────────────────────────────────────────
-if [[ "$DO_PYPGX" -eq 1 ]]; then
-    echo "[Step 2a] PyPGx"
-    PYPGX_ARGS=(
-        "$GENE"
-        "${OUTPUT}/pypgx"
-        --assembly GRCh38
-        --force
-    )
-    [[ "$NEED_VCF" -eq 1 ]] && PYPGX_ARGS+=(--variants "$VCF")
-    if [[ "$IS_PYPGX_SV" -eq 1 ]]; then
-        PYPGX_ARGS+=(
-            --depth-of-coverage "$DEPTH_ZIP"
-            --control-statistics "$CTRL_ZIP"
-        )
-        echo "  Mode: SV (depth-of-coverage + VDR control statistics)"
+            -o "$VCF" \
+        >> "$log" 2>&1 \
+       && tabix -p vcf "$VCF" >> "$log" 2>&1; then
+        log_status "DONE   bcftools  →  ${VCF}"
+        return 0
     else
-        echo "  Mode: standard (VCF-only)"
+        log_status "FAILED bcftools  (see ${log})"
+        return 1
     fi
-    pypgx run-ngs-pipeline "${PYPGX_ARGS[@]}" \
-        && echo "  PyPGx: OK" \
-        || echo "  PyPGx: FAILED (continuing)"
-    echo ""
-fi
+}
 
-# ── Stargazer ─────────────────────────────────────────────────────────────────
-# For SV genes (CYP2A6/2B6/2D6): create GDF depth profile from BAM first,
-# then run with -c vdr -g <gdf_file> to enable CN-based SV detection.
-# For all other genes: VCF-only mode (no CN calling).
-if [[ "$DO_STARGAZER" -eq 1 ]]; then
-    echo "[Step 2b] Stargazer"
-    if [[ "$IS_STARGAZER_SV" -eq 1 ]]; then
-        echo "  Mode: SV (creating GDF depth profile from BAM, control=VDR)"
-        GDF_DIR="${OUTPUT}/stargazer/gdf"
-        GDF_FILE="${GDF_DIR}/${GENE_LOWER}.gdf"
-        mkdir -p "$GDF_DIR"
-        echo "  Step 2b-pre: bam2gdf → ${GDF_FILE}"
-        stargazer \
+run_pypgx_sv_preprocessing() {
+    local log="${OUTPUT}/logs/pypgx_sv_prep.log"
+    log_status "START  PyPGx SV preprocessing  (prepare-depth-of-coverage + control-statistics VDR)"
+    {
+        pypgx prepare-depth-of-coverage \
+            "$DEPTH_ZIP" "$BAM" --assembly GRCh38 \
+        && pypgx compute-control-statistics \
+            VDR "$CTRL_ZIP" "$BAM" --assembly GRCh38
+    } >> "$log" 2>&1
+    local rc=$?
+    if [[ $rc -eq 0 ]]; then
+        log_status "DONE   PyPGx SV preprocessing"
+    else
+        log_status "FAILED PyPGx SV preprocessing  (see ${log})"
+    fi
+    return $rc
+}
+
+run_stargazer_gdf() {
+    local log="${OUTPUT}/logs/stargazer_gdf.log"
+    local gdf_dir="${OUTPUT}/stargazer/gdf"
+    mkdir -p "$gdf_dir"
+    log_status "START  Stargazer bam2gdf  (control=VDR)"
+    if stargazer \
             -G "${GENE_LOWER}.gdf" \
             -t "$GENE_LOWER" \
             -c vdr \
             -B "$BAM" \
-            -o "$GDF_DIR" \
+            -o "$gdf_dir" \
             -a grc38 \
             -d wgs \
-            && echo "  GDF created: ${GDF_FILE}" \
-            || { echo "  GDF creation FAILED — falling back to VCF-only mode"; IS_STARGAZER_SV=0; }
-
-        if [[ "$IS_STARGAZER_SV" -eq 1 && -f "$GDF_FILE" && "$NEED_VCF" -eq 1 ]]; then
-            stargazer \
-                -t "$GENE_LOWER" \
-                -d wgs \
-                -a grc38 \
-                -i "$VCF" \
-                -c vdr \
-                -g "$GDF_FILE" \
-                -o "${OUTPUT}/stargazer" \
-                && echo "  Stargazer: OK (SV mode)" \
-                || echo "  Stargazer: FAILED (continuing)"
-        elif [[ "$NEED_VCF" -eq 1 ]]; then
-            echo "  Falling back to VCF-only mode"
-            CONTROL="${STARGAZER_CONTROL[$GENE]:-}"
-            STARGAZER_EXTRA=()
-            [[ -n "$CONTROL" ]] && STARGAZER_EXTRA+=(-c "$CONTROL")
-            stargazer \
-                -t "$GENE_LOWER" \
-                -d wgs \
-                -a grc38 \
-                -i "$VCF" \
-                -o "${OUTPUT}/stargazer" \
-                "${STARGAZER_EXTRA[@]+"${STARGAZER_EXTRA[@]}"}" \
-                && echo "  Stargazer: OK (VCF-only)" \
-                || echo "  Stargazer: FAILED (continuing)"
-        else
-            echo "  Stargazer: SKIPPED — no VCF available"
-        fi
+        >> "$log" 2>&1; then
+        log_status "DONE   Stargazer bam2gdf  →  ${gdf_dir}/${GENE_LOWER}.gdf"
+        return 0
     else
-        echo "  Mode: VCF-only (gene has no paralog; no GDF needed)"
-        if [[ "$NEED_VCF" -eq 1 ]]; then
-            CONTROL="${STARGAZER_CONTROL[$GENE]:-}"
-            STARGAZER_EXTRA=()
-            [[ -n "$CONTROL" ]] && STARGAZER_EXTRA+=(-c "$CONTROL")
-            stargazer \
-                -t "$GENE_LOWER" \
-                -d wgs \
-                -a grc38 \
-                -i "$VCF" \
-                -o "${OUTPUT}/stargazer" \
-                "${STARGAZER_EXTRA[@]+"${STARGAZER_EXTRA[@]}"}" \
-                && echo "  Stargazer: OK" \
-                || echo "  Stargazer: FAILED (continuing)"
-        else
-            echo "  Stargazer: SKIPPED — no VCF available (alt contig gene)"
-        fi
+        log_status "FAILED Stargazer bam2gdf  (see ${log})"
+        return 1
     fi
-    echo ""
+}
+
+run_aldy() {
+    local log="${OUTPUT}/logs/aldy.log"
+    log_status "START  Aldy"
+    if aldy genotype \
+            -g "$GENE" \
+            -p hg38 \
+            "$BAM" \
+            -o "${OUTPUT}/aldy/${GENE}.aldy" \
+        >> "$log" 2>&1; then
+        log_status "DONE   Aldy"
+    else
+        log_status "FAILED Aldy  (see ${log})"
+    fi
+    # Aldy failure is non-fatal; always return 0 so it does not kill a background job pool
+    return 0
+}
+
+run_stellarpgx() {
+    local log="${OUTPUT}/logs/stellarpgx.log"
+    local bam_dir bam_base
+    bam_dir="$(dirname "$BAM")"
+    bam_base="$(basename "$BAM" .bam)"
+    log_status "START  StellarPGx"
+    if nextflow run /pgx/stellarpgx/main.nf \
+            --gene "${GENE_LOWER}" \
+            --in_bam "${bam_dir}/${bam_base}*{bam,bai}" \
+            --ref_file "$REF" \
+            --out_dir "${OUTPUT}/stellarpgx" \
+            -work-dir "${OUTPUT}/stellarpgx/.work" \
+        >> "$log" 2>&1; then
+        log_status "DONE   StellarPGx"
+    else
+        log_status "FAILED StellarPGx  (see ${log})"
+    fi
+    return 0
+}
+
+run_pypgx_pipeline() {
+    local log="${OUTPUT}/logs/pypgx.log"
+    local pypgx_args=("$GENE" "${OUTPUT}/pypgx" --assembly GRCh38 --force)
+    [[ "$NEED_VCF" -eq 1 ]] && pypgx_args+=(--variants "$VCF")
+    if [[ "$IS_PYPGX_SV" -eq 1 ]]; then
+        pypgx_args+=(--depth-of-coverage "$DEPTH_ZIP" --control-statistics "$CTRL_ZIP")
+        log_status "START  PyPGx  (SV mode)"
+    else
+        log_status "START  PyPGx  (standard)"
+    fi
+    if pypgx run-ngs-pipeline "${pypgx_args[@]}" >> "$log" 2>&1; then
+        log_status "DONE   PyPGx"
+    else
+        log_status "FAILED PyPGx  (see ${log})"
+    fi
+    return 0
+}
+
+run_stargazer_genotype() {
+    local log="${OUTPUT}/logs/stargazer.log"
+    local gdf_file="${OUTPUT}/stargazer/gdf/${GENE_LOWER}.gdf"
+    local stargazer_args=(-t "$GENE_LOWER" -d wgs -a grc38 -i "$VCF" -o "${OUTPUT}/stargazer")
+    local control="${STARGAZER_CONTROL[$GENE]:-}"
+
+    if [[ "$IS_STARGAZER_SV" -eq 1 && -f "$gdf_file" ]]; then
+        stargazer_args+=(-c vdr -g "$gdf_file")
+        log_status "START  Stargazer  (SV/GDF mode)"
+    else
+        [[ -n "$control" ]] && stargazer_args+=(-c "$control")
+        log_status "START  Stargazer  (VCF-only mode)"
+    fi
+    if stargazer "${stargazer_args[@]}" >> "$log" 2>&1; then
+        log_status "DONE   Stargazer"
+    else
+        log_status "FAILED Stargazer  (see ${log})"
+    fi
+    return 0
+}
+
+# ── VCF availability check ────────────────────────────────────────────────────
+NEED_VCF=$(( (DO_PYPGX + DO_STARGAZER) > 0 ? 1 : 0 ))
+if [[ "$COORDS" == "ALT_CONTIG" ]]; then
+    log_status "INFO   ${GENE} is on an alt contig — bcftools skipped; VCF-dependent tools may be limited"
+    NEED_VCF=0
+elif [[ -z "$COORDS" ]]; then
+    echo "ERROR: No GRCh38 coordinates defined for ${GENE}" >&2; exit 1
 fi
 
-# ── Aldy ──────────────────────────────────────────────────────────────────────
-# Aldy reads the BAM directly and handles CN/SV detection automatically via ILP.
-# No special parameters needed for SV genes.
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 1 — Launch all BAM-reading tasks simultaneously
+# ─────────────────────────────────────────────────────────────────────────────
+echo "------------------------------------------------------------"
+log_status "Phase 1: launching all BAM-reading tasks"
+echo "------------------------------------------------------------"
+
+BCFTOOLS_PID=""
+DEPTH_PID=""
+GDF_PID=""
+ALDY_PID=""
+STELLARPGX_PID=""
+
+if [[ "$NEED_VCF" -eq 1 ]]; then
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_bcftools & BCFTOOLS_PID=$!
+    else
+        run_bcftools
+    fi
+fi
+
+if [[ "$DO_PYPGX" -eq 1 && "$IS_PYPGX_SV" -eq 1 ]]; then
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_pypgx_sv_preprocessing & DEPTH_PID=$!
+    else
+        run_pypgx_sv_preprocessing
+    fi
+fi
+
+if [[ "$DO_STARGAZER" -eq 1 && "$IS_STARGAZER_SV" -eq 1 ]]; then
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_stargazer_gdf & GDF_PID=$!
+    else
+        run_stargazer_gdf || IS_STARGAZER_SV=0
+    fi
+fi
+
 if [[ "$DO_ALDY" -eq 1 ]]; then
-    echo "[Step 2c] Aldy (SV/CN detection: automatic from BAM)"
-    aldy genotype \
-        -g "$GENE" \
-        -p hg38 \
-        "$BAM" \
-        -o "${OUTPUT}/aldy/${GENE}.aldy" \
-        && echo "  Aldy: OK" \
-        || echo "  Aldy: FAILED (continuing)"
-    echo ""
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_aldy & ALDY_PID=$!
+    else
+        run_aldy
+    fi
 fi
 
-# ── StellarPGx ────────────────────────────────────────────────────────────────
-# StellarPGx uses graphtyper for variant calling, which handles SVs natively.
-# No special parameters needed for SV genes.
 if [[ "$DO_STELLARPGX" -eq 1 ]]; then
-    echo "[Step 2d] StellarPGx (SV detection: automatic via graphtyper)"
-    BAM_DIR="$(dirname "$BAM")"
-    BAM_BASE="$(basename "$BAM" .bam)"
-    nextflow run /pgx/stellarpgx/main.nf \
-        --gene "${GENE_LOWER}" \
-        --in_bam "${BAM_DIR}/${BAM_BASE}*{bam,bai}" \
-        --ref_file "$REF" \
-        --out_dir "${OUTPUT}/stellarpgx" \
-        -work-dir "${OUTPUT}/stellarpgx/.work" \
-        && echo "  StellarPGx: OK" \
-        || echo "  StellarPGx: FAILED (continuing)"
-    echo ""
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_stellarpgx & STELLARPGX_PID=$!
+    else
+        run_stellarpgx
+    fi
 fi
 
-# ── Comparison table ──────────────────────────────────────────────────────────
-echo "[Step 3] Generating comparison report..."
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 2 — Wait for prerequisites, then launch VCF-dependent tools
+# ─────────────────────────────────────────────────────────────────────────────
+echo "------------------------------------------------------------"
+log_status "Phase 2: waiting for VCF and SV prerequisites"
+echo "------------------------------------------------------------"
+
+PYPGX_PID=""
+STARGAZER_PID=""
+
+if [[ "$SEQUENTIAL" -eq 0 ]]; then
+    # Wait for bcftools before launching VCF-dependent tools
+    if [[ -n "$BCFTOOLS_PID" ]]; then
+        wait "$BCFTOOLS_PID" || log_status "WARN  bcftools exited non-zero — VCF may be missing"
+    fi
+
+    # PyPGx: wait for SV preprocessing to also complete, then launch pipeline
+    if [[ "$DO_PYPGX" -eq 1 ]]; then
+        [[ -n "$DEPTH_PID" ]] && wait "$DEPTH_PID" || true
+        run_pypgx_pipeline & PYPGX_PID=$!
+    fi
+
+    # Stargazer: wait for GDF to also complete, then launch genotyping
+    if [[ "$DO_STARGAZER" -eq 1 && "$NEED_VCF" -eq 1 ]]; then
+        if [[ -n "$GDF_PID" ]]; then
+            wait "$GDF_PID" || { log_status "WARN  bam2gdf failed — falling back to VCF-only mode"; IS_STARGAZER_SV=0; }
+        fi
+        run_stargazer_genotype & STARGAZER_PID=$!
+    fi
+else
+    # Sequential fallback
+    [[ "$DO_PYPGX"      -eq 1 ]]                          && run_pypgx_pipeline
+    [[ "$DO_STARGAZER"  -eq 1 && "$NEED_VCF" -eq 1 ]]    && run_stargazer_genotype
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wait for all remaining background jobs
+# ─────────────────────────────────────────────────────────────────────────────
+echo "------------------------------------------------------------"
+log_status "Waiting for all tools to finish..."
+echo "------------------------------------------------------------"
+
+[[ -n "$PYPGX_PID"      ]] && wait "$PYPGX_PID"
+[[ -n "$STARGAZER_PID"  ]] && wait "$STARGAZER_PID"
+[[ -n "$ALDY_PID"       ]] && wait "$ALDY_PID"
+[[ -n "$STELLARPGX_PID" ]] && wait "$STELLARPGX_PID"
+
+echo ""
+log_status "All tools finished."
+echo ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 3 — Comparison report
+# ─────────────────────────────────────────────────────────────────────────────
+echo "------------------------------------------------------------"
+log_status "Phase 3: generating comparison report"
+echo "------------------------------------------------------------"
 python3 /opt/pgx/pgx-compare.py \
     --gene "$GENE" \
     --sample "$SAMPLE" \
