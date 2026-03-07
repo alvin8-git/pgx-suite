@@ -120,16 +120,19 @@ run_gene() {
     local gene="$1"
     local log="${LOG_DIR}/${gene}.log"
 
-    echo "[$(date '+%H:%M:%S')] START  ${gene}" | tee -a "$log"
+    # Write timestamps to log only — do NOT tee to stdout because this function
+    # is called as result=$(run_gene "$GENE") and tee would pollute $result,
+    # making the "OK"/"FAILED" string comparison unreliable.
+    echo "[$(date '+%H:%M:%S')] START  ${gene}" >> "$log"
 
     if pgx-run.sh "$gene" "$BAM" \
             --ref "$REF" \
             --output "${OUTPUT}/${gene}" \
             >> "$log" 2>&1; then
-        echo "[$(date '+%H:%M:%S')] DONE   ${gene}" | tee -a "$log"
+        echo "[$(date '+%H:%M:%S')] DONE   ${gene}" >> "$log"
         echo "OK"
     else
-        echo "[$(date '+%H:%M:%S')] FAILED ${gene}" | tee -a "$log"
+        echo "[$(date '+%H:%M:%S')] FAILED ${gene}" >> "$log"
         echo "FAILED"
     fi
 }
