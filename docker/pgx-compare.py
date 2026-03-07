@@ -113,11 +113,18 @@ def parse_stargazer(output_dir: str, gene: str, sample: str) -> CallerResult:
     result = CallerResult(tool="Stargazer")
     gene_lower = gene.lower()
 
+    # Stargazer 2.0.3 output: genotype-calls.tsv (tab-separated, columns include
+    # name, hap1_main, hap2_main, dip_score, phenotype).
+    # Older versions wrote genotype.txt; both are searched.
     candidates = [
+        os.path.join(output_dir, "stargazer", "genotype-calls.tsv"),
         os.path.join(output_dir, "stargazer", "genotype.txt"),
         os.path.join(output_dir, "stargazer", f"{gene_lower}.genotype.txt"),
         os.path.join(output_dir, "stargazer", f"{gene}.genotype.txt"),
     ]
+    candidates += glob.glob(
+        os.path.join(output_dir, "stargazer", "**", "genotype*.tsv"), recursive=True
+    )
     candidates += glob.glob(
         os.path.join(output_dir, "stargazer", "**", "genotype*.txt"), recursive=True
     )
@@ -131,15 +138,22 @@ def parse_stargazer(output_dir: str, gene: str, sample: str) -> CallerResult:
             for row in reader:
                 # Strip leading # from header keys
                 row = {k.lstrip("#").strip(): v for k, v in row.items()}
-                result.diplotype = (
-                    row.get("Genotype") or row.get("genotype")
-                    or row.get("Diplotype") or "-"
-                )
+                # genotype-calls.tsv uses hap1_main / hap2_main for the diplotype
+                hap1 = row.get("hap1_main") or ""
+                hap2 = row.get("hap2_main") or ""
+                if hap1 and hap2:
+                    result.diplotype = f"{hap1}/{hap2}"
+                else:
+                    result.diplotype = (
+                        row.get("Genotype") or row.get("genotype")
+                        or row.get("Diplotype") or "-"
+                    )
                 result.activity_score = str(
-                    row.get("Activity_score") or row.get("activity_score") or "-"
+                    row.get("dip_score") or row.get("Activity_score")
+                    or row.get("activity_score") or "-"
                 )
                 result.phenotype = (
-                    row.get("Phenotype") or row.get("phenotype") or "-"
+                    row.get("phenotype") or row.get("Phenotype") or "-"
                 )
                 result.status = "ok"
                 break
@@ -233,41 +247,49 @@ def parse_stellarpgx(output_dir: str, gene: str, sample: str) -> CallerResult:
     result = CallerResult(tool="StellarPGx")
     gene_lower = gene.lower()
 
-    star_dir = os.path.join(output_dir, "stellarpgx", "star_allele_calls")
-    if not os.path.isdir(star_dir):
-        return result
-
+    # StellarPGx 1.2.7 writes:  stellarpgx/<gene>/alleles/<sample>_<gene>.alleles
+    # Older versions wrote:      stellarpgx/star_allele_calls/**
     candidates = (
-        glob.glob(os.path.join(star_dir, "**", f"*{gene_lower}*"), recursive=True)
-        + glob.glob(os.path.join(star_dir, "**", f"*{gene}*"), recursive=True)
-        + glob.glob(os.path.join(star_dir, "**", "*.txt"), recursive=True)
-        + glob.glob(os.path.join(star_dir, "**", "*.tsv"), recursive=True)
+        glob.glob(os.path.join(
+            output_dir, "stellarpgx", gene_lower, "alleles", "*.alleles"
+        ))
+        + glob.glob(os.path.join(
+            output_dir, "stellarpgx", gene, "alleles", "*.alleles"
+        ))
     )
+    star_dir = os.path.join(output_dir, "stellarpgx", "star_allele_calls")
+    if os.path.isdir(star_dir):
+        candidates += (
+            glob.glob(os.path.join(star_dir, "**", f"*{gene_lower}*"), recursive=True)
+            + glob.glob(os.path.join(star_dir, "**", "*.txt"), recursive=True)
+        )
     call_path = next((p for p in candidates if os.path.isfile(p)), None)
     if call_path is None:
         return result
 
     try:
         with open(call_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                # Look for diplotype pattern like *1/*4
-                m = re.search(r"(\*\w+/\*\w+)", line)
+            lines = f.readlines()
+
+        # Parse the structured .alleles format:
+        # sections headed by "Result:", "Activity score:", "Metaboliser status:"
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped == "Result:" and i + 1 < len(lines):
+                dip = lines[i + 1].strip()
+                if re.match(r"^\*", dip):
+                    result.diplotype = dip
+                    result.status = "ok"
+            elif stripped == "Activity score:" and i + 1 < len(lines):
+                result.activity_score = lines[i + 1].strip() or "-"
+            elif stripped == "Metaboliser status:" and i + 1 < len(lines):
+                result.phenotype = lines[i + 1].strip() or "-"
+            # Fallback: diplotype pattern on a line (e.g. star_allele_calls format)
+            elif result.status != "ok":
+                m = re.search(r"(\*\w+/\*\w+)", stripped)
                 if m:
                     result.diplotype = m.group(1)
                     result.status = "ok"
-                    break
-                # Or a lone star allele in a tab-separated line
-                parts = line.split("\t")
-                for p in parts:
-                    if re.match(r"^\*\d", p):
-                        result.diplotype = p
-                        result.status = "ok"
-                        break
-                if result.status == "ok":
-                    break
     except Exception as exc:
         result.status = "failed"
         result.diplotype = f"parse error: {exc}"
