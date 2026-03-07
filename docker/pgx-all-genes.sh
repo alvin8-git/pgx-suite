@@ -206,15 +206,16 @@ for GENE in "${GENES[@]}"; do
                || true)
 
     if [[ "${STATUS[$GENE]:-FAILED}" == "OK" && -f "$TSV_FILE" ]]; then
-        # Extract concordant diplotype (most frequent in Diplotype column)
+        # Comparison TSV columns: Gene Sample Build Tool Diplotype ActivityScore Phenotype Status SVMode
+        # Extract concordant diplotype (most frequent value in Diplotype column = col 5)
         TOP=$(tail -n +2 "$TSV_FILE" \
-              | awk -F'\t' '{print $2}' \
+              | awk -F'\t' '{print $5}' \
               | sort | uniq -c | sort -rn | head -1 \
               | awk '{print $2}')
         printf " %-10s  %-6s  %-30s  %s\n" \
             "$GENE" "OK" "${TOP:--}" "${LOG_DIR}/${GENE}.log"
         # Append rows to summary TSV
-        tail -n +2 "$TSV_FILE" | while IFS=$'\t' read -r tool dip score pheno svmode rest; do
+        tail -n +2 "$TSV_FILE" | while IFS=$'\t' read -r _gene _sample _build tool dip score pheno _status svmode; do
             echo -e "${GENE}\tOK\t${tool}\t${dip}\t${score}\t${pheno}\t${svmode}"
         done >> "$SUMMARY_TSV"
         OK_COUNT=$(( OK_COUNT + 1 ))
