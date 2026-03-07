@@ -2,6 +2,14 @@
 StellarPGx/
 pypgx/pypgx-bundle/
 Stargazer_v2.0.3.zip
+TestData/
+
+# Stargazer: exclude hg19 phasing panel (GRCh38-only container) + test/example data
+stargazer-grc38-2.0.3/stargazer/1kgp_vcf/hg19/
+stargazer-grc38-2.0.3/unit_test/
+stargazer-grc38-2.0.3/example/
+
+# Development and cache artifacts
 .pytest_cache/
 docs/
 *.log
@@ -11,3 +19,7 @@ results/
 .nextflow.log
 **/__pycache__/
 **/*.pyc
+pypgx/build/
+pypgx/docs/
+pypgx/*.rst
+pypgx/*.egg-info
