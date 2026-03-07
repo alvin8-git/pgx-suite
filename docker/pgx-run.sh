@@ -338,9 +338,12 @@ run_stellarpgx() {
     local bam_dir bam_base
     bam_dir="$(dirname "$BAM")"
     bam_base="$(basename "$BAM" .bam)"
+    # StellarPGx main.nf uses 'cypor' not 'por' as the gene identifier.
+    local stellar_gene="${GENE_LOWER}"
+    [[ "$stellar_gene" == "por" ]] && stellar_gene="cypor"
     log_status "START  StellarPGx"
     if nextflow run /pgx/stellarpgx/main.nf \
-            --gene "${GENE_LOWER}" \
+            --gene "${stellar_gene}" \
             --in_bam "${bam_dir}/${bam_base}*{bam,bai}" \
             --ref_file "$REF" \
             --out_dir "${OUTPUT}/stellarpgx" \
