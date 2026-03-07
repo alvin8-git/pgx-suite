@@ -60,7 +60,7 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "CYP1A1":   {"pypgx": False, "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "CYP1A2":   {"pypgx": False, "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "CYP2A6":   {"pypgx": False, "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2E1":   {"pypgx": False, "stargazer": True,  "aldy": False, "stellarpgx": True},
+    "CYP2E1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "IFNL3":    {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": False},
     "RYR1":     {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": False},
 }
@@ -149,10 +149,17 @@ def parse_stargazer(output_dir: str, gene: str, sample: str) -> CallerResult:
                         row.get("Genotype") or row.get("genotype")
                         or row.get("Diplotype") or "-"
                     )
-                result.activity_score = str(
-                    row.get("dip_score") or row.get("Activity_score")
-                    or row.get("activity_score") or "-"
-                )
+                # dip_score < 0 is Stargazer's sentinel for a failed/
+                # unresolvable haplotype; treat as no-call rather than
+                # reporting a spurious diplotype with garbage scores.
+                raw_score = row.get("dip_score") or ""
+                try:
+                    if float(raw_score) < 0:
+                        result.status = "not_run"
+                        break
+                except (ValueError, TypeError):
+                    pass
+                result.activity_score = str(raw_score or "-")
                 result.phenotype = (
                     row.get("phenotype") or row.get("Phenotype") or "-"
                 )
