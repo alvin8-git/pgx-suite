@@ -20,63 +20,35 @@
 
 ### 2a. Input validation script
 
-- [ ] `docker/pgx-run.sh` — main entry point
-  - [ ] Accept `<GENE> <BAM_FILE> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]`
-  - [ ] Validate: BAM file exists and is indexed (`.bai` present)
-  - [ ] Validate: gene is supported by at least one tool
-  - [ ] Check reference FASTA is mounted at `/pgx/ref/`
+- [x] `docker/pgx-run.sh` — main entry point
+  - [x] Accept `<GENE> <BAM_FILE> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]`
+  - [x] Validate: BAM file exists and is indexed (`.bai` present)
+  - [x] Validate: gene is supported by at least one tool
+  - [x] Check reference FASTA is mounted at `/pgx/ref/`
 
 ### 2b. Shared preprocessing
 
-- [ ] bcftools mpileup → gene-region VCF (shared input for PyPGx and Stargazer)
-  - [ ] Extract gene chromosomal coordinates from a lookup table
-  - [ ] `bcftools mpileup -r chr{N}:{start}-{end} -f /pgx/ref/hg38.fa <bam>`
-  - [ ] `bcftools call -m -v -o results/<gene>.vcf.gz`
-  - [ ] `tabix -p vcf results/<gene>.vcf.gz`
+- [x] bcftools mpileup → gene-region VCF (shared input for PyPGx and Stargazer)
+  - [x] Extract gene chromosomal coordinates from a lookup table (28 genes in pgx-run.sh)
+  - [x] `bcftools mpileup -r chr{N}:{start}-{end} -f /pgx/ref/hg38.fa <bam>`
+  - [x] `bcftools call -m -v -o results/<gene>.vcf.gz`
+  - [x] `tabix -p vcf results/<gene>.vcf.gz`
 
 ### 2c. Per-tool callers
 
-- [ ] PyPGx caller block
-  - [ ] `pypgx run-ngs-pipeline --gene <GENE> --assembly GRCh38`
-  - [ ] `--variants results/<gene>.vcf.gz --output results/pypgx/`
-  - [ ] Parse output: `results/pypgx/*/results.zip` → `data.tsv`
-
-- [ ] Stargazer caller block (genes: CYP2D6, CYP2C19, CYP2C9, CYP2B6, CYP2C8, CYP3A4/5, CYP4F2, SLCO1B1, G6PD, VKORC1, CYP1A1/2, CYP2A6, CYP2E1)
-  - [ ] `stargazer -t <gene> -d wgs -a grc38 -i results/<gene>.vcf.gz -o results/stargazer/`
-  - [ ] Optionally add `-c <control_gene> -g <gdf_file>` for CNV analysis when GDF available
-  - [ ] Parse output: `results/stargazer/<gene>.genotype.txt`
-
-- [ ] Aldy caller block
-  - [ ] `aldy genotype -g <GENE> -p hg38 <bam> -o results/aldy/`
-  - [ ] Parse output: `results/aldy/<gene>.aldy`
-
-- [ ] StellarPGx caller block (genes: CYP2D6, CYP2C19, CYP2C9, CYP2B6, CYP2C8, CYP3A4/5, CYP4F2, SLCO1B1, NUDT15, TPMT, UGT1A1, NAT1, NAT2, GSTM1, GSTT1, POR/CYPOR, CYP1A1/2, CYP2A6, CYP2E1)
-  - [ ] `nextflow run /pgx/stellarpgx/main.nf --gene <gene> --in_bam "<bam>*{bam,bai}" --ref_file /pgx/ref/hg38.fa --out_dir results/stellarpgx/`
-  - [ ] Parse output: `results/stellarpgx/star_allele_calls/`
+- [x] PyPGx caller block
+- [x] Stargazer caller block (with per-gene control gene mapping)
+- [x] Aldy caller block
+- [x] StellarPGx caller block
 
 ### 2d. Result aggregation
 
-- [ ] `docker/pgx-compare.py` — parse all 4 tool outputs
-  - [ ] Gene support matrix (which tools run for each gene)
-  - [ ] Extract: diplotype, activity score, phenotype per tool
-  - [ ] Calculate concordance (how many tools agree on top diplotype)
-  - [ ] Output format:
-    ```
-    ===== PGx Star Allele Results =====
-    Gene:   CYP2D6
-    Sample: NA12878
-    Build:  GRCh38
-    ────────────────────────────────────
-    Tool         Diplotype  Score  Phenotype
-    ────────────────────────────────────
-    PyPGx        *1/*4      1.0    Normal Metabolizer
-    Stargazer    *1/*4      1.0    Normal Metabolizer
-    Aldy         *2/*4      1.0    Normal Metabolizer
-    StellarPGx   *1/*4      -      -
-    ────────────────────────────────────
-    Concordance: 3/4 tools agree (*1/*4)
-    ```
-  - [ ] Save `results/comparison.tsv`
+- [x] `docker/pgx-compare.py` — parse all 4 tool outputs
+  - [x] Gene support matrix (27 genes)
+  - [x] Extract: diplotype, activity score, phenotype per tool
+  - [x] Calculate concordance (how many tools agree on top diplotype)
+  - [x] Save `results/<GENE>_<SAMPLE>_comparison.tsv`
+- [ ] Dockerfile updated to install pgx-run.sh + pgx-compare.py → rebuild image needed
 
 ### 2e. Integration test with real BAM
 

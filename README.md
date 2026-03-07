@@ -153,6 +153,32 @@ docker run --privileged --rm -it \
 
 ---
 
+## Output Field Reference
+
+The table below maps equivalent output fields across all four tools (N = 17 rows of output fields, 4 columns of tools). Field names use each tool's native terminology; `—` means the field is not reported by that tool.
+
+| # | Output Field | PyPGx (`data.tsv`) | Stargazer (`report.tsv` / `genotype-calls.tsv`) | Aldy (`.aldy`) | StellarPGx (`.alleles`) |
+|---|---|---|---|---|---|
+| 1 | **Sample ID** | `Sample` | `name` / `Sample` (report) | `Sample` | Filename stem (e.g. `HG03130`) |
+| 2 | **Gene** | Implicit (one run per gene) | `Gene` (report) | `Gene` | Header line in file |
+| 3 | **Diplotype** | `Genotype` (e.g. `*2/*4`) | `Diplotype` (report) / `hap1_main`+`hap2_main` | `Major` (e.g. `*2+*4`) | `Result` (e.g. `*17/*29`) |
+| 4 | **Haplotype 1** | `Haplotype1` (e.g. `*2;`) | `hap1_main` | First allele in `Major` | First allele in `Result` |
+| 5 | **Haplotype 2** | `Haplotype2` (e.g. `*4;*10;*74;`) | `hap2_main` | Second allele in `Major` | Second allele in `Result` |
+| 6 | **Sub-alleles / tag variants** | Semicolon list in `Haplotype1`/`Haplotype2` (e.g. `*4;*10;*74;`) | `hap1_main_core`+`hap1_main_tag`; `hap2_main_core`+`hap2_main_tag` | `Minor` column | `Candidate alleles` (raw haplotype codes) |
+| 7 | **Alternative diplotypes** | `AlternativePhase` (semicolon list) | `dip_cand` / `May also be` (report) | Multiple `SolutionID` rows (each is a valid alternative) | — |
+| 8 | **Phenotype** | `Phenotype` (e.g. `Intermediate Metabolizer`) | `Phenotype` (e.g. `intermediate_metabolizer`) | `Status` | `Metaboliser status` (e.g. `Intermediate metaboliser (IM)`) |
+| 9 | **Activity score** | `ActivityScore` | `Score` (report) | — | `Activity score` |
+| 10 | **SV / CNV type** | `CNV` (e.g. `Normal`, `Deletion`, `Duplication`) | `dip_sv` / `hap1_sv` / `hap2_sv` (e.g. `no_sv`, `dup`) | Implicit in `Major` allele name + `Copy` | `Initially computed CN` (integer) |
+| 11 | **Copy number** | Derived from `CNV` | Derived from `dip_sv` | `Copy` column (integer per allele) | `Initially computed CN` |
+| 12 | **Supporting variants** | `VariantData` (`allele:pos-ref-alt:AF;…`) | `hap1_main_core`/`hap2_main_core` (pos, AD, AF, effect) | `Location` + `Coverage` columns | `Sample core variants` (`pos~ref>alt~GT`) |
+| 13 | **Functional effect** | Embedded in `VariantData` | Embedded in `hap1_main_core` (e.g. `splice_acceptor_variant`) | `Effect` + `Type` columns | — |
+| 14 | **dbSNP rsID** | Embedded in `VariantData` (where available) | — | `dbSNP` column | — |
+| 15 | **Allele score / confidence** | — | `dip_score`, `hap1_score`, `hap2_score` | `SolutionID` rank (lower = better fit) | — |
+| 16 | **Mean allele fraction** | Per-variant AF embedded in `VariantData` | `hap1_af_mean_gene` / `hap2_af_mean_gene` / `hap1_af_mean_main` / `hap2_af_mean_main` | `Coverage` (read depth per variant) | — |
+| 17 | **Phasing method** | Beagle statistical (1KGP panel) | Beagle; `BEAGLE imputed` flag (report) + `ssr` marker | ILP joint optimisation (no separate phase step) | Graph-based (graphtyper) |
+
+---
+
 ## Container Architecture
 
 ```
