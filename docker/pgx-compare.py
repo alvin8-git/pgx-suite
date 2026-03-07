@@ -93,7 +93,8 @@ def parse_pypgx(output_dir: str, gene: str, sample: str) -> CallerResult:
                 reader = csv.DictReader(io.TextIOWrapper(f), delimiter="\t")
                 for row in reader:
                     result.diplotype = (
-                        row.get("Diplotype") or row.get("Haplotype") or "-"
+                        row.get("Genotype") or row.get("Diplotype")
+                        or row.get("Haplotype") or "-"
                     )
                     result.activity_score = str(
                         row.get("ActivityScore") or row.get("Activity_Score") or "-"
