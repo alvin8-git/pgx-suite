@@ -21,5 +21,4 @@ results/
 **/*.pyc
 pypgx/build/
 pypgx/docs/
-pypgx/*.rst
 pypgx/*.egg-info
