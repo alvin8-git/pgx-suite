@@ -293,7 +293,10 @@ run_pypgx_sv_preprocessing() {
 
 run_stargazer_gdf() {
     local log="${OUTPUT}/logs/stargazer_gdf.log"
-    local gdf_dir="${OUTPUT}/stargazer/gdf"
+    # NOTE: gdf_dir must NOT be inside the stargazer output dir because Stargazer's
+    # genotyping step does shutil.rmtree(output_dir) on startup, which would delete
+    # any GDF placed under ${OUTPUT}/stargazer/.
+    local gdf_dir="${OUTPUT}/stargazer_gdf"
     mkdir -p "$gdf_dir"
     log_status "START  Stargazer bam2gdf  (control=VDR)"
     if stargazer \
@@ -305,7 +308,7 @@ run_stargazer_gdf() {
             -a grc38 \
             -d wgs \
         >> "$log" 2>&1; then
-        log_status "DONE   Stargazer bam2gdf  →  ${gdf_dir}/${GENE_LOWER}.gdf"
+        log_status "DONE   Stargazer bam2gdf  →  ${gdf_dir}/${GENE_LOWER}.gdf (outside stargazer/ to survive rmtree)"
         return 0
     else
         log_status "FAILED Stargazer bam2gdf  (see ${log})"
@@ -318,7 +321,7 @@ run_aldy() {
     log_status "START  Aldy"
     if aldy genotype \
             -g "$GENE" \
-            -p hg38 \
+            -p illumina \
             "$BAM" \
             -o "${OUTPUT}/aldy/${GENE}.aldy" \
         >> "$log" 2>&1; then
@@ -341,6 +344,9 @@ run_stellarpgx() {
             --in_bam "${bam_dir}/${bam_base}*{bam,bai}" \
             --ref_file "$REF" \
             --out_dir "${OUTPUT}/stellarpgx" \
+            --res_init /pgx/stellarpgx/resources \
+            --db_init /pgx/stellarpgx/database \
+            --caller_init /pgx/stellarpgx/scripts \
             -work-dir "${OUTPUT}/stellarpgx/.work" \
         >> "$log" 2>&1; then
         log_status "DONE   StellarPGx"
@@ -370,7 +376,7 @@ run_pypgx_pipeline() {
 
 run_stargazer_genotype() {
     local log="${OUTPUT}/logs/stargazer.log"
-    local gdf_file="${OUTPUT}/stargazer/gdf/${GENE_LOWER}.gdf"
+    local gdf_file="${OUTPUT}/stargazer_gdf/${GENE_LOWER}.gdf"
     local stargazer_args=(-t "$GENE_LOWER" -d wgs -a grc38 -i "$VCF" -o "${OUTPUT}/stargazer")
     local control="${STARGAZER_CONTROL[$GENE]:-}"
 
