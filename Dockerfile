@@ -113,11 +113,13 @@ RUN printf '#!/usr/bin/env bash\nexec /opt/venv/bin/python3 /opt/stargazer/starg
 
 # ── 8. Helper scripts ────────────────────────────────────────────────────────
 RUN mkdir -p /opt/pgx
-COPY docker/test.sh        /opt/pgx/test.sh
-COPY docker/pgx-run.sh     /opt/pgx/pgx-run.sh
-COPY docker/pgx-compare.py /opt/pgx/pgx-compare.py
-RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh \
-    && ln -s /opt/pgx/pgx-run.sh /usr/local/bin/pgx-run.sh
+COPY docker/test.sh           /opt/pgx/test.sh
+COPY docker/pgx-run.sh        /opt/pgx/pgx-run.sh
+COPY docker/pgx-all-genes.sh  /opt/pgx/pgx-all-genes.sh
+COPY docker/pgx-compare.py    /opt/pgx/pgx-compare.py
+RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
+    && ln -s /opt/pgx/pgx-run.sh       /usr/local/bin/pgx-run.sh \
+    && ln -s /opt/pgx/pgx-all-genes.sh /usr/local/bin/pgx-all-genes.sh
 
 # ── 9. Runtime volume mount-points ───────────────────────────────────────────
 RUN mkdir -p /pgx/bundle /pgx/stellarpgx /pgx/containers /pgx/ref /pgx/data /pgx/results
