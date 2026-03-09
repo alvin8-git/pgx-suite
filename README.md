@@ -1,6 +1,6 @@
 # PGx Suite
 
-A Docker container that bundles four open-source pharmacogenomics (PGx) star allele callers — **PyPGx**, **Stargazer**, **Aldy**, and **StellarPGx** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table.
+A Docker container that bundles five pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, and **OptiType** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table plus a self-contained HTML clinical report.
 
 > **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.
 > This image **must not be published to any public registry** (Docker Hub, GHCR, etc.).
@@ -13,6 +13,7 @@ A Docker container that bundles four open-source pharmacogenomics (PGx) star all
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+  - [Run all genes (batch)](#run-all-genes-batch)
   - [Run a single gene](#run-a-single-gene)
   - [Volume mounts reference](#volume-mounts-reference)
   - [Expected output](#expected-output)
@@ -34,6 +35,7 @@ A Docker container that bundles four open-source pharmacogenomics (PGx) star all
 | [Stargazer](https://stargazer.gs.washington.edu/stargazerweb/) | 2.0.3 | Bayesian / Beagle phasing | 58 | Non-commercial academic (UW) |
 | [Aldy](https://github.com/0xTCG/aldy) | 4.8.3 | Integer Linear Programming | 39 | Non-commercial academic (IURTC) |
 | [StellarPGx](https://github.com/SBIMB/StellarPGx) | 1.2.7 | Genome graph (graphtyper) | 21 | MIT |
+| [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
 
 See [`ToolsDocumentation.md`](ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations.
 
@@ -61,8 +63,19 @@ See [`ToolsDocumentation.md`](ToolsDocumentation.md) for a detailed comparison o
 | `pypgx/pypgx-bundle/` | 1KGP VCF panel + CNV data (~500 MB, volume-mounted at runtime) |
 | `stargazer-grc38-2.0.3/` | Stargazer GRCh38 source |
 | `StellarPGx/` | Nextflow pipeline, gene databases, resources |
-| `StellarPGx/containers/stellarpgx-dev.sif` | Apptainer SIF image (31 MB) |
+| `StellarPGx/containers/stellarpgx-dev.sif` | StellarPGx Apptainer SIF (31 MB) |
+| `StellarPGx/containers/optitype.sif` | OptiType Apptainer SIF (~500 MB; pull separately — see below) |
 | `nextflow` | Nextflow binary (pre-downloaded) |
+
+**Pulling the OptiType SIF** (one-time, requires Docker + outbound internet):
+
+```bash
+docker run --privileged --rm \
+  -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
+  pgx-suite:latest \
+  apptainer pull --name /pgx/containers/optitype.sif \
+    docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1
+```
 
 ---
 
@@ -129,6 +142,57 @@ All 12 checks should report `PASS`:
 ---
 
 ## Usage
+
+### Run all genes (batch)
+
+```bash
+docker run --privileged --rm \
+  -v "$(pwd)/StellarPGx:/pgx/stellarpgx" \
+  -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
+  -v "$(pwd)/pypgx/pypgx-bundle:/pgx/bundle" \
+  -v "/path/to/ref:/pgx/ref" \
+  -v "/path/to/data:/pgx/data" \
+  -v "/path/to/results:/pgx/results" \
+  pgx-suite:latest \
+  pgx-all-genes.sh /pgx/data/sample.bam --output /pgx/results
+```
+
+**Supported options:**
+
+```
+pgx-all-genes.sh <BAM> [--ref PATH] [--output PATH] [--jobs N]
+```
+
+`pgx-all-genes.sh` runs every gene in the 29-gene support matrix in parallel batches,
+collects all results into `all_genes_summary.tsv`, and generates an HTML report in
+`<output>/html_reports/`.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--ref PATH` | `/pgx/ref/hg38.fa` | GRCh38 reference FASTA |
+| `--output PATH` | `/pgx/results` | Root output directory |
+| `--jobs N` | `4` | Genes to run concurrently |
+
+Output layout:
+
+```
+<output>/
+├── all_genes_summary.tsv             # concordance table across all genes and tools
+├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
+├── logs/
+│   └── <GENE>.log                   # stdout + stderr per gene
+├── <GENE>/                          # per-tool outputs for each gene
+│   ├── <GENE>_<SAMPLE>_comparison.tsv
+│   ├── <GENE>_<SAMPLE>_detail.json
+│   ├── pypgx/results.zip
+│   ├── stargazer/genotype-calls.tsv
+│   ├── aldy/<GENE>.aldy
+│   ├── stellarpgx/<gene>/alleles/*.alleles
+│   └── optitype/<SAMPLE>_result.tsv  # HLA-A/HLA-B only
+└── html_reports/
+    ├── <SAMPLE>.pgx.html             # landing page — 29-gene card grid + BAM QC + clinical findings
+    └── <SAMPLE>.<GENE>.pgx.html     # per-gene detail: 17×5 table, variant evidence, CPIC reference
+```
 
 ### Run a single gene
 
@@ -200,44 +264,52 @@ Concordance: 3/4 tools agree on *1/*4
 Full results saved to: /pgx/results/CYP2D6_HG002_comparison.tsv
 ```
 
-The TSV (`<GENE>_<SAMPLE>_comparison.tsv`) contains one row per tool with columns: `Tool`, `Diplotype`, `ActivityScore`, `Phenotype`, `SVMode`.
+The TSV (`<GENE>_<SAMPLE>_comparison.tsv`) contains one row per tool with columns:
+`Tool`, `Diplotype`, `ActivityScore`, `Phenotype`, `SVMode`.
+
+A rich `<GENE>_<SAMPLE>_detail.json` is also written with all 17 fields per tool —
+this feeds the HTML per-gene detail pages.
 
 ---
 
 ## Gene Coverage
 
-Genes supported by all four tools are shown below. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
+29 genes supported across five tools. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-| Gene | PyPGx | Stargazer | Aldy | StellarPGx | SV? |
-|------|:-----:|:---------:|:----:|:----------:|:---:|
-| CYP2A6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog |
-| CYP2B6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog |
-| CYP2C8 | ✓ | ✓ | ✓ | ✓ | |
-| CYP2C9 | ✓ | ✓ | ✓ | ✓ | |
-| CYP2C19 | ✓ | ✓ | ✓ | ✓ | |
-| CYP2D6 | ✓ | ✓ | ✓ | ✓ | ✓ paralog + tandem |
-| CYP2E1 | ✓ | ✓ | ✓ | ✓ | ✓ CN |
-| CYP3A4 | ✓ | ✓ | ✓ | ✓ | |
-| CYP3A5 | ✓ | ✓ | ✓ | ✓ | |
-| CYP4F2 | ✓ | ✓ | ✓ | ✓ | ✓ CN |
-| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | |
-| UGT1A1 | ✓ | ✓ | ✓ | ✓ | |
-| NAT1 | ✓ | ✓ | ✓ | ✓ | |
-| NAT2 | ✓ | ✓ | ✓ | ✓ | |
-| GSTM1 | ✓ | ✓ | ✓ | ✓ | ✓ deletion |
-| NUDT15 | ✓ | — | ✓ | ✓ | |
-| TPMT | ✓ | — | ✓ | ✓ | |
-| CYP1A1 | — | ✓ | ✓ | ✓ | |
-| CYP1A2 | — | ✓ | ✓ | ✓ | |
-| DPYD | ✓ | — | ✓ | — | |
-| G6PD | ✓ | ✓ | ✓ | — | ✓ CN |
-| GSTT1 | ✓† | — | — | ✓ | ✓ deletion |
-| VKORC1 | ✓ | ✓ | ✓ | — | |
-| CYPOR/POR | — | ✓ | — | ✓ | |
-| IFNL3 | ✓ | ✓ | ✓ | — | |
-| RYR1 | ✓ | ✓ | ✓ | — | |
+| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | CPIC Level | SV? |
+|------|:-----:|:---------:|:----:|:----------:|:--------:|:----------:|:---:|
+| ABCG2 | — | — | ✓ | ✓ | — | A | |
+| CYP1A1 | — | ✓ | ✓ | ✓ | — | — | |
+| CYP1A2 | — | ✓ | ✓ | ✓ | — | A | |
+| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | A | ✓ paralog |
+| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | B | ✓ paralog |
+| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | B | |
+| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | A | ✓ paralog + tandem |
+| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ CN |
+| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | A† | |
+| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | B | ✓ CN |
+| DPYD | ✓ | — | ✓ | — | — | A | |
+| G6PD | ✓ | ✓ | ✓ | — | — | A | ✓ CN |
+| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ deletion |
+| GSTT1 | ✓‡ | — | — | ✓ | — | — | ✓ deletion |
+| HLA-A | — | — | — | — | ✓ | A | |
+| HLA-B | — | — | — | — | ✓ | A | |
+| IFNL3 | ✓ | ✓ | ✓ | — | — | A | |
+| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | |
+| NAT2 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| NUDT15 | ✓ | — | ✓ | ✓ | — | A | |
+| POR | — | ✓ | — | ✓ | — | — | |
+| RYR1 | ✓ | ✓ | ✓ | — | — | A | |
+| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| TPMT | ✓ | — | ✓ | ✓ | — | A | |
+| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | A | |
+| VKORC1 | ✓ | ✓ | ✓ | — | — | A | |
 
-† GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
+† CYP3A4 appears in the tacrolimus guideline alongside CYP3A5; no standalone CPIC Level A guideline for CYP3A4 genotyping alone.
+‡ GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
 
 ---
 
@@ -286,12 +358,15 @@ docker run --privileged pgx-suite:latest
 │  Nextflow              (copied from host binary)              │
 │                                                                │
 │  Apptainer             (Singularity fork, from PPA)           │
-│  └── runs stellarpgx-dev.sif  [volume-mounted]                │
-│      ├── graphtyper (graph-based variant calling)             │
-│      ├── bcftools, samtools, tabix                            │
-│      └── stellarpgx.py (star allele caller)                   │
+│  ├── runs stellarpgx-dev.sif  [volume-mounted]                │
+│  │   ├── graphtyper (graph-based variant calling)             │
+│  │   ├── bcftools, samtools, tabix                            │
+│  │   └── stellarpgx.py (star allele caller)                   │
+│  └── runs optitype.sif  [volume-mounted]                      │
+│      ├── razers3 (HLA-reference read filtering)               │
+│      └── OptiTypePipeline.py (ILP HLA Class I typing)        │
 │                                                                │
-│  bcftools + samtools + tabix  (system packages)               │
+│  bcftools + samtools + tabix + mosdepth  (system packages)    │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -322,8 +397,12 @@ pgx-suite/
 ├── .dockerignore
 ├── nextflow                            # Nextflow binary (pre-downloaded)
 ├── docker/
-│   ├── pgx-run.sh                      # Main orchestration entry point
-│   ├── pgx-compare.py                  # Result parser and comparison table
+│   ├── pgx-all-genes.sh                # Batch orchestrator: all 29 genes in parallel
+│   ├── pgx-run.sh                      # Single-gene orchestration entry point
+│   ├── pgx-hla.sh                      # HLA typing via OptiType Apptainer SIF
+│   ├── pgx-compare.py                  # Result parser → comparison TSV + detail JSON
+│   ├── pgx-report.py                   # HTML report generator (landing + per-gene pages)
+│   ├── pgx-bamstats.sh                 # Whole-BAM QC → bam_stats.json (27 genes)
 │   ├── test.sh                         # Smoke tests (no BAM required)
 │   ├── docker-run.sh                   # Convenience docker run wrapper
 │   └── README.md                       # Container-specific notes

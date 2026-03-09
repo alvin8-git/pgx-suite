@@ -48,23 +48,81 @@
   - [x] Extract: diplotype, activity score, phenotype per tool
   - [x] Calculate concordance (how many tools agree on top diplotype)
   - [x] Save `results/<GENE>_<SAMPLE>_comparison.tsv`
-- [ ] Dockerfile updated to install pgx-run.sh + pgx-compare.py → rebuild image needed
+- [x] Dockerfile updated to install pgx-run.sh + pgx-compare.py + pgx-all-genes.sh + pgx-bamstats.sh + pgx-report.py → rebuild image needed
 
-### 2e. Integration test with real BAM
+### 2e. Integration test with real BAM ✅ COMPLETE
 
-- [ ] Obtain GeT-RM NA12878 CYP2D6 BAM (chr22 region) for end-to-end test
-  - [ ] Alternatively: user-supplied BAM from clinical/research pipeline
-- [ ] Run `pgx-run.sh CYP2D6 /pgx/data/NA12878.bam` end to end
-- [ ] Verify all 4 tools return concordant diplotype
-- [ ] Benchmark runtime for single-gene call
+- [x] Test BAM: `T7_NA24385.bwa.sortdup.bqsr.bam` (HG002/NA24385, 167 GB WGS, GRCh38)
+- [x] Single-gene: `pgx-run.sh CYP2D6` — 4/4 concordant (`*2/*4`, AS 1.0, Intermediate Metabolizer)
+- [x] All-gene batch: `pgx-all-genes.sh` — 26/26 genes completed; HTML report generated
+- [x] Wall time for CYP2D6: ~53 sec (bottleneck: PyPGx sklearn CNV caller ~49 sec)
 
 ---
 
-## Phase 3: Multi-gene batch mode (future)
+## Phase 3: Multi-gene batch mode & HTML reports ✅ COMPLETE
 
-- [ ] `pgx-run.sh --all-genes <BAM>` — run the full supported gene panel
-- [ ] Parallel execution per gene (GNU parallel or Nextflow wrapper)
-- [ ] HTML report generation
+- [x] `docker/pgx-all-genes.sh` — run all 27 supported genes for a single BAM
+  - [x] Parallel execution with a configurable job pool (`--jobs N`, default 4)
+  - [x] Per-gene stdout/stderr captured to `<output>/logs/<GENE>.log`
+  - [x] Aggregate `all_genes_summary.tsv` written at the end
+  - [x] BAM QC launched in background (`pgx-bamstats.sh &`) to overlap with gene calling
+- [x] `docker/pgx-bamstats.sh` — BAM QC pipeline → `bam_stats.json`
+  - [x] `samtools idxstats` (28–46 ms) — total/mapped reads from `.bai` index; no BAM scan
+  - [x] `samtools stats` on chr1 4 Mb window (~2 sec) — read length, insert size, error rate
+  - [x] Genome depth + sex inference computed from idxstats × read_length (no extra scan)
+  - [x] `mosdepth v0.3.12` with `--by pgx.bed --thresholds 0,20,30 --fast-mode` (~550 sec) — per-gene mean depth + ≥20×/≥30× fractions for 14 PGx genes
+  - [x] `samtools view -c` ×3 on chr1 4 Mb window (~500 ms) — MAPQ≥20% and duplicate% estimate
+  - [x] Timing instrumentation via `date +%s%3N` on every command
+- [x] `docker/pgx-compare.py` extended to emit `<GENE>_<SAMPLE>_detail.json` (17-field × 4-tool rich output)
+- [x] `docker/pgx-report.py` — HTML report generation
+  - [x] Landing page: 26-gene card grid colour-coded by tool concordance
+  - [x] Per-gene depth displayed on gene cards (mean depth × and ≥20× fraction) from `bam_stats.json`
+  - [x] Per-gene detail page: 17×4 table (diplotype, variants, phenotype, SV, phasing, …)
+  - [x] BAM QC panel when `bam_stats.json` present
+  - [x] HTML written to `<output>/html_reports/` via `--html-dir` flag
+- [x] `Dockerfile` — added mosdepth v0.3.12 and sambamba v1.0.1
+- [x] Validated end-to-end on `T7_NA24385` (HG002/NA24385, 167 GB WGS): 26/26 genes OK; CYP2D6 4/4 concordant
+
+---
+
+---
+
+## Phase 4: ABCG2 + HLA typing ✅ COMPLETE
+
+- [x] ABCG2 (rosuvastatin, CPIC Level A) added to pipeline:
+  - [x] Aldy + StellarPGx callers (PyPGx and Stargazer have no ABCG2 support)
+  - [x] pgx-run.sh: GENE_COORDS + GENE_SUPPORT (0 0 1 1)
+  - [x] pgx-all-genes.sh: GENES list
+  - [x] pgx-bamstats.sh: BED (chr4:88085264-88236626)
+  - [x] pgx-compare.py: GENE_SUPPORT + `optitype` key placeholder
+  - [x] pgx-report.py: CPIC_DB entry (diplotype_check on rs2231142, rosuvastatin Level A)
+- [x] HLA-A / HLA-B (CPIC Level A) added via OptiType:
+  - [x] `docker/pgx-hla.sh` — new script: samtools MHC extraction → OptiType Apptainer SIF
+  - [x] pgx-run.sh: DO_OPTITYPE flag, run_hla() function, HLA special-case bypass
+  - [x] pgx-all-genes.sh: HLA-A + HLA-B in GENES list
+  - [x] pgx-compare.py: parse_optitype() reading A1/A2 or B1/B2 from result TSV
+  - [x] pgx-report.py: TOOLS now includes "OptiType"; HLA-A/HLA-B CPIC_DB with risk_alleles, min_tools=1
+  - [x] Dockerfile: pgx-hla.sh installed + symlinked to /usr/local/bin/
+  - [x] OptiType SIF pulled separately: `apptainer pull --name optitype.sif docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1`
+- [x] Key Clinical Findings cards now clickable → link to gene detail HTML page
+- [x] CPIC coverage: 17/19 Level A genes (up from 15/19); gaps: CACNA1S (natural MH partner to RYR1), MT-RNR1 (mitochondrial)
+
+---
+
+## Phase 5: HTML Report Enhancements ✅ COMPLETE
+
+- [x] CPIC Clinical Reference section on **all 29 gene detail pages** (previously absent for CYP1A1, CYP1A2, CYP2A6, CYP2C8, CYP2E1, CYP3A4, GSTM1, GSTT1, IFNL3, NAT1, POR)
+  - [x] Drug–gene pair table with CPIC Level badge and recommendation text
+  - [x] Patient-specific finding note derived from consensus diplotype / phenotype
+  - [x] PharmVar + cpicpgx.org links
+- [x] **In-page navigation bar** at top of every gene detail page → anchored links to Tool Results, Variant Evidence, CPIC Reference sections
+- [x] **Chromosomal locus** (e.g. `chr22:42,116,498-42,155,810 (GRCh38)`) displayed under gene name on every detail page — monospace, from `GENE_LOCI` dict
+- [x] **HLA-A and HLA-B depth** added to gene cards and detail pages:
+  - [x] `pgx-bamstats.sh`: HLA-A (`chr6:29,905,000-29,920,000`) and HLA-B (`chr6:31,316,000-31,330,000`) added to mosdepth BED — now 27 primary-assembly genes
+  - [x] `bam_stats.json` `gene_depth` populated for HLA-A and HLA-B
+  - [x] Gene cards show `Depth: {mean}X | ≥30X: {pct}%` for all 29 genes
+- [x] **OptiType parse_optitype() double-prefix bug fixed** — `HLA-A*A*01:01` → `HLA-A*01:01`; `HLA-B*B*57:01` → `HLA-B*57:01`
+- [x] Validated end-to-end on T7_NA24385 (29/29 genes) and HG003 (29/29 genes)
 
 ---
 
@@ -75,3 +133,6 @@
 - Stargazer and Aldy are **non-commercial academic use only** — do not publish image to public registries
 - Stargazer's GDF-based CNV calling requires hg38-aligned depth data (not yet integrated)
 - StellarPGx `nextflow.config` `$PWD` references assume pipeline is run from the StellarPGx repo directory — the volume mount at `/pgx/stellarpgx` handles this
+- mosdepth is I/O bound at ~490 MB/s on HDD; ~550 sec on 167 GB WGS is a hardware ceiling — no threading or tool choice overcomes it. Running bamstats in background (overlapping gene calling) is the practical mitigation.
+- sambamba v1.0.1 is installed in the image but not used by default (benchmarked at same speed as samtools flagstat — both I/O bound, not CPU bound on full BAM scan)
+- Future speedup option: pre-generate a persistent PGx-region subset BAM upstream; mosdepth on the subset takes ~4 sec vs ~550 sec on the full BAM. Not implemented — the subset extraction itself takes ~560 sec (BAM re-compression overhead).

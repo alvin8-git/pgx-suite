@@ -74,11 +74,13 @@ fi
 # ── Gene list — all unique supported genes ────────────────────────────────────
 # POR/CYPOR are the same locus; only POR is kept here.
 GENES=(
+    ABCG2
     CYP1A1 CYP1A2
     CYP2A6 CYP2B6 CYP2C8 CYP2C9 CYP2C19 CYP2D6 CYP2E1
     CYP3A4 CYP3A5 CYP4F2
     DPYD
     G6PD GSTM1 GSTT1
+    HLA-A HLA-B
     IFNL3
     NAT1 NAT2
     NUDT15
@@ -95,10 +97,19 @@ TOTAL=${#GENES[@]}
 LOG_DIR="${OUTPUT}/logs"
 mkdir -p "$LOG_DIR"
 
-# ── Extract sample name from BAM header ──────────────────────────────────────
-SAMPLE=$(samtools view -H "$BAM" 2>/dev/null \
-         | grep '^@RG' | grep -oP 'SM:\K[^\t]+' | head -1)
-SAMPLE="${SAMPLE:-$(basename "$BAM" .bam)}"
+# ── Extract sample name from BAM filename (before the first ".") ──────────────
+# e.g. T7_NA24385.bwa.sortdup.bqsr.bam → T7_NA24385
+SAMPLE=$(basename "$BAM" | cut -d'.' -f1)
+
+# ── BAM QC — launched in background, runs in parallel with gene callers ───────
+# pgx-bamstats.sh is I/O bound (~6 min on 167 GB WGS at 490 MB/s disk).
+# Running it concurrently with gene calling keeps total wall time at
+# max(bamstats_time, gene_calling_time) instead of their sum.
+# BAMSTATS_PID is waited on after the gene loop, before HTML report generation.
+echo "Starting BAM QC in background …"
+pgx-bamstats.sh "$BAM" "$SAMPLE" "$OUTPUT" "$REF" \
+    > "${LOG_DIR}/bamstats.log" 2>&1 &
+BAMSTATS_PID=$!
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 START_TS=$(date '+%Y-%m-%d %H:%M:%S')
@@ -209,7 +220,7 @@ for GENE in "${GENES[@]}"; do
         # Comparison TSV columns: Gene Sample Build Tool Diplotype ActivityScore Phenotype Status SVMode
         # Extract concordant diplotype (most frequent value in Diplotype column = col 5)
         TOP=$(tail -n +2 "$TSV_FILE" \
-              | awk -F'\t' '{print $5}' \
+              | awk -F'\t' '$5 != "-" {print $5}' \
               | sort | uniq -c | sort -rn | head -1 \
               | awk '{print $2}')
         printf " %-10s  %-6s  %-30s  %s\n" \
@@ -234,5 +245,24 @@ echo "Summary TSV:     ${SUMMARY_TSV}"
 echo "Per-gene logs:   ${LOG_DIR}/"
 echo "Finished:        $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
+
+# ── Wait for background BAM QC to finish ─────────────────────────────────────
+echo "Waiting for BAM QC to complete …"
+if wait "$BAMSTATS_PID"; then
+    echo "BAM QC: OK"
+else
+    echo "BAM QC: WARN (bam_stats.json may be missing or incomplete)"
+fi
+
+# ── HTML report ───────────────────────────────────────────────────────────────
+echo "Generating HTML report …"
+pgx-report.py \
+    --sample   "$SAMPLE" \
+    --output   "$OUTPUT" \
+    --html-dir "${OUTPUT}/html_reports" \
+    --bam      "$BAM" \
+    --bam-stats "${OUTPUT}/bam_stats.json" \
+    && echo "HTML report: ${OUTPUT}/html_reports/${SAMPLE}.pgx.html" \
+    || echo "WARN: HTML report generation failed (results still available in TSV)"
 
 [[ $FAIL_COUNT -eq 0 ]] && exit 0 || exit 1

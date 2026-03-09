@@ -104,6 +104,9 @@ GENE_COORDS=(
     [TPMT]="chr6:18125310-18158169"
     [UGT1A1]="chr2:233754269-233779300"
     [VKORC1]="chr16:31087853-31097797"
+    [ABCG2]="chr4:88085265-88236626"
+    [HLA-A]="chr6:28510020-33480577"   # MHC region — used for read extraction by pgx-hla.sh
+    [HLA-B]="chr6:28510020-33480577"   # MHC region — same extraction as HLA-A
 )
 
 # ── Gene support matrix (pypgx stargazer aldy stellarpgx) ─────────────────────
@@ -118,25 +121,28 @@ GENE_SUPPORT=(
     [CYP3A4]="1 1 1 1"
     [CYP3A5]="1 1 1 1"
     [CYP4F2]="1 1 1 1"
-    [NUDT15]="1 0 1 1"
-    [TPMT]="1 0 1 1"
-    [UGT1A1]="1 0 1 1"
+    [NUDT15]="1 1 1 1"
+    [TPMT]="1 1 1 1"
+    [UGT1A1]="1 1 1 1"
     [SLCO1B1]="1 1 1 1"
-    [DPYD]="1 0 1 0"
-    [NAT1]="1 0 0 1"
-    [NAT2]="1 0 0 1"
-    [G6PD]="1 1 0 0"
-    [GSTM1]="1 0 0 1"
-    [GSTT1]="0 0 0 1"
-    [POR]="0 0 0 1"
-    [CYPOR]="0 0 0 1"
-    [VKORC1]="1 1 0 0"
-    [CYP1A1]="0 1 1 1"
-    [CYP1A2]="0 1 1 1"
-    [CYP2A6]="0 1 1 1"
+    [DPYD]="1 1 1 0"
+    [NAT1]="1 1 1 1"
+    [NAT2]="1 1 1 1"
+    [G6PD]="1 1 1 0"
+    [GSTM1]="1 1 1 1"
+    [GSTT1]="1 0 0 1"
+    [POR]="1 1 0 1"
+    [CYPOR]="1 1 0 1"
+    [VKORC1]="1 1 1 0"
+    [CYP1A1]="1 1 1 1"
+    [CYP1A2]="1 1 1 1"
+    [CYP2A6]="1 1 1 1"
     [CYP2E1]="1 1 1 1"
-    [IFNL3]="1 0 0 0"
-    [RYR1]="1 0 0 0"
+    [IFNL3]="1 1 1 0"
+    [RYR1]="1 1 1 0"
+    [ABCG2]="0 0 1 1"
+    [HLA-A]="0 0 0 0"   # OptiType only — handled by run_hla() special case
+    [HLA-B]="0 0 0 0"   # OptiType only — handled by run_hla() special case
 )
 
 # ── PyPGx SV genes — need depth-of-coverage + control-statistics (VDR) ───────
@@ -148,10 +154,13 @@ STARGAZER_SV_GENES=(CYP2A6 CYP2B6 CYP2D6)
 # ── Stargazer control gene mapping ────────────────────────────────────────────
 declare -A STARGAZER_CONTROL
 STARGAZER_CONTROL=(
-    [CYP2D6]="vdr" [CYP2C19]="vdr" [CYP2C9]="vdr"  [CYP2B6]="vdr"
-    [CYP2C8]="vdr" [CYP3A4]="vdr"  [CYP3A5]="vdr"  [CYP4F2]="vdr"
-    [CYP1A1]="vdr" [CYP1A2]="vdr"  [CYP2A6]="vdr"  [CYP2E1]="vdr"
-    [SLCO1B1]="vdr" [G6PD]="vdr"   [VKORC1]="vdr"
+    [CYP2D6]="vdr"   [CYP2C19]="vdr"  [CYP2C9]="vdr"   [CYP2B6]="vdr"
+    [CYP2C8]="vdr"   [CYP3A4]="vdr"   [CYP3A5]="vdr"   [CYP4F2]="vdr"
+    [CYP1A1]="vdr"   [CYP1A2]="vdr"   [CYP2A6]="vdr"   [CYP2E1]="vdr"
+    [SLCO1B1]="vdr"  [G6PD]="vdr"     [VKORC1]="vdr"
+    [NUDT15]="vdr"   [TPMT]="vdr"     [UGT1A1]="vdr"   [DPYD]="vdr"
+    [NAT1]="vdr"     [NAT2]="vdr"     [GSTM1]="vdr"    [IFNL3]="vdr"
+    [RYR1]="vdr"     [POR]="vdr"
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -226,10 +235,23 @@ if [[ "$DO_STELLARPGX" -eq 1 ]] && \
     DO_STELLARPGX=0
 fi
 
+# ── OptiType: HLA-A and HLA-B genes bypass the standard tool pipeline ─────────
+DO_OPTITYPE=0
+if [[ "$GENE" =~ ^HLA- ]]; then
+    DO_OPTITYPE=1
+    DO_PYPGX=0; DO_STARGAZER=0; DO_ALDY=0; DO_STELLARPGX=0
+    IS_PYPGX_SV=0; IS_STARGAZER_SV=0
+fi
+if [[ "$DO_OPTITYPE" -eq 1 ]] && [[ ! -f "/pgx/containers/optitype.sif" ]]; then
+    log_status "WARN OptiType SIF not found at /pgx/containers/optitype.sif — skipping HLA typing"
+    DO_OPTITYPE=0
+fi
+
 echo "  PyPGx:      $([[ $DO_PYPGX      -eq 1 ]] && echo YES || echo NO)  (SV preprocessing: $([[ $IS_PYPGX_SV    -eq 1 ]] && echo YES || echo NO))"
 echo "  Stargazer:  $([[ $DO_STARGAZER  -eq 1 ]] && echo YES || echo NO)  (GDF/SV mode:      $([[ $IS_STARGAZER_SV -eq 1 ]] && echo YES || echo NO))"
 echo "  Aldy:       $([[ $DO_ALDY       -eq 1 ]] && echo YES || echo NO)  (SV: auto via ILP)"
 echo "  StellarPGx: $([[ $DO_STELLARPGX -eq 1 ]] && echo YES || echo NO)  (SV: auto via graphtyper)"
+echo "  OptiType:   $([[ $DO_OPTITYPE   -eq 1 ]] && echo YES || echo NO)  (HLA Class I typing)"
 echo ""
 
 # ── Create output directories ─────────────────────────────────────────────────
@@ -359,6 +381,18 @@ run_stellarpgx() {
     return 0
 }
 
+run_hla() {
+    local log="${OUTPUT}/logs/hla.log"
+    log_status "START  OptiType HLA typing  (gene: ${GENE})"
+    if pgx-hla.sh "$GENE" "$BAM" "$SAMPLE" "$OUTPUT" \
+        >> "$log" 2>&1; then
+        log_status "DONE   OptiType HLA typing"
+    else
+        log_status "FAILED OptiType HLA typing  (see ${log})"
+    fi
+    return 0
+}
+
 run_pypgx_pipeline() {
     local log="${OUTPUT}/logs/pypgx.log"
     local pypgx_args=("$GENE" "${OUTPUT}/pypgx" --assembly GRCh38 --force)
@@ -419,6 +453,7 @@ DEPTH_PID=""
 GDF_PID=""
 ALDY_PID=""
 STELLARPGX_PID=""
+HLA_PID=""
 
 if [[ "$NEED_VCF" -eq 1 ]]; then
     if [[ "$SEQUENTIAL" -eq 0 ]]; then
@@ -457,6 +492,14 @@ if [[ "$DO_STELLARPGX" -eq 1 ]]; then
         run_stellarpgx & STELLARPGX_PID=$!
     else
         run_stellarpgx
+    fi
+fi
+
+if [[ "$DO_OPTITYPE" -eq 1 ]]; then
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_hla & HLA_PID=$!
+    else
+        run_hla
     fi
 fi
 
@@ -506,6 +549,7 @@ echo "------------------------------------------------------------"
 [[ -n "$STARGAZER_PID"  ]] && wait "$STARGAZER_PID"
 [[ -n "$ALDY_PID"       ]] && wait "$ALDY_PID"
 [[ -n "$STELLARPGX_PID" ]] && wait "$STELLARPGX_PID"
+[[ -n "$HLA_PID"        ]] && wait "$HLA_PID"
 
 echo ""
 log_status "All tools finished."

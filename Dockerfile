@@ -90,6 +90,21 @@ RUN apt-get update && apt-get install -y \
         bcftools samtools tabix \
     && rm -rf /var/lib/apt/lists/*
 
+# mosdepth — fast BAM depth (single static binary, no runtime deps)
+# Used by pgx-bamstats.sh for per-gene coverage and genome-wide depth.
+RUN curl -sL https://github.com/brentp/mosdepth/releases/download/v0.3.12/mosdepth \
+        -o /usr/local/bin/mosdepth \
+    && chmod +x /usr/local/bin/mosdepth \
+    && mosdepth --version
+
+# sambamba — parallel BAM flagstat (true multi-threaded read counting)
+# Splits the BAM into per-thread chunks; 6–10× faster than samtools flagstat.
+# Note: does not support CRAM natively — pgx-bamstats.sh converts CRAM→BAM first.
+RUN curl -sL https://github.com/biod/sambamba/releases/download/v1.0.1/sambamba-1.0.1-linux-amd64-static.gz \
+        | gunzip > /usr/local/bin/sambamba \
+    && chmod +x /usr/local/bin/sambamba \
+    && sambamba --version 2>&1 | head -1
+
 # ── 5. Copy compiled Python environment from builder ─────────────────────────
 # The venv contains pypgx, aldy, pysam, ortools, pandas, numpy, matplotlib, etc.
 COPY --from=builder /opt/venv /opt/venv
@@ -117,9 +132,16 @@ COPY docker/test.sh           /opt/pgx/test.sh
 COPY docker/pgx-run.sh        /opt/pgx/pgx-run.sh
 COPY docker/pgx-all-genes.sh  /opt/pgx/pgx-all-genes.sh
 COPY docker/pgx-compare.py    /opt/pgx/pgx-compare.py
+COPY docker/pgx-bamstats.sh   /opt/pgx/pgx-bamstats.sh
+COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
+COPY docker/pgx-hla.sh        /opt/pgx/pgx-hla.sh
 RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
+             /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
     && ln -s /opt/pgx/pgx-run.sh       /usr/local/bin/pgx-run.sh \
-    && ln -s /opt/pgx/pgx-all-genes.sh /usr/local/bin/pgx-all-genes.sh
+    && ln -s /opt/pgx/pgx-all-genes.sh /usr/local/bin/pgx-all-genes.sh \
+    && ln -s /opt/pgx/pgx-bamstats.sh  /usr/local/bin/pgx-bamstats.sh \
+    && ln -s /opt/pgx/pgx-report.py    /usr/local/bin/pgx-report.py \
+    && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh
 
 # ── 9. Runtime volume mount-points ───────────────────────────────────────────
 RUN mkdir -p /pgx/bundle /pgx/stellarpgx /pgx/containers /pgx/ref /pgx/data /pgx/results

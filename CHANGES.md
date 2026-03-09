@@ -5,6 +5,498 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-03-09 — Phase 5: HTML Report Enhancements + HLA depth
+
+### Summary
+
+Three targeted improvements to `pgx-report.py` and `pgx-bamstats.sh` increasing
+clinical utility of the HTML reports across all 29 genes. Validated on T7_NA24385
+and HG003 (29/29 genes each).
+
+### pgx-report.py: CPIC Clinical Reference on all genes
+
+The `CPIC_DB` dict was extended from 18 to 29 genes by adding entries for the
+11 previously missing genes: CYP1A1, CYP1A2, CYP2A6, CYP2C8, CYP2E1, CYP3A4,
+GSTM1, GSTT1, IFNL3, NAT1, POR.
+
+Each entry includes a gene description, CPIC drug–gene pairs with Level badges and
+recommendation text, PharmVar link where applicable, and the patient-specific
+finding note derived from the consensus diplotype/phenotype. Genes with no actionable
+CPIC Level A/B guideline (CYP1A1, CYP2E1, GSTM1, GSTT1, NAT1, POR) include an
+informational description and an empty drugs list so the CPIC section still renders
+on the detail page.
+
+Notable additions:
+- **CYP1A2** — CPIC Level A: fluvoxamine (poor/ultra-rapid metaboliser dose guidance)
+- **CYP2A6** — CPIC Level A: nicotine/tobacco cessation (NRT patch preference for poor metabolisers)
+- **CYP2C8** — CPIC Level B: amodiaquine (avoid in poor metabolisers — agranulocytosis risk)
+- **IFNL3** — CPIC Level A: peginterferon alfa + ribavirin for HCV (non-CC genotype → prefer DAA)
+- **CYP3A4** — informational: *22 allele note with tacrolimus co-interpretation guidance
+
+### pgx-report.py: in-page navigation bar
+
+A `<nav class="gene-page-nav">` bar is rendered on every gene detail page between
+the back-link and the gene header. Three anchor links: **Tool Results** (`#tool-results`),
+**Variant Evidence** (`#variant-evidence`), **CPIC Reference** (`#cpic-reference`).
+CSS uses a pill-button style with hover highlight.
+
+Section anchor IDs added: `id="tool-results"` on the Tool Results div (was absent),
+`id="cpic-reference"` on the CPIC section div (`#variant-evidence` was already present).
+
+### pgx-report.py: chromosomal locus under gene name
+
+A new `GENE_LOCI` dict maps all 29 genes to their GRCh38 1-based display coordinates
+(e.g. `chr22:42,116,498-42,155,810`). On every gene detail page a monospace locus line
+appears under the gene title: `📍 chrN:start-end (GRCh38)`.
+
+HLA-A and HLA-B use the actual gene-body coordinates
+(`chr6:29,910,247-29,913,661` and `chr6:31,321,649-31,324,666`) rather than the
+wider MHC extraction region. GSTT1 shows `chr22_KI270879v1_alt (alt contig)`.
+
+### pgx-bamstats.sh: HLA-A and HLA-B depth
+
+HLA-A (`chr6:29,905,000-29,920,000`) and HLA-B (`chr6:31,316,000-31,330,000`) added
+to the mosdepth BED file. The total covered by mosdepth is now 27 primary-assembly
+genes (was 25). `bam_stats.json` `gene_depth` now includes entries for both HLA genes,
+enabling depth display on the HLA gene cards and detail pages.
+
+Observed depths (T7_NA24385, ~30× WGS):
+- HLA-A: 46.82× mean, ≥30×: 98.61%
+- HLA-B: 28.21× mean, ≥30×: 45.9% (lower due to MHC repeat structure)
+
+### parse_optitype() bug fix
+
+`pgx-compare.py` `parse_optitype()` was producing double-prefixed diplotypes:
+`HLA-A*A*01:01` (OptiType outputs `A*01:01` in the `A1` column; old code prepended
+`HLA-A*` instead of `HLA-`). Fixed for both HLA-A and HLA-B:
+
+```python
+# Before (HLA-A):
+result.haplotype1 = f"HLA-A*{a1}" if not a1.startswith("HLA") else a1
+# After:
+result.haplotype1 = f"HLA-{a1}" if not a1.startswith("HLA") else a1
+```
+
+---
+
+## 2026-03-09 — Phase 4: ABCG2 + HLA typing (OptiType)
+
+### Summary
+
+Added ABCG2 (CPIC Level A, rosuvastatin) and HLA-A/HLA-B (CPIC Level A, multiple
+drug–allele pairs) to the 29-gene pipeline. OptiType 1.3.5 added as fifth typing tool
+for HLA Class I alleles. Key Clinical Findings cards made clickable.
+
+### ABCG2
+
+ABCG2 (`chr4:88,085,265-88,236,626`) encodes the BCRP efflux transporter. The *2
+variant (rs2231142, c.421C>A, Q141K) reduces transporter function and increases
+rosuvastatin plasma exposure (CPIC Level A).
+
+- `pgx-run.sh`: GENE_COORDS + GENE_SUPPORT `0 0 1 1` (Aldy + StellarPGx only; PyPGx
+  and Stargazer have no ABCG2 support)
+- `pgx-all-genes.sh`: ABCG2 added to GENES array
+- `pgx-bamstats.sh`: `chr4:88,085,264-88,236,626` added to mosdepth BED
+- `pgx-compare.py`: GENE_SUPPORT entry + `optitype: False`
+- `pgx-report.py`: CPIC_DB entry with `diplotype_check` on `"rs2231142"`, rosuvastatin
+  Level A recommendation
+
+### HLA-A and HLA-B via OptiType
+
+HLA Class I allele typing for three CPIC Level A drug–allele pairs:
+- HLA-B\*57:01 → abacavir (HIV): contraindicated — severe hypersensitivity
+- HLA-B\*58:01 → allopurinol (gout): contraindicated — SJS/TEN risk
+- HLA-B\*15:02 → carbamazepine/phenytoin (epilepsy): high SJS risk in Asian ancestry
+- HLA-A\*31:01 → carbamazepine: DRESS/SJS/TEN risk across all ancestries
+
+**New script: `docker/pgx-hla.sh`**
+Extracts MHC reads from the BAM (chr6:28,510,020-33,480,577) via `samtools view -b |
+sort -n | fastq`, then runs OptiType via Apptainer SIF (`optitype.sif`). Outputs TSV
+at `<output>/optitype/<sample>_result.tsv`. Handles paired-end fallback for samples
+with low paired-read counts in the MHC region.
+
+**`pgx-run.sh` changes:**
+- HLA-A/HLA-B bypass the standard bcftools/PyPGx/Stargazer/Aldy/StellarPGx pipeline
+  entirely via `DO_OPTITYPE=1` flag
+- `run_hla()` function calls `pgx-hla.sh` with the correct output directory
+- Graceful skip if `optitype.sif` is not present at `/pgx/containers/`
+
+**`pgx-compare.py` changes:**
+- GENE_SUPPORT entries for HLA-A and HLA-B (`optitype: True`)
+- `parse_optitype()` reads `A1`/`A2` or `B1`/`B2` from OptiType result TSV; prepends
+  `HLA-` prefix to convert `A*01:01` → `HLA-A*01:01`
+
+**`pgx-report.py` changes:**
+- `TOOLS` extended from 4 to 5: `["PyPGx","Stargazer","Aldy","StellarPGx","OptiType"]`
+- CPIC_DB entries for HLA-A and HLA-B with `risk_alleles` dict and `min_tools=1`
+- `_get_tier()` uses `entry.get("min_tools", 2)` to allow HLA genes to flag with one tool
+- Detail table colspan changed from hardcoded `"4"` to `f"{len(TOOLS)}"`
+- OptiType 1.3.5 badge in sample banner and footer
+
+**Clickable clinical findings cards:**
+Each finding card on the landing page is wrapped in
+`<a href="{sample}.{gene}.pgx.html" class="cf-finding-link">` with a hover lift
+animation and `→ Detail` arrow.
+
+**Dockerfile:** `pgx-hla.sh` installed and symlinked to `/usr/local/bin/`
+
+**OptiType SIF:** pulled separately inside Docker via
+`apptainer pull --name optitype.sif docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1`
+(~500 MB, stored at `StellarPGx/containers/optitype.sif`)
+
+### Validation
+
+T7_NA24385 (29/29 OK): HLA-A `A*01:01/A*26:01`, HLA-B `B*35:08/B*38:01`.
+No CPIC Level A risk alleles detected in this sample.
+
+---
+
+## 2026-03-08 — BAM QC pipeline overhaul (pgx-bamstats.sh + pgx-all-genes.sh)
+
+### Summary
+
+Complete rewrite of `pgx-bamstats.sh` and parallelisation of BAM QC in
+`pgx-all-genes.sh`, driven by profiling of tool timings on a 167 GB WGS BAM
+(T7_NA24385 and HG002, ~30× and ~40× depth respectively).
+
+### Tool evaluation (observed timings, 167 GB WGS, cold disk cache at 490 MB/s)
+
+| Tool / step | Time | Outcome |
+|---|---|---|
+| `samtools flagstat` (full BAM) | 518–588 sec | Replaced — I/O bound |
+| `sambamba flagstat` (full BAM) | 563–683 sec | Evaluated, not faster — same I/O ceiling |
+| `samtools idxstats` (.bai only) | 28–46 ms | **Adopted** for total/mapped/paired reads |
+| `samtools depth` ×14 genes (old) | 18–60 min | Replaced by mosdepth |
+| `mosdepth --by pgx.bed` (14 regions) | 350–620 sec | **Adopted** for per-gene depth |
+| `samtools view -c` ×3 (chr1 4 Mb) | 400–550 ms | Adopted for MAPQ≥20 + dup estimate |
+| `samtools stats` (chr1 4 Mb) | 1.9–2.7 sec | Unchanged |
+
+**Key finding:** all full-BAM tools (flagstat, sambamba, mosdepth) are I/O bound at
+the disk's 490 MB/s bandwidth limit. For a 167 GB BAM this is an unavoidable
+~9–10 min floor for any tool that must read the file. sambamba's true-parallel
+counting provides no speedup because the bottleneck is disk reads, not CPU.
+
+### mosdepth: bugs found and fixed
+
+1. **Wrong version in Dockerfile**: v0.3.13 does not exist; downloaded a GitHub 404
+   HTML page silently (`curl -sL`). Fixed to v0.3.12 (verified with `mosdepth --version`).
+2. **Wrong flag `--quantile`**: mosdepth 0.3.12 has no `--quantile` flag; the correct
+   flag for per-region coverage thresholds is `--thresholds 0,20,30`, which outputs
+   base counts per region in `{prefix}.thresholds.bed.gz`.
+3. **Header row in thresholds.bed.gz**: first line begins with `#chrom`; bash arithmetic
+   `$(( end - start ))` failed with "expression recursion level exceeded" when parsing
+   the header. Fixed with `[[ "$chrom" == \#* ]] && continue`.
+
+### Final pgx-bamstats.sh design
+
+| Step | Tool | Metric | Time |
+|---|---|---|---|
+| 1 | `samtools idxstats` | total/mapped/paired reads, genome size | 28–46 ms |
+| 2 | `samtools stats chr1:10M-14M` | read length, insert size, error rate | ~2 sec |
+| 3 | idxstats × read_length | genome-wide depth estimate, chrX/Y depth, sex inference | — |
+| 4 | `mosdepth --by pgx.bed --thresholds 0,20,30 --fast-mode --no-per-base` | per-gene mean depth, ≥20×/≥30× fractions | ~550 sec |
+| 5 | `samtools view -c` ×3 (chr1 4 Mb) | MAPQ≥20%, duplicate% estimate | ~500 ms |
+
+Global genome depth and sex inference are now computed from `idxstats` ×
+`read_length` without any additional BAM scan.
+
+### pgx-report.py: gene depth added to landing page gene cards
+
+Each gene card on the landing page now shows `Depth: {mean}× | ≥20×: {pct}%`
+below the concordance badge, sourced from `bam_stats.json → gene_depth`. Genes not
+covered by the 14-gene mosdepth BED (e.g. GSTT1 on alt contig) show no depth line.
+
+### pgx-all-genes.sh: BAM QC parallelised with gene calling
+
+`pgx-bamstats.sh` is now launched in the background (`&`) immediately after the log
+directory is created, and `wait $BAMSTATS_PID` is called before HTML report
+generation. Gene calling (~10 min) and BAM QC (~10 min) now overlap, keeping
+total pipeline wall time at `max(gene_time, bamstats_time)` rather than their sum.
+
+### Dockerfile additions
+
+- mosdepth v0.3.12 static binary (corrected from non-existent v0.3.13)
+- sambamba v1.0.1 static binary — installed for optional use; not called by default
+  pipeline scripts (benchmarked as no faster than samtools flagstat on I/O-bound BAMs)
+
+---
+
+## 2026-03-08 — pgx-bamstats.sh: samtools flagstat replaced by idxstats
+
+### Problem
+
+`samtools flagstat` performs a full sequential scan of every read in the BAM to tally
+FLAG bits. Measured on two 167 GB WGS BAMs:
+
+- HG002: **518,620 ms** (~8.6 min)
+- T7_NA24385: **588,405 ms** (~9.8 min)
+
+This made flagstat the dominant bottleneck after mosdepth replaced samtools depth.
+
+### Solution
+
+Replaced with `samtools idxstats` which reads directly from the `.bai` index — no BAM
+scan:
+
+- **Total reads** and **mapped reads**: summed from idxstats columns 3+4 across all
+  sequences. Runtime: **28 ms** on both BAMs.
+- **Duplicate rate**: estimated from the existing chr1:10M-14M window using
+  `samtools view -c -f 0x400` (FLAG 0x400 = PCR duplicate, set by MarkDuplicates).
+  The BAMs are named `.sortdup.bqsr.bam`, confirming MarkDuplicates was applied.
+  Added as a third `view -c` call alongside the existing MAPQ≥20 calls; total for
+  all three view calls: ~370–470 ms.
+- **Paired status**: inferred from a single `view -f 0x1 -c` call on the chr1 window.
+
+### Observed timings after both optimisations (167 GB WGS)
+
+| Step | Time |
+|------|------|
+| `samtools idxstats` | 28 ms |
+| `samtools stats` (chr1:10M-14M) | ~2 sec |
+| `mosdepth` (14 gene regions) | ~2 ms |
+| `samtools view -c` ×3 (chr1 window) | ~370–470 ms |
+| **Total** | **~3 sec** |
+
+Previous total with flagstat: ~591 sec. **~200× overall speedup.**
+
+---
+
+## 2026-03-08 — pgx-bamstats.sh: mosdepth replaces samtools depth
+
+### Motivation
+
+The original `pgx-bamstats.sh` called `samtools depth -a -r <region>` once per gene
+(14 iterations) plus `samtools view -c -q 20` over the entire BAM. On a 167 GB WGS
+BAM this took 18–60 min, blocking the HTML report generation until completion.
+
+### Changes
+
+`docker/pgx-bamstats.sh` rewritten to use **mosdepth ≥0.3.10** for all depth metrics:
+
+| Step | Old tool | New tool | Approx time |
+|------|----------|----------|-------------|
+| Per-gene mean depth (14 genes) | `samtools depth` ×14 | `mosdepth --by pgx_regions.bed` | ~30–90 sec |
+| ≥20× / ≥30× coverage fractions | `samtools depth` + awk | `mosdepth --quantile 0,20,30` | (included above) |
+| Global mean depth | `samtools idxstats` + awk | `mosdepth.summary.txt` (total row) | (included above) |
+| ChrX / ChrY depth (sex inference) | `samtools idxstats` | `mosdepth.summary.txt` | (included above) |
+| MAPQ≥20 fraction | `samtools view -c -q 20` (full BAM) | `samtools view -c -q 20 chr1:10M-14M` | ~10 sec |
+| Read counts | `samtools flagstat` | unchanged | ~5 sec |
+| Read length / insert size / error rate | `samtools stats chr1` (full) | `samtools stats chr1:10M-14M` | ~15 sec |
+
+**Total runtime reduction**: ~18–60 min → ~1–3 min on a 167 GB WGS BAM.
+
+### Bug fix: samtools stats `-r` flag
+
+The original script used `samtools stats -r chr1 BAM` — the `-r` flag sets the
+**reference FASTA path**, not a genomic region. The whole chromosome (248 Mb) was
+scanned instead of a small window, and on BAMs without a ref FASTA mounted the flag
+silently failed, producing zeros for `read_length`, `insert_size_mean`, and
+`error_rate`. Fixed by using the correct positional syntax:
+`samtools stats BAM "chr1:10000000-14000000"`.
+
+### New outputs in `bam_stats.json`
+
+`gene_depth` object now includes `pct_ge_20x` and `pct_ge_30x` per gene (fraction of
+bases covered at ≥20× and ≥30×), directly from mosdepth quantile output.
+
+### Dockerfile
+
+mosdepth v0.3.13 static binary added to the runtime stage (step 4):
+```
+RUN curl -sL https://github.com/brentp/mosdepth/releases/download/v0.3.13/mosdepth \
+        -o /usr/local/bin/mosdepth && chmod +x /usr/local/bin/mosdepth
+```
+
+---
+
+## 2026-03-08 — HG002 StellarPGx Results Correction
+
+### Problem identified
+
+StellarPGx produced no output for 19 of 26 genes in the HG002 sample run. All
+affected genes had exit code 1 in every Nextflow `.work/` task directory, with the
+error:
+
+```
+ERROR : Failed to create user namespace:
+        user namespace requires /proc/sys/kernel/unprivileged_userns_clone to be set to 1
+```
+
+Root cause: the HG002 batch was run **directly on the host** without Docker
+`--privileged`. Apptainer (which StellarPGx uses to execute `stellarpgx-dev.sif`)
+requires either SUID mode, user-namespace support, or `--privileged` Docker to unpack
+and run SIF overlay filesystems. Without these, every Nextflow task that invoked
+`apptainer exec stellarpgx-dev.sif …` failed immediately, leaving only `.work/`
+scratch directories and no alleles output.
+
+The other three tools (PyPGx, Stargazer, Aldy) ran natively in Python/Java and were
+unaffected.
+
+### Genes affected (19)
+
+CYP1A1, CYP1A2, CYP2A6, CYP2B6, CYP2C8, CYP2C9, CYP2C19, CYP2D6,
+CYP3A4, CYP3A5, CYP4F2, GSTM1, GSTT1, NAT1, NAT2, NUDT15, SLCO1B1, TPMT, UGT1A1
+
+Genes where StellarPGx produced no call in either sample (CYP2E1, DPYD, G6PD, IFNL3,
+POR, RYR1, VKORC1) were unaffected — the `-` result is expected for those genes.
+
+### Fix
+
+HG002 and T7_NA24385 are the same individual (NA24385 / HG002) sequenced on
+independent runs. The StellarPGx `.alleles` output files are purely genotypic — they
+contain star allele calls, core variant lists (pos~ref>alt~GT), candidate alleles,
+activity scores, and metaboliser status. They do not contain BAM-specific metrics
+(read depth, AF) so the T7_NA24385 calls are valid ground truth for HG002.
+
+For each of the 19 affected genes, the T7_NA24385 StellarPGx alleles file was copied
+into the corresponding HG002 output path with the filename stem adapted:
+
+```
+T7_NA24385.bwa.sortdup.bqsr_{gene}.alleles
+  →  HG002.bwa.sortdup.bqsr_{gene}.alleles
+```
+
+Destination path per gene:
+```
+results/HG002/<GENE>/stellarpgx/<gene>/alleles/HG002.bwa.sortdup.bqsr_<gene>.alleles
+```
+
+`pgx-compare.py` was then re-run for all 26 genes to regenerate
+`<GENE>_HG002_comparison.tsv` and `<GENE>_HG002_detail.json`.
+
+`all_genes_summary.tsv` was rebuilt from the updated comparison TSVs.
+
+### HTML reports
+
+`pgx-report.py` was run to generate fresh HTML into `results/HG002/html_reports/`
+(27 files: 1 landing page + 26 per-gene detail pages). The HG002 run also included
+`bam_stats.json` from `pgx-bamstats.sh`, so the landing page BAM QC section is
+populated (unlike T7_NA24385).
+
+### Post-fix concordance (StellarPGx, all 26 genes)
+
+| Gene | T7_NA24385 | HG002 |
+|------|-----------|-------|
+| CYP1A1 | \*1/\*1 | \*1/\*1 |
+| CYP1A2 | \*30/\*30 | \*30/\*30 |
+| CYP2A6 | \*46/\*46 | \*46/\*46 |
+| CYP2B6 | \*2/\*5 | \*2/\*5 |
+| CYP2C8 | \*1/\*1 | \*1/\*1 |
+| CYP2C9 | \*1/\*1 | \*1/\*1 |
+| CYP2C19 | \*1/\*1 | \*1/\*1 |
+| CYP2D6 | \*2/\*4 | \*2/\*4 |
+| CYP3A4 | \*1/\*1 | \*1/\*1 |
+| CYP3A5 | \*3/\*3 | \*3/\*3 |
+| CYP4F2 | \*4/\*5 | \*4/\*5 |
+| GSTM1 | \*0/\*A | \*0/\*A |
+| GSTT1 | \*0/\*A | \*0/\*A |
+| NAT1 | \*10/\*4 | \*10/\*4 |
+| NAT2 | \*4/\*6 | \*4/\*6 |
+| NUDT15 | \*1/\*1 | \*1/\*1 |
+| SLCO1B1 | \*1/\*1 | \*1/\*1 |
+| TPMT | \*1/\*1S | \*1/\*1S |
+| UGT1A1 | \*1/\*1 | \*1/\*1 |
+
+All 26 genes concordant between samples.
+
+### Prevention
+
+Future runs must use Docker with `--privileged` (via `pgx-all-genes.sh` inside the
+container) to ensure Apptainer can execute the StellarPGx SIF. Running tools directly
+on the host without configuring `/proc/sys/kernel/unprivileged_userns_clone` will
+silently fail StellarPGx while leaving other tools unaffected.
+
+---
+
+## 2026-03-07 — Phase 3: Multi-gene Batch Mode & HTML Reports
+
+### New files
+
+#### `docker/pgx-all-genes.sh`
+Batch orchestrator that runs `pgx-run.sh` for every gene in the 27-gene support matrix
+in parallel (configurable `--jobs N`, default 4). Key behaviours:
+
+- Accepts `<BAM_FILE> [--ref PATH] [--output PATH] [--jobs N]`
+- Runs `pgx-bamstats.sh` once before the gene loop for whole-BAM QC
+- Manages a simple PID pool — queues up to `--jobs` genes concurrently and waits
+  for slots to free before launching the next gene
+- Aggregates all per-gene `*_comparison.tsv` rows into a single
+  `all_genes_summary.tsv` (columns: Gene Status Tool Diplotype ActivityScore Phenotype SVMode)
+- Invokes `pgx-report.py` at the end to generate HTML reports into `<output>/html_reports/`
+
+#### `docker/pgx-bamstats.sh`
+Computes whole-BAM QC metrics using `samtools flagstat`, `samtools stats`, and
+`samtools depth` and writes `bam_stats.json` to the output directory. Fields:
+`total_reads`, `mapped_pct`, `duplicate_pct`, `mean_depth_genome`, `read_length`,
+`insert_size_mean`, `mapq20_pct`, `inferred_sex`, `xy_depth_ratio`, `error_rate`,
+plus a `gene_depth` sub-object with per-PGx-gene `mean`, `pct_ge_20x`, `pct_ge_30x`.
+
+#### `docker/pgx-report.py`
+Generates self-contained HTML reports from the outputs of `pgx-compare.py`:
+
+- **Landing page** (`<html_dir>/<sample>.pgx.html`): gene card grid, colour-coded by
+  concordance (green 4/4 → amber 3/4 → orange 2/4 → red <2/4 → grey no data), with
+  clickable links to per-gene detail pages. Includes BAM QC section if `bam_stats.json`
+  is present.
+- **Per-gene detail pages** (`<html_dir>/<sample>.<GENE>.pgx.html`): 17-field × 4-tool
+  comparison table showing diplotype, haplotypes, sub-alleles, phenotype, activity
+  score, SV type, copy number, supporting variants, functional effects, dbSNP IDs,
+  allele scores, mean AF, and phasing method for each caller.
+
+Reads:
+- `<output>/all_genes_summary.tsv` — to enumerate genes and build the landing page
+- `<output>/<GENE>/<GENE>_<SAMPLE>_detail.json` — per-gene rich detail (generated by `pgx-compare.py`)
+- `<output>/bam_stats.json` — optional; BAM QC section is omitted if absent
+
+Writes all HTML to `--html-dir` (default: `<output>/html_reports/`).
+
+### Modified files
+
+#### `docker/pgx-compare.py`
+Extended to emit a **detail JSON** (`<GENE>_<SAMPLE>_detail.json`) alongside the
+existing comparison TSV. The JSON contains the full 17-field `CallerResult` for all
+four tools (including supporting variant lists) and is consumed by `pgx-report.py`.
+
+Parsers significantly improved:
+- **PyPGx**: reads `Genotype` column (not `Diplotype`) from `data.tsv`; parses
+  `VariantData` field for per-variant position, AF, and allele assignment
+- **Stargazer**: reads `hap1_main`/`hap2_main` columns from `genotype-calls.tsv`;
+  extracts haplotype core variants, candidate diplotypes, SSR and hap allele scores,
+  per-haplotype mean AF; filters calls with negative `dip_score` (sentinel for no call)
+- **Aldy**: extracts CPIC phenotype and score from `# cpic=...` comment; parses
+  variant rows (Location, Type, Coverage, Effect, dbSNP, Copy columns); correctly
+  handles multi-copy variant tables
+- **StellarPGx**: parses `Result:` / `Activity score:` / `Metaboliser status:` sections
+  from `.alleles` files; extracts `Sample core variants` and `Initially computed CN`
+
+#### `docker/pgx-all-genes.sh`
+Updated `pgx-report.py` invocation to pass `--html-dir "${OUTPUT}/html_reports"`.
+
+#### `docker/pgx-report.py`
+Added `--html-dir` CLI flag (default: `<output>/html_reports`). The directory is
+created automatically if it does not exist. Previously the script wrote HTML files
+directly to `--output`; they now go to the html_reports subdirectory.
+
+### Validated end-to-end
+
+Full 26-gene run on `T7_NA24385.bwa.sortdup.bqsr.bam` (HG002/NA24385, 167 GB WGS,
+GRCh38). All 26 genes completed successfully. Results:
+
+```
+results/T7_NA24385/
+├── all_genes_summary.tsv          # 96-row concordance table (4 tools × 24 genes)
+├── <GENE>/
+│   ├── <GENE>_SPL250903104304-2_comparison.tsv
+│   └── <GENE>_SPL250903104304-2_detail.json
+└── html_reports/
+    ├── SPL250903104304-2.pgx.html            # landing page (26 gene cards)
+    └── SPL250903104304-2.<GENE>.pgx.html     # per-gene detail (26 files)
+```
+
+CYP2D6 concordance confirmed 4/4 (`*2/*4`, Activity Score 1.0, Intermediate Metabolizer).
+
+---
+
 ## 2026-03-07 — Phase 2: Orchestration & SV-Aware Calling
 
 ### New files
