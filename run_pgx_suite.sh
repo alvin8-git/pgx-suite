@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_pgx_suite.sh — Host-side launcher for the pgx-suite Docker pipeline
 #
-# Runs the full 29-gene PGx star-allele + HLA typing pipeline for a single
+# Runs the full 31-gene PGx star-allele + HLA typing + mtDNA pipeline for a single
 # WGS sample by launching the pgx-suite Docker container with appropriate
 # volume mounts, forwarding to pgx-all-genes.sh inside.
 #
@@ -22,7 +22,8 @@
 #   StellarPGx/            StellarPGx Nextflow pipeline + databases
 #   StellarPGx/containers/ SIF images (stellarpgx-dev.sif, optitype.sif)
 #   pypgx/pypgx-bundle/    PyPGx Beagle haplotype panel (~500 MB)
-#   GRCh38/                GRCh38 reference FASTA (hg38.fa) + index
+#   GRCh38/                GRCh38 reference FASTA (hg38.fa + hg38.fa.fai)
+# mutserve.jar (MT-RNR1) is baked into the Docker image — no extra mount needed.
 
 set -euo pipefail
 
@@ -55,19 +56,20 @@ Options:
   -h, --help         Show this help
 
 Outputs written to <output>/<SAMPLE>/:
-  <SAMPLE>_pgx_report.html      Landing page HTML report
-  Genes/<GENE>/                 Per-gene tool outputs + per-gene HTML detail page
-  log/all_genes_summary.tsv     Concordance summary across all 29 genes
-  log/bam_stats.json            Coverage statistics (27 primary-assembly genes)
+  <SAMPLE>_pgx_report.html      Standalone single-file HTML report (all genes embedded)
+  Genes/<GENE>/                 Per-gene tool outputs, comparison TSV, detail JSON
+  log/all_genes_summary.tsv     Concordance summary across all 31 genes
+  log/bam_stats.json            Coverage statistics (mosdepth per-gene depth)
   log/<GENE>.log                Per-gene stdout/stderr logs
 
 Fixed resource directories (expected under ${SCRIPT_DIR}/):
   StellarPGx/              StellarPGx Nextflow pipeline
   StellarPGx/containers/   SIF images (stellarpgx-dev.sif, optitype.sif)
   pypgx/pypgx-bundle/      PyPGx Beagle haplotype panel
-  GRCh38/                  GRCh38 reference FASTA (hg38.fa)
+  GRCh38/                  GRCh38 reference FASTA (hg38.fa + hg38.fa.fai)
 
 Note: --privileged is required for Apptainer used by StellarPGx and OptiType.
+      mutserve.jar (MT-RNR1 chrM caller) is baked into the image — no extra mount needed.
 EOF
 }
 
