@@ -186,6 +186,115 @@ These are flagged red in the HTML report. Root causes:
 
 ---
 
+## Phase 7: CPIC Level A Gap Closure — CACNA1S and MT-RNR1
+
+Two CPIC Level A genes remain unsupported. Coverage would bring the pipeline to 19/19 Level A genes.
+
+---
+
+### CACNA1S — Malignant Hyperthermia Susceptibility (MHS) partner to RYR1
+
+**Gene:** `CACNA1S` · chr1:201,006,956-201,083,927 (GRCh38) · ~77 kb · CPIC Level A
+**Drug:** Volatile anaesthetics (halothane, sevoflurane, desflurane, isoflurane) and succinylcholine
+**Clinical significance:** Loss-of-function variants → malignant hyperthermia susceptibility (MHS). Key actionable
+variants: c.520C>T (p.Arg174Trp), c.3257G>A (p.Arg1086His). Diplotype-based recommendation: MHS-susceptible vs.
+MHS-normal phenotype.
+
+**Tool support (current):**
+| Tool       | CACNA1S support | Notes |
+|------------|----------------|-------|
+| PyPGx      | ✅ Yes          | Supported since ≥ v0.19; SV panel available; requires `--panel wgs` |
+| Aldy       | ❌ No           | Not in Aldy 4.x gene database |
+| Stargazer  | ❌ No           | Not in Stargazer 2.x gene list |
+| StellarPGx | ✅ Yes          | Supported in StellarPGx ≥ 1.2; part of default gene set |
+
+**What is needed:**
+- [ ] Add `CACNA1S` to `GENE_COORDS` and `GENE_SUPPORT` (`1 0 0 1`) in `pgx-run.sh`
+- [ ] Add `CACNA1S` to `GENES` list in `pgx-all-genes.sh`
+- [ ] Add BED entry `chr1:201006956-201083927` to `pgx-bamstats.sh` mosdepth BED
+- [ ] Extend `pgx-compare.py` `GENE_SUPPORT` dict and verify PyPGx `parse_pypgx()` handles CACNA1S
+  (PyPGx outputs `MHS-susceptible` / `MHS-normal` in the Phenotype column — not a standard metabolizer label)
+- [ ] Add CPIC_DB entry to `pgx-report.py`:
+  - drugs: volatile anaesthetics + succinylcholine
+  - phenotypes: MHS-susceptible → avoid triggering agents; MHS-normal → standard care
+  - risk_alleles: `*2` (Arg174Trp), `*3` (Arg1086His)
+- [ ] Add `GENE_LOCI` entry for CACNA1S in `pgx-report.py`
+- [ ] Validate on HG002 (expected: no MHS variants → MHS-normal)
+
+**No new tools required** — PyPGx and StellarPGx already handle CACNA1S with standard WGS BAM input. This
+is a configuration-only addition, similar to how ABCG2 was added in Phase 4.
+
+---
+
+### MT-RNR1 — Aminoglycoside-Induced Hearing Loss
+
+**Gene:** `MT-RNR1` (12S rRNA) · chrM:648-1601 (GRCh38, NC_012920.1) · ~954 bp · CPIC Level A
+**Drug:** Aminoglycosides (gentamicin, tobramycin, amikacin, streptomycin, neomycin)
+**Clinical significance:** m.1555A>G (most common, ~1/500 Europeans) and m.1494C>T → ribosomal hypersensitivity
+to aminoglycosides → irreversible sensorineural hearing loss. Even a single dose can be ototoxic in carriers.
+
+**Tool support (current):**
+| Tool       | MT-RNR1 support | Notes |
+|------------|----------------|-------|
+| PyPGx      | ❌ No           | No mitochondrial gene support |
+| Aldy       | ❌ No           | No mitochondrial gene support |
+| Stargazer  | ❌ No           | No mitochondrial gene support |
+| StellarPGx | ❌ No           | No mitochondrial gene support |
+
+**Why none of the current tools work:**
+- All four tools are diplotype callers designed for nuclear (biallelic) genes.
+- Mitochondrial DNA is polyploid (hundreds to thousands of copies per cell), maternally inherited,
+  and haploid (no second allele). Standard genotype callers report the wrong ploidy and fail.
+- Heteroplasmy: a variant may be present in 2–98% of mt copies. A threshold of ≥5% allele
+  fraction is typical for clinical reporting.
+- NUMTs (nuclear mitochondrial DNA segments) can create false-positive calls at chrM positions
+  if not properly filtered.
+
+**Dedicated mitochondrial variant callers required:**
+
+| Tool | Approach | Availability | Notes |
+|------|----------|--------------|-------|
+| **GATK Mutect2 `--mitochondria-mode`** | Somatic-style allele-fraction caller adapted for chrM | Free, GATK 4.2+ | Recommended by GATK best practices for mtDNA; handles heteroplasmy, NUMT contamination filter, strand-bias filter. Outputs VCF with AF field. |
+| **mtDNA-Server 2** | Web/CLI mt variant calling + haplogroup | Free, docker available (`ghcr.io/genepi/mtdna-server-2`) | Automated NUMT filtering, heteroplasmy phasing, haplogroup assignment. Probably the simplest integration path. |
+| **haplocheck** | Contamination + heteroplasmy detection from GATK VCF | Free, CLI | Used post-Mutect2; not a caller itself |
+| **mity** | Lightweight Mutect2 wrapper for clinical mt calling | Free (Python CLI) | Adds liftover, report; fewer moving parts than raw GATK |
+| **Yleaf / HaploGrep3** | Haplogroup assignment (not variant calling) | Free | Useful for interpreting haplogroup context but not actionable for m.1555A>G |
+
+**Recommended approach:**
+1. **GATK Mutect2 in `--mitochondria-mode`** as the primary caller:
+   - Extract chrM reads: `samtools view -b input.bam chrM | samtools sort -o chrM.bam`
+   - Run: `gatk Mutect2 --mitochondria-mode -R hg38.fa -I chrM.bam -O mt_raw.vcf.gz`
+   - Filter: `gatk FilterMutectCalls --mitochondria-mode -V mt_raw.vcf.gz -O mt_filtered.vcf.gz`
+   - Check for m.1555A>G (chrM:1555 A→G) and m.1494C>T (chrM:1494 C→T) in output VCF.
+2. Report allele fraction (AF field), not a diplotype. For AF ≥ 0.05 → carrier; AF < 0.05 → likely
+   not carrier (or very low-level heteroplasmy of uncertain significance).
+
+**What is needed:**
+- [ ] New script `docker/pgx-mt.sh` — chrM read extraction → Mutect2 mitochondria-mode → VCF parse
+  - Target: chrM:648-1601 (MT-RNR1) with 200 bp flank
+  - Output: `{gene}/{sample}_mtrna1_result.json` — variant, AF, classification (carrier/non-carrier)
+- [ ] Add GATK 4.x to `Dockerfile` (or use `broadinstitute/gatk:4.5.0.0` base layer / Apptainer SIF)
+  - GATK adds ~1.5 GB to image — consider SIF approach (consistent with StellarPGx/OptiType pattern)
+  - Alt: `mity` pip install is much smaller but wraps GATK — GATK still required on PATH
+- [ ] Add `MT-RNR1` to `pgx-run.sh` as a special case (like HLA-A/B calling pgx-hla.sh)
+  - `run_mt()` function that calls `pgx-mt.sh` instead of standard mpileup → tool callers chain
+- [ ] Add `MT-RNR1` to `pgx-all-genes.sh` GENES list
+- [ ] Extend `pgx-compare.py` with `parse_mtrna1()`:
+  - Read `_mtrna1_result.json`; emit diplotype-style row: e.g. `m.1555A>G(AF=0.98)` or `Reference`
+  - Phenotype: `Aminoglycoside-ototoxicity risk` vs. `Standard risk`
+- [ ] Add CPIC_DB entry to `pgx-report.py`:
+  - drugs: gentamicin, tobramycin, amikacin, streptomycin, neomycin
+  - risk_alleles: `m.1555A>G`, `m.1494C>T`
+  - min_tools: 1
+- [ ] Add mosdepth BED entry `chrM:448-1801` (MT-RNR1 ± 200 bp flank) to `pgx-bamstats.sh`
+  - Note: chrM depth is typically very high (500–5000×) — flag if < 100× as insufficient for AF calling
+- [ ] Add `GENE_LOCI` entry for MT-RNR1: `chrM:648-1,601 (GRCh38)`
+
+**Complexity assessment:** High — requires a new caller paradigm (AF-based, not diplotype-based),
+GATK in Docker, and new parsing logic. Suggest implementing as a standalone Phase 7b after CACNA1S (Phase 7a).
+
+---
+
 ## Known Limitations / Notes
 
 - `StellarPGx` requires `--privileged` Docker flag (Apptainer inside Docker)
