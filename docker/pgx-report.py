@@ -795,7 +795,8 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
 
 
 def build_gene_cpic_section(gene: str, phenotype: str, diplotype: str,
-                             all_tool_diplos: list[str] | None = None) -> str:
+                             all_tool_diplos: list[str] | None = None,
+                             id_prefix: str = "") -> str:
     """Build the comprehensive CPIC reference section for a gene detail page."""
     entry = CPIC_DB.get(gene)
     if not entry:
@@ -833,7 +834,7 @@ def build_gene_cpic_section(gene: str, phenotype: str, diplotype: str,
     sep = "&ensp;|&ensp;" if pharmvar_html else ""
 
     return f"""
-    <div class="cpic-section" id="cpic-reference">
+    <div class="cpic-section" id="{id_prefix}cpic-reference">
         <div class="cpic-header">
             <div>
                 <h2>CPIC Clinical Reference — {gene}</h2>
@@ -1182,8 +1183,9 @@ def gene_depth_table(bs: dict) -> str:
 
 
 def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
-                  genes_rel_prefix: str = ""):
-    """Build <sample>.pgx.html landing page."""
+                  genes_rel_prefix: str = "",
+                  gene_fragments: dict | None = None):
+    """Build <sample>_pgx_report.html landing page with embedded gene detail panels."""
 
     gene_cards_html = ""
     gene_depth_map = (bs or {}).get("gene_depth", {})
@@ -1197,10 +1199,6 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         badge_text = f"{n_agree}/{n_called} tools" if n_called else "No data"
         pill_color = phenotype_color(pheno)
         pheno_short = pheno if pheno != "-" else "—"
-        if genes_rel_prefix:
-            detail_page = f"{genes_rel_prefix}/{gene}/{sample}.{gene}.pgx.html"
-        else:
-            detail_page = f"{sample}.{gene}.pgx.html"
 
         card_class_map = {
             "card-green":   "card-green",
@@ -1227,12 +1225,22 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             else:
                 mean  = depth_info.get("mean", "—")
                 pct30 = depth_info.get("pct_ge_30x", "—")
-                depth_html = f'<div class="gene-depth">Depth: {mean}X &nbsp;|&nbsp; ≥30X: {pct30}%</div>'
+                depth_html = f'<div class="gene-depth">Depth: {mean}X &nbsp;|&nbsp; &#8805;30X: {pct30}%</div>'
         else:
             depth_html = ""
 
+        if gene_fragments is not None:
+            card_onclick = f'onclick="pgxShowGene(\'{gene}\'); return false;"'
+            card_href = "#"
+        else:
+            card_onclick = ""
+            if genes_rel_prefix:
+                card_href = f"{genes_rel_prefix}/{gene}/{sample}.{gene}.pgx.html"
+            else:
+                card_href = f"{sample}.{gene}.pgx.html"
+
         gene_cards_html += f"""
-            <a href="{detail_page}" class="gene-card {css_cls}">
+            <a href="{card_href}" {card_onclick} class="gene-card {css_cls}">
                 <div class="gene-name">{gene}</div>
                 <div class="gene-diplo" title="{dip}">{dip if dip != '-' else '—'}</div>
                 <div>
@@ -1260,16 +1268,48 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     today = date.today().isoformat()
 
+    # Build embedded gene panels HTML
+    gene_panels_html = ""
+    if gene_fragments:
+        for gfragment_gene, fragment in gene_fragments.items():
+            gene_panels_html += (
+                f'<div id="gene-panel-{gfragment_gene}" class="gene-panel" hidden>\n'
+                f'<div class="container">\n{fragment}\n</div>\n</div>\n'
+            )
+
+    # Include DETAIL_EXTRA_CSS when embedding gene panels
+    extra_style = f"\n{DETAIL_EXTRA_CSS}" if gene_fragments else ""
+
+    # JS show/hide for embedded mode
+    embedded_js = ""
+    if gene_fragments:
+        embedded_js = """
+<script>
+function pgxShowGene(gene) {
+    document.getElementById('main-view').hidden = true;
+    document.querySelectorAll('.gene-panel').forEach(function(el) { el.hidden = true; });
+    var panel = document.getElementById('gene-panel-' + gene);
+    if (panel) { panel.hidden = false; }
+    window.scrollTo(0, 0);
+}
+function pgxShowMain() {
+    document.querySelectorAll('.gene-panel').forEach(function(el) { el.hidden = true; });
+    document.getElementById('main-view').hidden = false;
+    window.scrollTo(0, 0);
+}
+</script>"""
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PGx Report — {sample}</title>
+    <title>PGx Report &#8212; {sample}</title>
     <style>
 {SHARED_CSS}
-{LANDING_EXTRA_CSS}
+{LANDING_EXTRA_CSS}{extra_style}
     </style>
+{embedded_js}
 </head>
 <body>
 <header>
@@ -1281,6 +1321,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
     <div class="report-date">Report date: {today}<br>GRCh38</div>
 </header>
 
+<div id="main-view">
 <div class="container">
 
     <div class="sample-banner">
@@ -1333,10 +1374,14 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 {gene_depth_html}
 
 </div>
+</div>
+
+<!-- Gene detail panels (embedded, shown/hidden by JS) -->
+{gene_panels_html}
 
 <footer>
     PGx Suite &bull; GRCh38 &bull; PyPGx 0.26 / Stargazer 2.0.3 / Aldy 4.8 / StellarPGx 1.2.7 / OptiType 1.3.5
-    &bull; For research and clinical decision support only — not a standalone diagnostic.
+    &bull; For research and clinical decision support only &#8212; not a standalone diagnostic.
 </footer>
 </body>
 </html>"""
@@ -1600,7 +1645,8 @@ def _tool_cell(tool: str, v: dict | None) -> str:
     return f'<td class="vtool-data">{inner}</td>'
 
 
-def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None = None) -> str:
+def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None = None,
+                            id_prefix: str = "") -> str:
     """Return the full HTML for the harmonised cross-tool variant evidence section."""
     if not clusters:
         return ""
@@ -1655,7 +1701,7 @@ def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None 
         )
 
     return f"""
-    <div class="variant-section" id="variant-evidence">
+    <div class="variant-section" id="{id_prefix}variant-evidence">
         <h2>Supporting Variant Evidence</h2>
         <div class="var-meta">{summary}{legend}</div>
         <div class="var-table-wrap">
@@ -1674,18 +1720,20 @@ def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None 
     </div>"""
 
 
-def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out_dir: str,
-                    gene_depth: dict | None = None):
-    """Build <sample>.<gene>.pgx.html detail page."""
+def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | None,
+                      back_href: str, id_prefix: str = "") -> str:
+    """Return the inner HTML fragment for a gene detail panel (no html/head/body wrapper).
+
+    id_prefix — prepended to all section IDs (e.g. 'CYP2D6-') to avoid collisions
+                when multiple gene panels are embedded in the same document.
+    back_href — href for the <- Back link; use 'javascript:void(0)' for embedded mode.
+    """
     tools_data = detail.get("tools", {})
     sv_note = detail.get("sv_mode", "")
 
-    # Pre-compute harmonised variant clusters for the subtable
     clusters = harmonize_variants(tools_data)
-    var_subtable_html = render_variant_subtable(clusters)
+    var_subtable_html = render_variant_subtable(clusters, id_prefix=id_prefix)
 
-    # CPIC clinical reference section — pass all tool diplotypes so diplotype_check
-    # genes (VKORC1, DPYD, etc.) are correctly identified across tool nomenclatures.
     from collections import Counter as _Counter
     pheno_list = [tools_data.get(t, {}).get("phenotype", "-") for t in TOOLS
                   if tools_data.get(t, {}).get("phenotype", "-") not in ("-", "")]
@@ -1696,24 +1744,21 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
     all_tool_diplos_page = [tools_data.get(t, {}).get("diplotype", "-") for t in TOOLS
                             if tools_data.get(t, {}).get("diplotype", "-") not in ("-", "")]
     cpic_section_html = build_gene_cpic_section(
-        gene, consensus_pheno, consensus_diplo, all_tool_diplos_page)
+        gene, consensus_pheno, consensus_diplo, all_tool_diplos_page, id_prefix=id_prefix)
 
-    # Build 17X4 table
     header_cells = "".join(f"<th>{t}</th>" for t in TOOLS)
     rows_html = ""
     for field_key, field_label in FIELDS:
         if field_key == "sv_mode":
-            # sv_mode is gene-level, same for all tools
             val_html = f'<td colspan="{len(TOOLS)}" style="color:var(--muted);font-style:italic">{fmt_value("sv_mode", sv_note)}</td>'
             rows_html += f"<tr><td>{field_label}</td>{val_html}</tr>\n"
         elif field_key == "supporting_variants":
-            # Show per-tool variant count; full detail in the harmonised subtable below
             cells = ""
             for tool in TOOLS:
                 vlist = tools_data.get(tool, {}).get("supporting_variants", [])
                 n = len(vlist) if isinstance(vlist, list) else 0
                 cells += f'<td><span class="var-count-cell">{n} variant{"s" if n != 1 else ""}</span></td>'
-            anchor = '<a href="#variant-evidence" class="var-anchor-link">↓ see table below</a>'
+            anchor = f'<a href="#{id_prefix}variant-evidence" class="var-anchor-link">&#8595; see table below</a>'
             rows_html += f"<tr><td>{field_label}{anchor}</td>{cells}</tr>\n"
         else:
             cells = ""
@@ -1723,7 +1768,6 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
                 cells += f"<td>{fmt_value(field_key, raw)}</td>"
             rows_html += f"<tr><td>{field_label}</td>{cells}</tr>\n"
 
-    # Concordance pill
     diplotypes = []
     for tool in TOOLS:
         d = normalize_diplotype(tools_data.get(tool, {}).get("diplotype", "-"))
@@ -1741,7 +1785,6 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
     }
     badge_cls = badge_cls_map.get(card_class, "badge-grey")
 
-    # Build depth info for gene-header
     if gene_depth and gene_depth.get("note") == "alt_contig":
         depth_detail_html = '<div class="gene-depth-detail">Depth: Alt contig (chr22_KI270879v1_alt)</div>'
     elif gene_depth:
@@ -1751,8 +1794,8 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
         depth_detail_html = (
             f'<div class="gene-depth-detail">'
             f'Mean depth: <strong>{mean}X</strong>'
-            f' &nbsp;|&nbsp; ≥20X: <strong>{pct20}%</strong>'
-            f' &nbsp;|&nbsp; ≥30X: <strong>{pct30}%</strong>'
+            f' &nbsp;|&nbsp; &#8805;20X: <strong>{pct20}%</strong>'
+            f' &nbsp;|&nbsp; &#8805;30X: <strong>{pct30}%</strong>'
             f'</div>'
         )
     else:
@@ -1764,38 +1807,21 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
         if locus else ""
     )
 
-    today = date.today().isoformat()
     sv_note_html = f'<div class="sv-note">&#128202; {sv_note}</div>' if sv_note and sv_note != "-" else ""
 
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PGx Report — {sample} — {gene}</title>
-    <style>
-{SHARED_CSS}
-{DETAIL_EXTRA_CSS}
-    </style>
-</head>
-<body>
-<header>
-    <div>
-        <div class="logo">&#9652; PGx Suite</div>
-        <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
-    </div>
-    <div class="spacer"></div>
-    <div class="report-date">Report date: {today}<br>GRCh38</div>
-</header>
+    # back_onclick is set when back_href signals embedded mode
+    if back_href.startswith("javascript:"):
+        back_el = f'<a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>'
+    else:
+        back_el = f'<a href="{back_href}" class="back-link">&#8592; Back to sample summary</a>'
 
-<div class="container">
-
-    <a href="{landing_file}" class="back-link">&#8592; Back to sample summary</a>
+    return f"""
+    {back_el}
 
     <nav class="gene-page-nav">
-        <a href="#tool-results">Tool Results</a>
-        <a href="#variant-evidence">Variant Evidence</a>
-        <a href="#cpic-reference">CPIC Reference</a>
+        <a href="#{id_prefix}tool-results">Tool Results</a>
+        <a href="#{id_prefix}variant-evidence">Variant Evidence</a>
+        <a href="#{id_prefix}cpic-reference">CPIC Reference</a>
     </nav>
 
     <div class="gene-header">
@@ -1814,8 +1840,8 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
         </div>
     </div>
 
-    <div class="section" id="tool-results">
-        <h2>Tool Results — {gene}</h2>
+    <div class="section" id="{id_prefix}tool-results">
+        <h2>Tool Results &#8212; {gene}</h2>
         <div class="detail-table-wrap">
             <table class="detail-table">
                 <thead>
@@ -1834,12 +1860,44 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
 {var_subtable_html}
 
 {cpic_section_html}
+"""
 
+
+def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out_dir: str,
+                    gene_depth: dict | None = None):
+    """Build <sample>.<gene>.pgx.html detail page (standalone file, not used in default pipeline)."""
+    today = date.today().isoformat()
+    inner = _build_gene_inner(sample, gene, detail, gene_depth,
+                              back_href=landing_file, id_prefix="")
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGx Report &#8212; {sample} &#8212; {gene}</title>
+    <style>
+{SHARED_CSS}
+{DETAIL_EXTRA_CSS}
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <div class="logo">&#9652; PGx Suite</div>
+        <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="report-date">Report date: {today}<br>GRCh38</div>
+</header>
+
+<div class="container">
+{inner}
 </div>
 
 <footer>
     PGx Suite &bull; GRCh38 &bull; PyPGx 0.26 / Stargazer 2.0.3 / Aldy 4.8 / StellarPGx 1.2.7 / OptiType 1.3.5
-    &bull; For research and clinical decision support only — not a standalone diagnostic.
+    &bull; For research and clinical decision support only &#8212; not a standalone diagnostic.
 </footer>
 </body>
 </html>"""
@@ -1848,6 +1906,7 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
     with open(out_path, "w") as fh:
         fh.write(html)
     print(f"  {gene}: {out_path}")
+
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1897,14 +1956,10 @@ def main():
             if parts and parts[0] and parts[0] not in seen_genes:
                 seen_genes.append(parts[0])
 
-    # Build per-gene pages and collect landing data
-    print(f"Generating per-gene HTML pages for {len(seen_genes)} genes …")
-    # Landing page lives at <out_dir>/<sample>_pgx_report.html
-    # Per-gene pages live at <genes_dir>/<GENE>/<sample>.<GENE>.pgx.html
-    # Back-link from per-gene page: two levels up (../../) to reach out_dir
-    landing_filename = f"{sample}_pgx_report.html"
-    landing_backlink = f"../../{landing_filename}"
+    # Build gene fragments and collect landing data
+    print(f"Collecting gene detail panels for {len(seen_genes)} genes …")
     genes_data = []
+    gene_fragments: dict = {}
 
     for gene in seen_genes:
         # Find detail JSON — new layout: genes_dir/<gene>/; fallback: out_dir/<gene>/
@@ -1947,15 +2002,17 @@ def main():
             "all_tool_diplotypes": all_tool_diplotypes,
         })
 
-        gene_out_dir = os.path.join(genes_dir, gene)
-        os.makedirs(gene_out_dir, exist_ok=True)
-        build_gene_page(sample, gene, detail, landing_backlink, gene_out_dir,
-                        gene_depth=gene_depth_map.get(gene))
+        fragment = _build_gene_inner(
+            sample, gene, detail, gene_depth_map.get(gene),
+            back_href="javascript:void(0)", id_prefix=f"{gene}-")
+        gene_fragments[gene] = fragment
+        print(f"  {gene}: fragment built")
 
     # Build landing page at <out_dir>/<sample>_pgx_report.html
-    print(f"Generating landing page …")
+    print(f"Generating standalone HTML report …")
     build_landing(sample, bam_path, genes_data, bs, out_dir,
-                  genes_rel_prefix=f"Genes")
+                  genes_rel_prefix="Genes",
+                  gene_fragments=gene_fragments)
     print("Done.")
 
 
