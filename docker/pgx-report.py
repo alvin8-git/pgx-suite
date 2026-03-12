@@ -684,7 +684,8 @@ def _get_landing_note(gene: str, pheno_cat: str, diplotype: str,
     return notes.get(pheno_cat, notes.get("_diplotype", ""))
 
 
-def build_clinical_findings_section(genes_data: list, sample: str = "") -> str:
+def build_clinical_findings_section(genes_data: list, sample: str = "",
+                                     genes_rel_prefix: str = "") -> str:
     """Build the Key Clinical Findings TL;DR section for the landing page."""
     findings: dict[str, list] = {"high": [], "moderate": [], "informational": []}
 
@@ -757,7 +758,12 @@ def build_clinical_findings_section(genes_data: list, sample: str = "") -> str:
                 f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
                 if f["concordance_warn"] else ""
             )
-            detail_href = f"{sample}.{f['gene']}.pgx.html" if sample else "#"
+            if sample and genes_rel_prefix:
+                detail_href = f"{genes_rel_prefix}/{f['gene']}/{sample}.{f['gene']}.pgx.html"
+            elif sample:
+                detail_href = f"{sample}.{f['gene']}.pgx.html"
+            else:
+                detail_href = "#"
             html += f"""
             <a href="{detail_href}" class="cf-finding-link">
             <div class="cf-finding {tier_css}">
@@ -1175,7 +1181,8 @@ def gene_depth_table(bs: dict) -> str:
     </div>"""
 
 
-def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str):
+def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
+                  genes_rel_prefix: str = ""):
     """Build <sample>.pgx.html landing page."""
 
     gene_cards_html = ""
@@ -1190,7 +1197,10 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         badge_text = f"{n_agree}/{n_called} tools" if n_called else "No data"
         pill_color = phenotype_color(pheno)
         pheno_short = pheno if pheno != "-" else "—"
-        detail_page = f"{sample}.{gene}.pgx.html"
+        if genes_rel_prefix:
+            detail_page = f"{genes_rel_prefix}/{gene}/{sample}.{gene}.pgx.html"
+        else:
+            detail_page = f"{sample}.{gene}.pgx.html"
 
         card_class_map = {
             "card-green":   "card-green",
@@ -1236,7 +1246,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     bam_basename = os.path.basename(bam) if bam else "—"
 
-    clinical_html = build_clinical_findings_section(genes_data, sample)
+    clinical_html = build_clinical_findings_section(genes_data, sample, genes_rel_prefix)
 
     qc_html = ""
     gene_depth_html = ""
@@ -1331,7 +1341,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 </body>
 </html>"""
 
-    out_path = os.path.join(out_dir, f"{sample}.pgx.html")
+    out_path = os.path.join(out_dir, f"{sample}_pgx_report.html")
     with open(out_path, "w") as fh:
         fh.write(html)
     print(f"Landing page: {out_path}")
@@ -1844,20 +1854,21 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
 def main():
     ap = argparse.ArgumentParser(description="Generate PGx HTML reports")
     ap.add_argument("--sample",    required=True, help="Sample ID")
-    ap.add_argument("--output",    required=True, help="Output directory (contains all_genes_summary.tsv and gene subdirs)")
-    ap.add_argument("--html-dir",  default="",    help="Directory to write HTML files (default: <output>/html_reports)")
+    ap.add_argument("--output",    required=True, help="Root output directory (landing page written here)")
+    ap.add_argument("--genes-dir", default="",    help="Directory containing per-gene subdirs (default: <output>/Genes)")
     ap.add_argument("--bam",       default="",    help="BAM file path (for display)")
-    ap.add_argument("--bam-stats", default="",    help="Path to bam_stats.json")
+    ap.add_argument("--bam-stats", default="",    help="Path to bam_stats.json (default: <output>/log/bam_stats.json)")
     args = ap.parse_args()
 
-    sample = args.sample
+    sample  = args.sample
     out_dir = args.output
-    html_dir = args.html_dir or os.path.join(out_dir, "html_reports")
-    os.makedirs(html_dir, exist_ok=True)
+    genes_dir = args.genes_dir or os.path.join(out_dir, "Genes")
+    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(genes_dir, exist_ok=True)
 
     # Load BAM stats
     bs = None
-    bam_stats_path = args.bam_stats or os.path.join(out_dir, "bam_stats.json")
+    bam_stats_path = args.bam_stats or os.path.join(out_dir, "log", "bam_stats.json")
     if os.path.isfile(bam_stats_path):
         with open(bam_stats_path) as fh:
             bs = json.load(fh)
@@ -1868,10 +1879,13 @@ def main():
     bam_path = args.bam or (bs.get("bam", "") if bs else "")
     gene_depth_map = (bs or {}).get("gene_depth", {})
 
-    # Discover genes from summary TSV
-    summary_tsv = os.path.join(out_dir, "all_genes_summary.tsv")
+    # Discover genes from summary TSV (written to <output>/log/ by pgx-all-genes.sh)
+    summary_tsv = os.path.join(out_dir, "log", "all_genes_summary.tsv")
     if not os.path.isfile(summary_tsv):
-        print(f"ERROR: {summary_tsv} not found", file=sys.stderr)
+        # Fallback: legacy location at output root
+        summary_tsv = os.path.join(out_dir, "all_genes_summary.tsv")
+    if not os.path.isfile(summary_tsv):
+        print(f"ERROR: all_genes_summary.tsv not found in {out_dir}/log/ or {out_dir}/", file=sys.stderr)
         sys.exit(1)
 
     seen_genes: list[str] = []
@@ -1885,15 +1899,21 @@ def main():
 
     # Build per-gene pages and collect landing data
     print(f"Generating per-gene HTML pages for {len(seen_genes)} genes …")
-    landing_file = f"{sample}.pgx.html"
+    # Landing page lives at <out_dir>/<sample>_pgx_report.html
+    # Per-gene pages live at <genes_dir>/<GENE>/<sample>.<GENE>.pgx.html
+    # Back-link from per-gene page: two levels up (../../) to reach out_dir
+    landing_filename = f"{sample}_pgx_report.html"
+    landing_backlink = f"../../{landing_filename}"
     genes_data = []
 
     for gene in seen_genes:
-        # Find detail JSON
-        detail_json = os.path.join(out_dir, gene, f"{gene}_{sample}_detail.json")
+        # Find detail JSON — new layout: genes_dir/<gene>/; fallback: out_dir/<gene>/
+        detail_json = os.path.join(genes_dir, gene, f"{gene}_{sample}_detail.json")
         if not os.path.isfile(detail_json):
-            # Try glob
-            matches = glob.glob(os.path.join(out_dir, gene, "*_detail.json"))
+            matches = glob.glob(os.path.join(genes_dir, gene, "*_detail.json"))
+            if not matches:
+                # Legacy fallback
+                matches = glob.glob(os.path.join(out_dir, gene, "*_detail.json"))
             detail_json = matches[0] if matches else None
 
         if detail_json and os.path.isfile(detail_json):
@@ -1927,12 +1947,15 @@ def main():
             "all_tool_diplotypes": all_tool_diplotypes,
         })
 
-        build_gene_page(sample, gene, detail, landing_file, html_dir,
+        gene_out_dir = os.path.join(genes_dir, gene)
+        os.makedirs(gene_out_dir, exist_ok=True)
+        build_gene_page(sample, gene, detail, landing_backlink, gene_out_dir,
                         gene_depth=gene_depth_map.get(gene))
 
-    # Build landing page
+    # Build landing page at <out_dir>/<sample>_pgx_report.html
     print(f"Generating landing page …")
-    build_landing(sample, bam_path, genes_data, bs, html_dir)
+    build_landing(sample, bam_path, genes_data, bs, out_dir,
+                  genes_rel_prefix=f"Genes")
     print("Done.")
 
 

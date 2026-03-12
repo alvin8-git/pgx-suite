@@ -48,17 +48,18 @@ Usage: $(basename "$0") <BAM|CRAM> [options]
   <BAM|CRAM>         Input alignment file (must have .bai/.crai index alongside)
 
 Options:
-  --output DIR       Output directory on host  (default: <repo>/results/<SAMPLE>)
+  --output DIR       Parent output directory on host; results go into DIR/<SAMPLE>/
+                     (default parent: <repo>/results/)
   --jobs N           Genes to run in parallel  (default: 4)
   --image NAME       Docker image to use       (default: pgx-suite:latest)
   -h, --help         Show this help
 
-Outputs written to <output>/:
-  <GENE>/                  Per-gene results (comparison TSV + tool subdirs)
-  logs/                    Per-gene stdout/stderr logs
-  bam_stats.json           Coverage statistics across all 27 primary-assembly genes
-  all_genes_summary.tsv    Concordance summary across all 29 genes
-  html_reports/            HTML report (<SAMPLE>.pgx.html + per-gene pages)
+Outputs written to <output>/<SAMPLE>/:
+  <SAMPLE>_pgx_report.html      Landing page HTML report
+  Genes/<GENE>/                 Per-gene tool outputs + per-gene HTML detail page
+  log/all_genes_summary.tsv     Concordance summary across all 29 genes
+  log/bam_stats.json            Coverage statistics (27 primary-assembly genes)
+  log/<GENE>.log                Per-gene stdout/stderr logs
 
 Fixed resource directories (expected under ${SCRIPT_DIR}/):
   StellarPGx/              StellarPGx Nextflow pipeline
@@ -128,8 +129,13 @@ fi
 # ── Derive sample name and output path ────────────────────────────────────────
 SAMPLE="$(basename "$INPUT_HOST" | cut -d'.' -f1)"
 
+# Always place results in a <SAMPLE> subdirectory so that:
+#   --output ./results/  →  ./results/HG005/
+#   (no --output)        →  <repo>/results/HG005/
 if [[ -z "$OUTPUT_HOST" ]]; then
     OUTPUT_HOST="${SCRIPT_DIR}/results/${SAMPLE}"
+else
+    OUTPUT_HOST="${OUTPUT_HOST%/}/${SAMPLE}"
 fi
 
 mkdir -p "$OUTPUT_HOST"
@@ -176,8 +182,8 @@ cat <<EOF
 
 ========================================================================
  Run complete — exit code: ${RC}
- HTML report: ${OUTPUT_HOST}/html_reports/${SAMPLE}.pgx.html
- Summary TSV: ${OUTPUT_HOST}/all_genes_summary.tsv
+ HTML report: ${OUTPUT_HOST}/${SAMPLE}_pgx_report.html
+ Summary TSV: ${OUTPUT_HOST}/log/all_genes_summary.tsv
  Finished:    $(date '+%Y-%m-%d %H:%M:%S')
 ========================================================================
 EOF

@@ -94,8 +94,9 @@ GENES=(
 TOTAL=${#GENES[@]}
 
 # ── Directories ───────────────────────────────────────────────────────────────
-LOG_DIR="${OUTPUT}/logs"
-mkdir -p "$LOG_DIR"
+LOG_DIR="${OUTPUT}/log"
+GENES_DIR="${OUTPUT}/Genes"
+mkdir -p "$LOG_DIR" "$GENES_DIR"
 
 # ── Extract sample name from BAM filename (before the first ".") ──────────────
 # e.g. T7_NA24385.bwa.sortdup.bqsr.bam → T7_NA24385
@@ -107,7 +108,7 @@ SAMPLE=$(basename "$BAM" | cut -d'.' -f1)
 # max(bamstats_time, gene_calling_time) instead of their sum.
 # BAMSTATS_PID is waited on after the gene loop, before HTML report generation.
 echo "Starting BAM QC in background …"
-pgx-bamstats.sh "$BAM" "$SAMPLE" "$OUTPUT" "$REF" \
+pgx-bamstats.sh "$BAM" "$SAMPLE" "${LOG_DIR}" "$REF" \
     > "${LOG_DIR}/bamstats.log" 2>&1 &
 BAMSTATS_PID=$!
 
@@ -138,7 +139,7 @@ run_gene() {
 
     if pgx-run.sh "$gene" "$BAM" \
             --ref "$REF" \
-            --output "${OUTPUT}/${gene}" \
+            --output "${GENES_DIR}/${gene}" \
             >> "$log" 2>&1; then
         echo "[$(date '+%H:%M:%S')] DONE   ${gene}" >> "$log"
         echo "OK"
@@ -148,7 +149,7 @@ run_gene() {
     fi
 }
 export -f run_gene
-export BAM REF OUTPUT LOG_DIR
+export BAM REF OUTPUT LOG_DIR GENES_DIR
 
 # ── Parallel execution with a simple job-pool ─────────────────────────────────
 declare -A PIDS STATUS
@@ -198,7 +199,7 @@ for pid_gene in "${RUNNING[@]+"${RUNNING[@]}"}"; do
 done
 
 # ── Aggregate concordance summary ─────────────────────────────────────────────
-SUMMARY_TSV="${OUTPUT}/all_genes_summary.tsv"
+SUMMARY_TSV="${LOG_DIR}/all_genes_summary.tsv"
 
 echo -e "Gene\tStatus\tTool\tDiplotype\tActivityScore\tPhenotype\tSVMode" \
     > "$SUMMARY_TSV"
@@ -212,8 +213,8 @@ printf " %-10s  %-6s  %-30s  %s\n" "Gene" "Status" "Top diplotype (concordant)" 
 echo "------------------------------------------------------------------------"
 
 for GENE in "${GENES[@]}"; do
-    TSV_FILE=$(ls "${OUTPUT}/${GENE}/${GENE}_${SAMPLE}_comparison.tsv" 2>/dev/null \
-               || ls "${OUTPUT}/${GENE}"/*_comparison.tsv 2>/dev/null | head -1 \
+    TSV_FILE=$(ls "${GENES_DIR}/${GENE}/${GENE}_${SAMPLE}_comparison.tsv" 2>/dev/null \
+               || ls "${GENES_DIR}/${GENE}"/*_comparison.tsv 2>/dev/null | head -1 \
                || true)
 
     if [[ "${STATUS[$GENE]:-FAILED}" == "OK" && -f "$TSV_FILE" ]]; then
@@ -257,12 +258,12 @@ fi
 # ── HTML report ───────────────────────────────────────────────────────────────
 echo "Generating HTML report …"
 pgx-report.py \
-    --sample   "$SAMPLE" \
-    --output   "$OUTPUT" \
-    --html-dir "${OUTPUT}/html_reports" \
-    --bam      "$BAM" \
-    --bam-stats "${OUTPUT}/bam_stats.json" \
-    && echo "HTML report: ${OUTPUT}/html_reports/${SAMPLE}.pgx.html" \
+    --sample    "$SAMPLE" \
+    --output    "$OUTPUT" \
+    --genes-dir "${GENES_DIR}" \
+    --bam       "$BAM" \
+    --bam-stats "${LOG_DIR}/bam_stats.json" \
+    && echo "HTML report: ${OUTPUT}/${SAMPLE}_pgx_report.html" \
     || echo "WARN: HTML report generation failed (results still available in TSV)"
 
 [[ $FAIL_COUNT -eq 0 ]] && exit 0 || exit 1
