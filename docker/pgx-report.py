@@ -733,8 +733,13 @@ def _get_landing_note(gene: str, pheno_cat: str, diplotype: str,
 
 
 def build_clinical_findings_section(genes_data: list, sample: str = "",
-                                     genes_rel_prefix: str = "") -> str:
-    """Build the Key Clinical Findings TL;DR section for the landing page."""
+                                     genes_rel_prefix: str = "",
+                                     embedded: bool = False) -> str:
+    """Build the Key Clinical Findings TL;DR section for the landing page.
+
+    embedded — True when gene detail panels are inlined in the same HTML file;
+               links use onclick='pgxShowGene()' instead of separate file hrefs.
+    """
     findings: dict[str, list] = {"high": [], "moderate": [], "informational": []}
 
     for gd in genes_data:
@@ -806,14 +811,20 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
                 f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
                 if f["concordance_warn"] else ""
             )
-            if sample and genes_rel_prefix:
-                detail_href = f"{genes_rel_prefix}/{f['gene']}/{sample}.{f['gene']}.pgx.html"
+            if embedded:
+                detail_href  = "#"
+                detail_click = f" onclick=\"pgxShowGene('{f['gene']}'); return false;\""
+            elif sample and genes_rel_prefix:
+                detail_href  = f"{genes_rel_prefix}/{f['gene']}/{sample}.{f['gene']}.pgx.html"
+                detail_click = ""
             elif sample:
-                detail_href = f"{sample}.{f['gene']}.pgx.html"
+                detail_href  = f"{sample}.{f['gene']}.pgx.html"
+                detail_click = ""
             else:
-                detail_href = "#"
+                detail_href  = "#"
+                detail_click = ""
             html += f"""
-            <a href="{detail_href}" class="cf-finding-link">
+            <a href="{detail_href}"{detail_click} class="cf-finding-link">
             <div class="cf-finding {tier_css}">
                 <div class="cf-finding-header">
                     <span class="cf-gene">{f["gene"]}</span>
@@ -1333,7 +1344,9 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     bam_basename = os.path.basename(bam) if bam else "—"
 
-    clinical_html = build_clinical_findings_section(genes_data, sample, genes_rel_prefix)
+    clinical_html = build_clinical_findings_section(
+        genes_data, sample, genes_rel_prefix,
+        embedded=(gene_fragments is not None))
 
     qc_html = ""
     gene_depth_html = ""
