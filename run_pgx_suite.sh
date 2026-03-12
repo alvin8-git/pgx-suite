@@ -15,7 +15,7 @@
 #
 # Requirements:
 #   - Docker with --privileged support
-#   - pgx-suite:latest image (docker build -t pgx-suite:latest docker/)
+#   - pgx-suite:latest image (docker build -t pgx-suite:latest .)
 #   - Resource directories under this repo (see PATHS section below)
 #
 # Fixed resource directories (relative to this script):
@@ -26,6 +26,38 @@
 # mutserve.jar (MT-RNR1) is baked into the Docker image — no extra mount needed.
 
 set -euo pipefail
+
+# ── ANSI colours (disabled automatically when stdout is not a terminal) ────────
+if [[ -t 1 ]]; then
+    C_RESET='\033[0m'
+    C_BOLD='\033[1m'
+    C_DIM='\033[2m'
+    C_RED='\033[0;31m'
+    C_GREEN='\033[0;32m'
+    C_YELLOW='\033[0;33m'
+    C_BLUE='\033[0;34m'
+    C_CYAN='\033[0;36m'
+    C_WHITE='\033[0;37m'
+    C_BOLD_RED='\033[1;31m'
+    C_BOLD_GREEN='\033[1;32m'
+    C_BOLD_YELLOW='\033[1;33m'
+    C_BOLD_CYAN='\033[1;36m'
+else
+    C_RESET='' C_BOLD='' C_DIM=''
+    C_RED='' C_GREEN='' C_YELLOW='' C_BLUE='' C_CYAN='' C_WHITE=''
+    C_BOLD_RED='' C_BOLD_GREEN='' C_BOLD_YELLOW='' C_BOLD_CYAN=''
+fi
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+_err()   { echo -e "${C_BOLD_RED}ERROR:${C_RESET} $*" >&2; }
+_warn()  { echo -e "${C_BOLD_YELLOW}WARN:${C_RESET}  $*"; }
+_ok()    { echo -e "${C_BOLD_GREEN}OK${C_RESET}"; }
+_stage() { echo -e "\n${C_BOLD_CYAN}▶ $*${C_RESET}"; }
+
+_elapsed() {
+    local secs=$(( $(date +%s) - START_EPOCH ))
+    printf '%02d:%02d' $(( secs / 60 )) $(( secs % 60 ))
+}
 
 # ── Locate repo root (directory containing this script) ───────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -84,7 +116,7 @@ while [[ $# -gt 0 ]]; do
         --jobs)   JOBS="$2";        shift 2 ;;
         --image)  IMAGE="$2";       shift 2 ;;
         -h|--help) usage; exit 0 ;;
-        *) echo "ERROR: Unknown argument: $1" >&2; usage; exit 1 ;;
+        *) _err "Unknown argument: $1"; usage; exit 1 ;;
     esac
 done
 
@@ -96,37 +128,43 @@ EXT="${INPUT_HOST##*.}"
 case "$EXT" in
     bam)  INDEX_EXT="bai" ;;
     cram) INDEX_EXT="crai" ;;
-    *)    echo "ERROR: Input must be a .bam or .cram file: ${INPUT_HOST}" >&2; exit 1 ;;
+    *)    _err "Input must be a .bam or .cram file: ${INPUT_HOST}"; exit 1 ;;
 esac
 
 # ── Validate inputs ───────────────────────────────────────────────────────────
+_stage "Validating inputs"
+
 if [[ ! -f "$INPUT_HOST" ]]; then
-    echo "ERROR: Input file not found: ${INPUT_HOST}" >&2; exit 1
+    _err "Input file not found: ${INPUT_HOST}"; exit 1
 fi
+echo -e "  Input file   ${C_GREEN}found${C_RESET}   ${C_DIM}${INPUT_HOST}${C_RESET}"
 
 # Accept <file>.bam.bai or <file>.bai
 if [[ ! -f "${INPUT_HOST}.${INDEX_EXT}" && ! -f "${INPUT_HOST%.${EXT}}.${INDEX_EXT}" ]]; then
-    echo "ERROR: Index not found (expected ${INPUT_HOST}.${INDEX_EXT})" >&2
+    _err "Index not found (expected ${INPUT_HOST}.${INDEX_EXT})"
     echo "       Run: samtools index ${INPUT_HOST}" >&2
     exit 1
 fi
+echo -e "  Index file   ${C_GREEN}found${C_RESET}"
 
 for dir in "$STELLARPGX_DIR" "$CONTAINERS_DIR" "$BUNDLE_DIR" "$REF_DIR"; do
     if [[ ! -d "$dir" ]]; then
-        echo "ERROR: Required resource directory not found: ${dir}" >&2
-        exit 1
+        _err "Required resource directory not found: ${dir}"; exit 1
     fi
+    echo -e "  Resource dir ${C_GREEN}found${C_RESET}   ${C_DIM}${dir}${C_RESET}"
 done
 
 if ! command -v docker &>/dev/null; then
-    echo "ERROR: 'docker' not found in PATH" >&2; exit 1
+    _err "'docker' not found in PATH"; exit 1
 fi
+echo -e "  Docker       ${C_GREEN}found${C_RESET}   ${C_DIM}$(docker --version)${C_RESET}"
 
 if ! docker image inspect "$IMAGE" &>/dev/null 2>&1; then
-    echo "ERROR: Docker image '${IMAGE}' not found." >&2
-    echo "       Build it with: docker build -t ${IMAGE} ${SCRIPT_DIR}/docker/" >&2
+    _err "Docker image '${IMAGE}' not found."
+    echo "       Build it with: docker build -t ${IMAGE} ${SCRIPT_DIR}/" >&2
     exit 1
 fi
+echo -e "  Image        ${C_GREEN}found${C_RESET}   ${C_DIM}${IMAGE}${C_RESET}"
 
 # ── Derive sample name and output path ────────────────────────────────────────
 SAMPLE="$(basename "$INPUT_HOST" | cut -d'.' -f1)"
@@ -148,20 +186,26 @@ INPUT_DIR_HOST="$(dirname "$INPUT_HOST")"
 INPUT_FILENAME="$(basename "$INPUT_HOST")"
 INPUT_CONTAINER="/pgx/data/${INPUT_FILENAME}"
 
+# ── Start timer ───────────────────────────────────────────────────────────────
+START_EPOCH=$(date +%s)
+START_TS=$(date '+%Y-%m-%d %H:%M:%S')
+
 # ── Banner ────────────────────────────────────────────────────────────────────
-cat <<EOF
-========================================================================
- PGx Suite — Host launcher
- Sample:  ${SAMPLE}
- Input:   ${INPUT_HOST}
- Output:  ${OUTPUT_HOST}
- Image:   ${IMAGE}
- Jobs:    ${JOBS} genes in parallel
- Started: $(date '+%Y-%m-%d %H:%M:%S')
-========================================================================
-EOF
+echo -e "
+${C_BOLD_CYAN}╔══════════════════════════════════════════════════════════════════════╗
+║              PGx Suite — 31-gene pharmacogenomics pipeline           ║
+╚══════════════════════════════════════════════════════════════════════╝${C_RESET}
+  ${C_BOLD}Sample :${C_RESET}  ${C_YELLOW}${SAMPLE}${C_RESET}
+  ${C_BOLD}Input  :${C_RESET}  ${C_DIM}${INPUT_HOST}${C_RESET}
+  ${C_BOLD}Output :${C_RESET}  ${C_DIM}${OUTPUT_HOST}${C_RESET}
+  ${C_BOLD}Image  :${C_RESET}  ${C_DIM}${IMAGE}${C_RESET}
+  ${C_BOLD}Jobs   :${C_RESET}  ${JOBS} genes in parallel
+  ${C_BOLD}Started:${C_RESET}  ${START_TS}"
 
 # ── Run the Docker container ──────────────────────────────────────────────────
+_stage "Launching pipeline (pgx-all-genes.sh inside container)"
+echo -e "  ${C_DIM}Container output follows — gene results stream in as they complete${C_RESET}\n"
+
 docker run \
     --privileged \
     --rm \
@@ -180,14 +224,35 @@ docker run \
 
 RC=$?
 
-cat <<EOF
+# ── Final summary ─────────────────────────────────────────────────────────────
+ELAPSED=$(_elapsed)
+END_TS=$(date '+%Y-%m-%d %H:%M:%S')
 
-========================================================================
- Run complete — exit code: ${RC}
- HTML report: ${OUTPUT_HOST}/${SAMPLE}_pgx_report.html
- Summary TSV: ${OUTPUT_HOST}/log/all_genes_summary.tsv
- Finished:    $(date '+%Y-%m-%d %H:%M:%S')
-========================================================================
-EOF
+echo ""
+if [[ $RC -eq 0 ]]; then
+    STATUS_LINE="${C_BOLD_GREEN}✔  Pipeline completed successfully${C_RESET}"
+else
+    STATUS_LINE="${C_BOLD_RED}✘  Pipeline finished with errors  (exit code: ${RC})${C_RESET}"
+fi
 
+echo -e "${C_BOLD_CYAN}╔══════════════════════════════════════════════════════════════════════╗
+║                          Run Summary                                 ║
+╚══════════════════════════════════════════════════════════════════════╝${C_RESET}
+  ${STATUS_LINE}
+
+  ${C_BOLD}Sample  :${C_RESET}  ${C_YELLOW}${SAMPLE}${C_RESET}
+  ${C_BOLD}Duration:${C_RESET}  ${C_BOLD_YELLOW}${ELAPSED}${C_RESET}  (${START_TS} → ${END_TS})
+
+  ${C_BOLD}Outputs :${C_RESET}
+    ${C_BOLD_GREEN}▸${C_RESET} HTML report  ${C_DIM}${OUTPUT_HOST}/${SAMPLE}_pgx_report.html${C_RESET}
+    ${C_BOLD_GREEN}▸${C_RESET} Summary TSV  ${C_DIM}${OUTPUT_HOST}/log/all_genes_summary.tsv${C_RESET}
+    ${C_BOLD_GREEN}▸${C_RESET} Gene results ${C_DIM}${OUTPUT_HOST}/Genes/<GENE>/${C_RESET}
+    ${C_BOLD_GREEN}▸${C_RESET} Logs         ${C_DIM}${OUTPUT_HOST}/log/<GENE>.log${C_RESET}"
+
+if [[ $RC -ne 0 ]]; then
+    echo -e "\n  ${C_BOLD_YELLOW}Check per-gene logs for details:${C_RESET}"
+    echo -e "    ${C_DIM}ls ${OUTPUT_HOST}/log/*.log${C_RESET}"
+fi
+
+echo ""
 exit $RC
