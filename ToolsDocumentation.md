@@ -1,10 +1,12 @@
 # PGx Star Allele Callers — Tool Reference
 
-This document provides a concise reference for the five pharmacogenomics (PGx)
+This document provides a concise reference for the six pharmacogenomics (PGx)
 callers bundled in the **pgx-suite** Docker container. Four tools handle star allele
 genotyping across the pharmacogenome; one (OptiType) performs HLA class I typing for
-HLA-A and HLA-B. It is intended to let users understand each tool's approach, gene
-coverage, and limitations without having to read five separate documentation sites.
+HLA-A and HLA-B; and one (mutserve) performs mitochondrial variant calling for MT-RNR1
+(aminoglycoside-induced hearing loss). It is intended to let users understand each tool's
+approach, gene coverage, and limitations without having to read six separate documentation
+sites.
 
 All tools are configured for **GRCh38 (hg38)** in this container.
 
@@ -12,20 +14,20 @@ All tools are configured for **GRCh38 (hg38)** in this container.
 
 ## Quick Comparison
 
-| | PyPGx | Stargazer | Aldy | StellarPGx | OptiType |
-|---|---|---|---|---|---|
-| **Version** | 0.26.0 | 2.0.3 | 4.8.3 | 1.2.7 | 1.3.5 |
-| **License** | MIT | Non-commercial academic (UW) | Non-commercial academic (IURTC) | MIT | MIT |
-| **Input** | BAM + VCF | BAM + VCF | BAM | BAM | BAM (MHC reads) |
-| **Genes** | 88 | 58 | 39 | 21 | HLA-A, HLA-B, HLA-C |
-| **SV/CN detection** | Yes (manual preprocessing) | Partial (3 paralog genes) | Yes (automatic) | Yes (automatic) | N/A |
-| **Phasing** | Beagle (statistical) | Beagle (statistical) | ILP | Graphtyper | ILP |
-| **Algorithm** | Bayesian / EM | Bayesian / EM | Integer Linear Programming | Genome graph (vg) | ILP on HLA graph |
-| **WGS** | Yes | Yes | Yes | Yes (WGS only) | Yes |
-| **WES / panel** | Yes | Yes | Yes (CN unreliable) | No | Yes (if MHC captured) |
-| **Long reads** | No | No | Partial (`--param sam_long_reads`) | No | No |
-| **Multi-sample** | Yes | Yes | No | No | No |
-| **Recommended coverage** | ≥30× | ≥30× | ≥40× | ≥30× | ≥30× |
+| | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve |
+|---|---|---|---|---|---|---|
+| **Version** | 0.26.0 | 2.0.3 | 4.8.3 | 1.2.7 | 1.3.5 | 2.0.0 |
+| **License** | MIT | Non-commercial academic (UW) | Non-commercial academic (IURTC) | MIT | MIT | MIT |
+| **Input** | BAM + VCF | BAM + VCF | BAM | BAM | BAM (MHC reads) | BAM (chrM reads) |
+| **Genes** | 88 | 58 | 39 | 21 | HLA-A, HLA-B, HLA-C | MT-RNR1 (full chrM) |
+| **SV/CN detection** | Yes (manual preprocessing) | Partial (3 paralog genes) | Yes (automatic) | Yes (automatic) | N/A | N/A |
+| **Phasing** | Beagle (statistical) | Beagle (statistical) | ILP | Graphtyper | ILP | Allele fraction (AF) |
+| **Algorithm** | Bayesian / EM | Bayesian / EM | Integer Linear Programming | Genome graph (vg) | ILP on HLA graph | Pileup + strand-bias filter |
+| **WGS** | Yes | Yes | Yes | Yes (WGS only) | Yes | Yes |
+| **WES / panel** | Yes | Yes | Yes (CN unreliable) | No | Yes (if MHC captured) | Only if chrM captured |
+| **Long reads** | No | No | Partial (`--param sam_long_reads`) | No | No | No |
+| **Multi-sample** | Yes | Yes | No | No | No | No (single-sample JAR) |
+| **Recommended coverage** | ≥30× | ≥30× | ≥40× | ≥30× | ≥30× | ≥50× mean chrM (typically 500–5000×) |
 
 ---
 
@@ -422,43 +424,145 @@ formatted as `HLA-A*01:01/HLA-A*02:01` (slash-separated ordered pair).
 
 ---
 
+## 6. mutserve
+
+### Overview
+
+mutserve is a dedicated mitochondrial DNA (mtDNA) variant caller developed by Sebastian
+Schoenherr's group at the Medical University of Innsbruck. It addresses a fundamental
+limitation of standard diplotype callers: mitochondrial DNA is not biallelic — cells
+contain hundreds to thousands of mt copies (polyplasmy), and variants may be present in
+only a fraction of those copies (heteroplasmy). mutserve treats mt variant calling as an
+allele-fraction problem, reporting both the variant and its fraction of total chrM reads.
+
+mutserve is the SNP-calling engine inside **mtDNA-Server 2** but can also be run as a
+standalone JAR. In this suite it is run standalone (no Nextflow dependency) because only
+two specific CPIC Level A positions are targeted: **m.1555A>G** and **m.1494C>T** in
+the MT-RNR1 (12S rRNA) gene.
+
+### How it is integrated in pgx-suite
+
+`pgx-mt.sh` handles the full workflow:
+
+1. **chrM read extraction** — `samtools view -b` extracts reads mapped to `chrM`, sorted
+   and indexed into a temporary BAM.
+2. **chrM reference extraction** — `samtools faidx /pgx/ref/hg38.fa chrM` produces a
+   minimal FASTA for the rCRS-based GRCh38 chrM contig (~16 KB).
+3. **mutserve call** — invoked as:
+   ```
+   java -Xmx2g -jar mutserve.jar call \
+       --input  chrM_sorted.bam \
+       --output variants.txt \
+       --reference chrM_ref.fa \
+       --level  0.01 \
+       --threads N
+   ```
+   `--level 0.01` sets the minimum allele fraction to report (1%); CPIC uses ≥2% as the
+   clinical carrier threshold but 1% captures very low-level heteroplasmy for information.
+4. **Parsing** — `pgx-mt.sh` reads the tab-delimited output and checks positions 1555
+   and 1494 for the A→G and C→T substitutions respectively.
+5. **JSON result** — written to `<output>/mt-rnr1/<sample>_mtrna1_result.json` with
+   fields: `diplotype`, `phenotype`, `classification` (carrier / non-carrier), `variants`
+   (position, AF, homoplasmic/heteroplasmic), `notes`.
+6. **Parsing in `pgx-compare.py`** — `parse_mutserve()` reads the JSON and emits a
+   `CallerResult` with diplotype (e.g. `m.1555A>G`) and allele score
+   (`m.1555A>G(AF=0.98,homoplasmic)`).
+
+### Input requirements
+
+- **BAM/CRAM** — aligned to GRCh38, sorted and indexed; chrM reads must be present
+- **mutserve.jar** — baked into Docker image at `/usr/local/bin/mutserve.jar`
+- **Java 21 JRE** — already present in the image (step 4 of Dockerfile)
+- **Reference** — `/pgx/ref/hg38.fa` (volume-mounted); chrM extracted at runtime
+- **Minimum mean chrM coverage** — ≥50× recommended; typical WGS yields 500–5000× (not
+  a practical constraint for standard 30× WGS)
+
+### Genes covered
+
+| Gene | CPIC Level | Key variants | Clinical significance |
+|------|-----------|--------------|----------------------|
+| MT-RNR1 | A | m.1555A>G (~1/500 Europeans), m.1494C>T | Ribosomal hypersensitivity to aminoglycosides → permanent bilateral hearing loss |
+
+### Output
+
+The per-gene output directory (`<output>/MT-RNR1/mt-rnr1/`) contains:
+
+- `<sample>_mtrna1_result.json` — structured result (diplotype, AF, classification, notes)
+- `<sample>_mutserve_raw.txt` — full mutserve tab-delimited output for all chrM variants
+- `mutserve.log` — tool stderr/stdout for debugging
+
+The `pgx-compare.py` parser emits a single comparison row formatted as:
+- Diplotype: `m.1555A>G` (carrier) or `Reference` (non-carrier)
+- Allele score: `m.1555A>G(AF=0.98,homoplasmic)` or `No CPIC Level A variants detected`
+
+### Key differences from standard diplotype callers
+
+| Aspect | Standard callers (PyPGx etc.) | mutserve (MT-RNR1) |
+|--------|------------------------------|-------------------|
+| Ploidy model | Diploid (2 alleles) | Polyploid (AF 0–100%) |
+| Output | Diplotype `*1/*4` | Variant + allele fraction |
+| Inheritance | Autosomal (biallelic) or X-linked | Maternal only |
+| Family implications | Per-individual | All maternal-lineage relatives |
+| Heteroplasmy | Not applicable | Core feature (AF per variant) |
+| Reference state | `*1/*1` | `Reference` (no CPIC variants) |
+
+### Limitations
+
+- **SNPs only**: mutserve v2 standalone does not call indels. Indel calling requires
+  the full mtDNA-Server 2 Nextflow pipeline with Mutect2 in fusion mode — not relevant
+  for the two targeted CPIC Level A SNPs.
+- **CPIC variants only**: `pgx-mt.sh` filters specifically for m.1555A>G and m.1494C>T.
+  Other pathogenic mt variants (e.g. LHON variants, MELAS m.3243A>G) are present in the
+  raw output file but are not reported in the comparison or HTML report.
+- **No star allele nomenclature**: MT-RNR1 uses HGMD/ClinVar mutation notation
+  (e.g. `m.1555A>G`), not PharmVar star alleles.
+- **JAR baked into image**: Unlike OptiType/StellarPGx, mutserve requires no external
+  SIF and no Apptainer — it runs directly via Java.
+- **chrM alignment quality**: Reads from nuclear mitochondrial DNA segments (NUMTs) can
+  contaminate chrM pileups. mutserve has internal strand-bias and base-quality filters;
+  the raw output includes coverage metrics for manual review.
+
+---
+
 ## Gene Support Matrix
 
 The following table shows which genes are supported by each tool (in this suite's
 GRCh38 configuration). Genes only in the outer tools (PyPGx/Stargazer) are omitted
 for brevity; the full per-tool lists are in the sections above.
 
-| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | SV? |
-|------|:-----:|:---------:|:----:|:----------:|:--------:|:---:|
-| ABCG2 | ✓ | — | ✓ | ✓ | — | — |
-| CYP1A1 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP1A2 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | ✓ (paralog) |
-| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | ✓ (paralog) |
-| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | ✓ (paralog + tandem) |
-| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | ✓ (CN) |
-| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | ✓ (CN) |
-| DPYD | ✓ | ✓ | ✓ | — | — | — |
-| G6PD | ✓ | ✓ | ✓ | — | — | ✓ (CN) |
-| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | ✓ (deletion) |
-| GSTT1 | ✓† | — | — | ✓ | — | ✓ (deletion) |
-| HLA-A | — | — | — | — | ✓ | — |
-| HLA-B | — | — | — | — | ✓ | — |
-| IFNL3 | ✓ | ✓ | ✓ | — | — | — |
-| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — |
-| NAT2 | ✓ | ✓ | ✓ | ✓ | — | — |
-| NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — |
-| CYPOR/POR | ✓ | ✓ | — | ✓ | — | — |
-| RYR1 | ✓ | ✓ | ✓ | — | — | — |
-| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — |
-| TPMT | ✓ | ✓ | ✓ | ✓ | — | — |
-| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | — |
-| VKORC1 | ✓ | ✓ | ✓ | — | — | — |
+| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve | SV? |
+|------|:-----:|:---------:|:----:|:----------:|:--------:|:--------:|:---:|
+| ABCG2 | — | — | ✓ | ✓ | — | — | — |
+| CACNA1S | ✓ | — | — | ✓ | — | — | — |
+| CYP1A1 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP1A2 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (paralog) |
+| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (paralog) |
+| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (paralog + tandem) |
+| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (CN) |
+| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (CN) |
+| DPYD | ✓ | ✓ | ✓ | — | — | — | — |
+| G6PD | ✓ | ✓ | ✓ | — | — | — | ✓ (CN) |
+| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ (deletion) |
+| GSTT1 | ✓† | — | — | ✓ | — | — | ✓ (deletion) |
+| HLA-A | — | — | — | — | ✓ | — | — |
+| HLA-B | — | — | — | — | ✓ | — | — |
+| IFNL3 | ✓ | ✓ | ✓ | — | — | — | — |
+| MT-RNR1 | — | — | — | — | — | ✓ | — |
+| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| NAT2 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| CYPOR/POR | ✓ | ✓ | — | ✓ | — | — | — |
+| RYR1 | ✓ | ✓ | ✓ | — | — | — | — |
+| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| TPMT | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| VKORC1 | ✓ | ✓ | ✓ | — | — | — | — |
 
 †GSTT1 is on an alternate GRCh38 contig — bcftools cannot generate a VCF for it from
 a standard reference; PyPGx depth-of-coverage preprocessing may also fail.
@@ -977,6 +1081,7 @@ Some genes in the 29-gene suite are not supported by all five callers. Key cases
 | **Aldy** | Numanagić I et al. (2018) *Nat. Methods* doi:10.1038/s41592-018-0078-y; v4 update 2023 |
 | **StellarPGx** | Twesigomwe D et al. (2021) *Clin. Pharmacol. Ther.* doi:10.1002/cpt.2173 |
 | **OptiType** | Szolek A et al. (2014) *Bioinformatics* doi:10.1093/bioinformatics/btu548 |
+| **mutserve** | Weissensteiner H et al. (2021) *Nucleic Acids Res.* doi:10.1093/nar/gkab1018 (mtDNA-Server 2 / mutserve v2) |
 
 ---
 
@@ -989,6 +1094,7 @@ Some genes in the 29-gene suite are not supported by all five callers. Key cases
 | Aldy | Non-commercial academic (IURTC) | **No commercial use; do not push to public registries** |
 | StellarPGx | MIT | Open use |
 | OptiType | MIT | Open use (SIF image via Bioconda/BioContainers) |
+| mutserve | MIT | Open use (JAR baked into Docker image) |
 
 The `pgx-suite` Docker image must not be uploaded to Docker Hub, GHCR, or any other
 public container registry because it bundles Stargazer and Aldy source code.
