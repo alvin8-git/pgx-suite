@@ -254,28 +254,46 @@ to aminoglycosides → irreversible sensorineural hearing loss. Even a single do
 
 | Tool | Approach | Availability | Notes |
 |------|----------|--------------|-------|
-| **GATK Mutect2 `--mitochondria-mode`** | Somatic-style allele-fraction caller adapted for chrM | Free, GATK 4.2+ | Recommended by GATK best practices for mtDNA; handles heteroplasmy, NUMT contamination filter, strand-bias filter. Outputs VCF with AF field. |
-| **mtDNA-Server 2** | Web/CLI mt variant calling + haplogroup | Free, docker available (`ghcr.io/genepi/mtdna-server-2`) | Automated NUMT filtering, heteroplasmy phasing, haplogroup assignment. Probably the simplest integration path. |
-| **haplocheck** | Contamination + heteroplasmy detection from GATK VCF | Free, CLI | Used post-Mutect2; not a caller itself |
-| **mity** | Lightweight Mutect2 wrapper for clinical mt calling | Free (Python CLI) | Adds liftover, report; fewer moving parts than raw GATK |
-| **Yleaf / HaploGrep3** | Haplogroup assignment (not variant calling) | Free | Useful for interpreting haplogroup context but not actionable for m.1555A>G |
+| **mtDNA-Server 2 + mutserve** | Nextflow pipeline; mutserve for SNPs, Mutect2 for indels, or "fusion" mode for both | Free; Nextflow + Docker; runs via `nextflow run genepi/mtdna-server-2` | Outputs `variants.annotated.txt` (39 columns incl. AF, gene locus, pathogenicity, population freq) + haplogroup + HTML report. Detection limit 0.02 (2%) by default. NUMT annotation column from 1000GP Phase 1 data. Requires ≥50× mean chrM coverage. **Simplest integration path.** |
+| **mutserve standalone** | SNP-only AF caller for chrM | Free; JAR/CLI; `--contig-name chrM` for WGS BAMs | Outputs VCF with AF field or tab-delimited text. `--level 0.01` default (1%). Handles homoplasmic + heteroplasmic. Does NOT call indels. Used as SNP engine inside mtDNA-Server 2. |
+| **GATK Mutect2 `--mitochondria-mode`** | Somatic-style AF caller adapted for chrM; SNP + indel | Free, GATK 4.2+; ~1.5 GB image | GATK best-practices mtDNA workflow; strand-bias + NUMT contamination filters via `FilterMutectCalls`. More complex setup. Outputs VCF with AF field. |
+| **haplocheck** | Contamination detection from mtDNA VCF | Free, CLI | Post-calling step; not a variant caller |
+| **HaploGrep3 / Yleaf** | Haplogroup assignment | Free | Context only; not actionable for m.1555A>G |
 
-**Recommended approach:**
-1. **GATK Mutect2 in `--mitochondria-mode`** as the primary caller:
-   - Extract chrM reads: `samtools view -b input.bam chrM | samtools sort -o chrM.bam`
-   - Run: `gatk Mutect2 --mitochondria-mode -R hg38.fa -I chrM.bam -O mt_raw.vcf.gz`
-   - Filter: `gatk FilterMutectCalls --mitochondria-mode -V mt_raw.vcf.gz -O mt_filtered.vcf.gz`
-   - Check for m.1555A>G (chrM:1555 A→G) and m.1494C>T (chrM:1494 C→T) in output VCF.
-2. Report allele fraction (AF field), not a diplotype. For AF ≥ 0.05 → carrier; AF < 0.05 → likely
-   not carrier (or very low-level heteroplasmy of uncertain significance).
+**Recommended approach — mtDNA-Server 2 (fusion mode):**
+
+mtDNA-Server 2 is the most practical integration path: it is a Nextflow pipeline requiring only
+Docker (no GATK installation), handles a WGS BAM directly, and its "fusion" mode combines
+mutserve (SNPs, including m.1555A>G / m.1494C>T) with Mutect2 (indels). It annotates variants
+with 1000GP NUMT flags, pathogenicity predictions, and population frequencies — all in one run.
+
+```bash
+# Minimal run (single BAM, fusion mode, detection limit 2%)
+nextflow run genepi/mtdna-server-2 -r v2.1.16 \
+    -profile docker \
+    --input  /pgx/data/${SAMPLE}.bam \
+    --output /pgx/results/MT-RNR1/ \
+    --mode fusion \
+    --detection_limit 0.02 \
+    --contig-name chrM
+```
+
+Key output: `variants.annotated.txt` — parse for positions 1555 (A→G) and 1494 (C→T).
+- AF ≥ 0.02 at m.1555A>G or m.1494C>T → carrier (flag for aminoglycoside avoidance)
+- No variant detected → non-carrier (standard care)
+- Report AF value alongside classification (e.g. homoplasmic 0.99 vs heteroplasmic 0.15)
 
 **What is needed:**
-- [ ] New script `docker/pgx-mt.sh` — chrM read extraction → Mutect2 mitochondria-mode → VCF parse
-  - Target: chrM:648-1601 (MT-RNR1) with 200 bp flank
+- [ ] New script `docker/pgx-mt.sh`:
+  - Run mtDNA-Server 2 Nextflow pipeline in Docker-in-Docker (or Apptainer equivalent)
+  - Parse `variants.annotated.txt` for chrM:1555 and chrM:1494
   - Output: `{gene}/{sample}_mtrna1_result.json` — variant, AF, classification (carrier/non-carrier)
-- [ ] Add GATK 4.x to `Dockerfile` (or use `broadinstitute/gatk:4.5.0.0` base layer / Apptainer SIF)
-  - GATK adds ~1.5 GB to image — consider SIF approach (consistent with StellarPGx/OptiType pattern)
-  - Alt: `mity` pip install is much smaller but wraps GATK — GATK still required on PATH
+  - Minimum coverage check: warn if mean chrM depth < 50× (mtDNA-Server 2 requirement)
+- [ ] Add **Nextflow** to `Dockerfile` (already present — used by StellarPGx) ✅
+- [ ] Add **Docker-in-Docker** capability or convert mtDNA-Server 2 to **Apptainer SIF**:
+  - Preferred: `apptainer pull mtdna-server-2.sif docker://ghcr.io/genepi/mtdna-server-2:v2.1.16`
+  - Then run via `apptainer exec mtdna-server-2.sif nextflow run ...` (consistent with OptiType pattern)
+  - The Nextflow pipeline itself handles internal tool execution — no separate GATK install needed
 - [ ] Add `MT-RNR1` to `pgx-run.sh` as a special case (like HLA-A/B calling pgx-hla.sh)
   - `run_mt()` function that calls `pgx-mt.sh` instead of standard mpileup → tool callers chain
 - [ ] Add `MT-RNR1` to `pgx-all-genes.sh` GENES list
