@@ -105,6 +105,12 @@ RUN curl -sL https://github.com/biod/sambamba/releases/download/v1.0.1/sambamba-
     && chmod +x /usr/local/bin/sambamba \
     && sambamba --version 2>&1 | head -1
 
+# mutserve v2 — mitochondrial variant caller (SNPs + heteroplasmy) for MT-RNR1
+# Java 21 JRE is already present (step 4 above); no extra runtime needed.
+RUN curl -sL https://github.com/seppinho/mutserve/releases/download/v2.0.0/mutserve.jar \
+        -o /usr/local/bin/mutserve.jar \
+    && java -jar /usr/local/bin/mutserve.jar --version 2>&1 | head -1 || true
+
 # ── 5. Copy compiled Python environment from builder ─────────────────────────
 # The venv contains pypgx, aldy, pysam, ortools, pandas, numpy, matplotlib, etc.
 COPY --from=builder /opt/venv /opt/venv
@@ -135,13 +141,16 @@ COPY docker/pgx-compare.py    /opt/pgx/pgx-compare.py
 COPY docker/pgx-bamstats.sh   /opt/pgx/pgx-bamstats.sh
 COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
 COPY docker/pgx-hla.sh        /opt/pgx/pgx-hla.sh
+COPY docker/pgx-mt.sh         /opt/pgx/pgx-mt.sh
 RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
+             /opt/pgx/pgx-mt.sh \
     && ln -s /opt/pgx/pgx-run.sh       /usr/local/bin/pgx-run.sh \
     && ln -s /opt/pgx/pgx-all-genes.sh /usr/local/bin/pgx-all-genes.sh \
     && ln -s /opt/pgx/pgx-bamstats.sh  /usr/local/bin/pgx-bamstats.sh \
     && ln -s /opt/pgx/pgx-report.py    /usr/local/bin/pgx-report.py \
-    && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh
+    && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh \
+    && ln -s /opt/pgx/pgx-mt.sh        /usr/local/bin/pgx-mt.sh
 
 # ── 9. Runtime volume mount-points ───────────────────────────────────────────
 RUN mkdir -p /pgx/bundle /pgx/stellarpgx /pgx/containers /pgx/ref /pgx/data /pgx/results

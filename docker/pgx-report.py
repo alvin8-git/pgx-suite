@@ -44,7 +44,7 @@ FIELDS = [
     ("sv_mode",               "SV mode note"),
 ]
 
-TOOLS = ["PyPGx", "Stargazer", "Aldy", "StellarPGx", "OptiType"]
+TOOLS = ["PyPGx", "Stargazer", "Aldy", "StellarPGx", "OptiType", "mutserve"]
 
 PHENOTYPE_COLORS = {
     "poor":         "#e53e3e",   # red
@@ -106,6 +106,8 @@ GENE_LOCI: dict[str, str] = {
     "TPMT":    "chr6:18,125,310-18,158,169",
     "UGT1A1":  "chr2:233,754,269-233,779,300",
     "VKORC1":  "chr16:31,087,853-31,097,797",
+    "CACNA1S": "chr1:201,006,956-201,083,927",
+    "MT-RNR1": "chrM:648-1,601 (rCRS / GRCh38 chrM)",
 }
 
 # diplotype_check: lambda(diplotype_str) -> bool for genes where the diplotype
@@ -378,6 +380,44 @@ CPIC_DB: dict = {
              "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
              "rec": "MH-susceptible: contraindicated. Use non-depolarising neuromuscular blockers (e.g. rocuronium with sugammadex reversal)."},
         ],
+    },
+    "CACNA1S": {
+        "desc": "Skeletal muscle L-type calcium channel subunit. Pathogenic variants (e.g. *2 Arg174Trp, *3 Arg1086His) confer malignant hyperthermia susceptibility (MHS) — a life-threatening pharmacogenomic reaction to volatile anaesthetics and succinylcholine. Partner gene to RYR1 under the same CPIC guideline.",
+        "pharmvar_url": None,
+        "high_pheno":     ["susceptible", "pathogenic", "mhs"],
+        "moderate_pheno": [],
+        "diplotype_check": lambda d: bool(d) and d not in (None, "-", "Reference/Reference", "*1/*1", ""),
+        "landing_notes": {
+            "_diplotype":  "Non-reference CACNA1S variant detected. Evaluate for malignant hyperthermia susceptibility — avoid volatile anaesthetics and succinylcholine if susceptible.",
+            "susceptible": "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available.",
+            "mhs":         "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available.",
+        },
+        "drugs": [
+            {"name": "Volatile anaesthetic agents", "level": "A",
+             "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+             "rec": "MH-susceptible: contraindicated. Use total intravenous anaesthesia (TIVA) only; dantrolene must be immediately available."},
+            {"name": "Succinylcholine", "level": "A",
+             "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+             "rec": "MH-susceptible: contraindicated. Use non-depolarising neuromuscular blockers (e.g. rocuronium with sugammadex reversal)."},
+        ],
+        "min_tools": 1,
+    },
+    "MT-RNR1": {
+        "desc": "Mitochondrial 12S ribosomal RNA gene. Variants m.1555A>G (~1/500 Europeans) and m.1494C>T confer ribosomal hypersensitivity to aminoglycosides — even a single standard dose can cause permanent bilateral sensorineural hearing loss. Maternally inherited; affects all maternal-lineage family members.",
+        "pharmvar_url": None,
+        "high_pheno":     ["ototoxicity risk", "carrier"],
+        "moderate_pheno": [],
+        "diplotype_check": lambda d: bool(d) and d not in (None, "-", "Reference", ""),
+        "landing_notes": {
+            "_diplotype":           "CPIC Level A MT-RNR1 variant detected. Avoid aminoglycosides unless no safe alternatives exist.",
+            "aminoglycoside-ototoxicity risk": "Aminoglycoside-ototoxicity risk: avoid gentamicin, tobramycin, amikacin, streptomycin and neomycin unless essential. Counsel patient on irreversible hearing-loss risk. Inform maternal-lineage family members.",
+        },
+        "drugs": [
+            {"name": "Aminoglycosides (gentamicin, tobramycin, amikacin, streptomycin, neomycin)", "level": "A",
+             "url": "https://cpicpgx.org/guidelines/guideline-for-aminoglycosides-and-mt-rnr1/",
+             "rec": "m.1555A>G or m.1494C>T carrier: avoid aminoglycosides if alternatives exist. If unavoidable, use lowest effective dose with audiological monitoring. Inform maternal relatives."},
+        ],
+        "min_tools": 1,
     },
     "CYP4F2": {
         "desc": "Metabolises vitamin K1; V433M (*3 allele) reduces vitamin K catabolism, modestly increasing warfarin sensitivity. Incorporated in CPIC warfarin dosing algorithm.",

@@ -107,6 +107,8 @@ GENE_COORDS=(
     [ABCG2]="chr4:88085265-88236626"
     [HLA-A]="chr6:28510020-33480577"   # MHC region — used for read extraction by pgx-hla.sh
     [HLA-B]="chr6:28510020-33480577"   # MHC region — same extraction as HLA-A
+    [CACNA1S]="chr1:201006956-201083927"
+    [MT-RNR1]="chrM:648-1601"          # mitochondrial 12S rRNA; mutserve uses full chrM
 )
 
 # ── Gene support matrix (pypgx stargazer aldy stellarpgx) ─────────────────────
@@ -143,6 +145,8 @@ GENE_SUPPORT=(
     [ABCG2]="0 0 1 1"
     [HLA-A]="0 0 0 0"   # OptiType only — handled by run_hla() special case
     [HLA-B]="0 0 0 0"   # OptiType only — handled by run_hla() special case
+    [CACNA1S]="1 0 0 1" # PyPGx + StellarPGx; Stargazer/Aldy do not support CACNA1S
+    [MT-RNR1]="0 0 0 0" # mutserve only — handled by run_mt() special case
 )
 
 # ── PyPGx SV genes — need depth-of-coverage + control-statistics (VDR) ───────
@@ -247,11 +251,24 @@ if [[ "$DO_OPTITYPE" -eq 1 ]] && [[ ! -f "/pgx/containers/optitype.sif" ]]; then
     DO_OPTITYPE=0
 fi
 
+# ── mutserve: MT-RNR1 bypasses the standard tool pipeline ─────────────────────
+DO_MUTSERVE=0
+if [[ "$GENE" == "MT-RNR1" ]]; then
+    DO_MUTSERVE=1
+    DO_PYPGX=0; DO_STARGAZER=0; DO_ALDY=0; DO_STELLARPGX=0
+    IS_PYPGX_SV=0; IS_STARGAZER_SV=0
+fi
+if [[ "$DO_MUTSERVE" -eq 1 ]] && [[ ! -f "/usr/local/bin/mutserve.jar" ]]; then
+    log_status "WARN mutserve.jar not found — skipping MT-RNR1 calling"
+    DO_MUTSERVE=0
+fi
+
 echo "  PyPGx:      $([[ $DO_PYPGX      -eq 1 ]] && echo YES || echo NO)  (SV preprocessing: $([[ $IS_PYPGX_SV    -eq 1 ]] && echo YES || echo NO))"
 echo "  Stargazer:  $([[ $DO_STARGAZER  -eq 1 ]] && echo YES || echo NO)  (GDF/SV mode:      $([[ $IS_STARGAZER_SV -eq 1 ]] && echo YES || echo NO))"
 echo "  Aldy:       $([[ $DO_ALDY       -eq 1 ]] && echo YES || echo NO)  (SV: auto via ILP)"
 echo "  StellarPGx: $([[ $DO_STELLARPGX -eq 1 ]] && echo YES || echo NO)  (SV: auto via graphtyper)"
 echo "  OptiType:   $([[ $DO_OPTITYPE   -eq 1 ]] && echo YES || echo NO)  (HLA Class I typing)"
+echo "  mutserve:   $([[ $DO_MUTSERVE   -eq 1 ]] && echo YES || echo NO)  (MT-RNR1 aminoglycoside risk)"
 echo ""
 
 # ── Create output directories ─────────────────────────────────────────────────
@@ -393,6 +410,18 @@ run_hla() {
     return 0
 }
 
+run_mt() {
+    local log="${OUTPUT}/logs/mutserve.log"
+    log_status "START  mutserve MT-RNR1 calling"
+    if pgx-mt.sh "$BAM" "$SAMPLE" "$OUTPUT" --ref "$REF" \
+        >> "$log" 2>&1; then
+        log_status "DONE   mutserve MT-RNR1 calling"
+    else
+        log_status "FAILED mutserve MT-RNR1 calling  (see ${log})"
+    fi
+    return 0
+}
+
 run_pypgx_pipeline() {
     local log="${OUTPUT}/logs/pypgx.log"
     local pypgx_args=("$GENE" "${OUTPUT}/pypgx" --assembly GRCh38 --force)
@@ -454,6 +483,7 @@ GDF_PID=""
 ALDY_PID=""
 STELLARPGX_PID=""
 HLA_PID=""
+MT_PID=""
 
 if [[ "$NEED_VCF" -eq 1 ]]; then
     if [[ "$SEQUENTIAL" -eq 0 ]]; then
@@ -500,6 +530,14 @@ if [[ "$DO_OPTITYPE" -eq 1 ]]; then
         run_hla & HLA_PID=$!
     else
         run_hla
+    fi
+fi
+
+if [[ "$DO_MUTSERVE" -eq 1 ]]; then
+    if [[ "$SEQUENTIAL" -eq 0 ]]; then
+        run_mt & MT_PID=$!
+    else
+        run_mt
     fi
 fi
 
@@ -550,6 +588,7 @@ echo "------------------------------------------------------------"
 [[ -n "$ALDY_PID"       ]] && wait "$ALDY_PID"
 [[ -n "$STELLARPGX_PID" ]] && wait "$STELLARPGX_PID"
 [[ -n "$HLA_PID"        ]] && wait "$HLA_PID"
+[[ -n "$MT_PID"         ]] && wait "$MT_PID"
 
 echo ""
 log_status "All tools finished."

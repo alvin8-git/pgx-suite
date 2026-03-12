@@ -107,6 +107,8 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "ABCG2":    {"pypgx": False, "stargazer": False, "aldy": True,  "stellarpgx": True,  "optitype": False},
     "HLA-A":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
     "HLA-B":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
+    "CACNA1S":  {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True},
+    "MT-RNR1":  {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "mutserve": True},
 }
 
 
@@ -630,6 +632,34 @@ def parse_optitype(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: mutserve (MT-RNR1) ────────────────────────────────────────────────
+def parse_mutserve(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Parse pgx-mt.sh JSON result for MT-RNR1."""
+    result = CallerResult(
+        tool="mutserve",
+        phasing_method="AF-based mitochondrial variant calling (mutserve v2)",
+    )
+    json_path = os.path.join(output_dir, "mt-rnr1", f"{sample}_mtrna1_result.json")
+    if not os.path.exists(json_path):
+        return result
+    try:
+        import json as _json
+        data = _json.load(open(json_path))
+        result.diplotype  = data.get("diplotype", "-")
+        result.phenotype  = data.get("phenotype", "-")
+        result.status     = "ok"
+        variants = data.get("variants", [])
+        if variants:
+            af_strs = [f"{v['label']}(AF={v['af']:.2f},{v['type']})" for v in variants]
+            result.allele_score = "; ".join(af_strs)
+        else:
+            result.allele_score = "No CPIC Level A variants detected"
+    except Exception as exc:
+        result.status    = "failed"
+        result.diplotype = f"parse error: {exc}"
+    return result
+
+
 # ── SV mode note ──────────────────────────────────────────────────────────────
 def _sv_note(gene: str) -> str:
     notes = []
@@ -737,6 +767,8 @@ def main() -> None:
         results.append(parse_stellarpgx(args.output_dir, gene, args.sample))
     if support.get("optitype"):
         results.append(parse_optitype(args.output_dir, gene, args.sample))
+    if support.get("mutserve"):
+        results.append(parse_mutserve(args.output_dir, gene, args.sample))
 
     print_table(gene, args.sample, results, args.output_dir)
 
