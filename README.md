@@ -1,6 +1,6 @@
 # PGx Suite
 
-A Docker container that bundles five pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, and **OptiType** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table plus a self-contained HTML clinical report.
+A Docker container that bundles six pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, **OptiType**, and **mutserve** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table plus a self-contained HTML clinical report. Covers **all 19 CPIC Level A genes** across 31 genes total.
 
 > **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.
 > This image **must not be published to any public registry** (Docker Hub, GHCR, etc.).
@@ -37,6 +37,7 @@ A Docker container that bundles five pharmacogenomics (PGx) callers — **PyPGx*
 | [Aldy](https://github.com/0xTCG/aldy) | 4.8.3 | Integer Linear Programming | 39 | Non-commercial academic (IURTC) |
 | [StellarPGx](https://github.com/SBIMB/StellarPGx) | 1.2.7 | Genome graph (graphtyper) | 21 | MIT |
 | [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
+| [mutserve](https://github.com/seppinho/mutserve) | 2.0.0 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
 
 See [`ToolsDocumentation.md`](ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations.
 
@@ -208,9 +209,9 @@ docker run --privileged --rm \
 pgx-all-genes.sh <BAM|CRAM> [--ref PATH] [--output PATH] [--jobs N]
 ```
 
-`pgx-all-genes.sh` runs every gene in the 29-gene support matrix in parallel batches,
-collects all results into `all_genes_summary.tsv`, and generates an HTML report in
-`<output>/html_reports/`.
+`pgx-all-genes.sh` runs every gene in the 31-gene support matrix in parallel batches,
+collects all results into `log/all_genes_summary.tsv`, and generates a standalone HTML
+report at `<output>/<SAMPLE>_pgx_report.html`.
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -222,21 +223,21 @@ Output layout:
 
 ```
 <output>/
-├── all_genes_summary.tsv             # concordance table across all genes and tools
-├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
-├── logs/
-│   └── <GENE>.log                   # stdout + stderr per gene
-├── <GENE>/                          # per-tool outputs for each gene
-│   ├── <GENE>_<SAMPLE>_comparison.tsv
-│   ├── <GENE>_<SAMPLE>_detail.json
-│   ├── pypgx/results.zip
-│   ├── stargazer/genotype-calls.tsv
-│   ├── aldy/<GENE>.aldy
-│   ├── stellarpgx/<gene>/alleles/*.alleles
-│   └── optitype/<SAMPLE>_result.tsv  # HLA-A/HLA-B only
-└── html_reports/
-    ├── <SAMPLE>.pgx.html             # landing page — 29-gene card grid + BAM QC + clinical findings
-    └── <SAMPLE>.<GENE>.pgx.html     # per-gene detail: 17×5 table, variant evidence, CPIC reference
+├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 31 gene panels embedded)
+├── Genes/
+│   └── <GENE>/                       # per-tool outputs for each gene
+│       ├── <GENE>_<SAMPLE>_comparison.tsv
+│       ├── <GENE>_<SAMPLE>_detail.json
+│       ├── pypgx/results.zip
+│       ├── stargazer/genotype-calls.tsv
+│       ├── aldy/<GENE>.aldy
+│       ├── stellarpgx/<gene>/alleles/*.alleles
+│       ├── optitype/<SAMPLE>_result.tsv   # HLA-A/HLA-B only
+│       └── mt-rnr1/<SAMPLE>_mtrna1_result.json  # MT-RNR1 only
+└── log/
+    ├── all_genes_summary.tsv          # concordance table across all genes and tools
+    ├── bam_stats.json                 # whole-BAM QC metrics (incl. per-gene depth)
+    └── bamstats.log                   # pgx-bamstats.sh stdout/stderr
 ```
 
 ### Run a single gene
@@ -319,39 +320,41 @@ this feeds the HTML per-gene detail pages.
 
 ## Gene Coverage
 
-29 genes supported across five tools. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
+**31 genes** supported across **six tools**. Covers **19/19 CPIC Level A genes**. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | CPIC Level | SV? |
-|------|:-----:|:---------:|:----:|:----------:|:--------:|:----------:|:---:|
-| ABCG2 | — | — | ✓ | ✓ | — | A | |
-| CYP1A1 | — | ✓ | ✓ | ✓ | — | — | |
-| CYP1A2 | — | ✓ | ✓ | ✓ | — | A | |
-| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | A | ✓ paralog |
-| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | B | ✓ paralog |
-| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | B | |
-| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | A | ✓ paralog + tandem |
-| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ CN |
-| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | A† | |
-| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | B | ✓ CN |
-| DPYD | ✓ | — | ✓ | — | — | A | |
-| G6PD | ✓ | ✓ | ✓ | — | — | A | ✓ CN |
-| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | ✓ deletion |
-| GSTT1 | ✓‡ | — | — | ✓ | — | — | ✓ deletion |
-| HLA-A | — | — | — | — | ✓ | A | |
-| HLA-B | — | — | — | — | ✓ | A | |
-| IFNL3 | ✓ | ✓ | ✓ | — | — | A | |
-| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | |
-| NAT2 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| NUDT15 | ✓ | — | ✓ | ✓ | — | A | |
-| POR | — | ✓ | — | ✓ | — | — | |
-| RYR1 | ✓ | ✓ | ✓ | — | — | A | |
-| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| TPMT | ✓ | — | ✓ | ✓ | — | A | |
-| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | A | |
-| VKORC1 | ✓ | ✓ | ✓ | — | — | A | |
+| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve | CPIC Level | SV? |
+|------|:-----:|:---------:|:----:|:----------:|:--------:|:--------:|:----------:|:---:|
+| ABCG2 | — | — | ✓ | ✓ | — | — | B | |
+| CACNA1S | ✓ | — | — | ✓ | — | — | **A** | |
+| CYP1A1 | ✓ | ✓ | ✓ | ✓ | — | — | — | |
+| CYP1A2 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
+| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | — | B | ✓ paralog |
+| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | ✓ paralog |
+| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
+| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | ✓ paralog + tandem |
+| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | — | ✓ CN |
+| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — | A† | |
+| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | — | B | ✓ CN |
+| DPYD | ✓ | ✓ | ✓ | — | — | — | **A** | |
+| G6PD | ✓ | ✓ | ✓ | — | — | — | **A** | ✓ CN |
+| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | — | ✓ deletion |
+| GSTT1 | ✓‡ | — | — | ✓ | — | — | — | ✓ deletion |
+| HLA-A | — | — | — | — | ✓ | — | **A** | |
+| HLA-B | — | — | — | — | ✓ | — | **A** | |
+| IFNL3 | ✓ | ✓ | ✓ | — | — | — | **A** | |
+| MT-RNR1 | — | — | — | — | — | ✓ | **A** | |
+| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
+| NAT2 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| POR | ✓ | ✓ | — | ✓ | — | — | — | |
+| RYR1 | ✓ | ✓ | ✓ | — | — | — | **A** | |
+| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| TPMT | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
+| VKORC1 | ✓ | ✓ | ✓ | — | — | — | **A** | |
 
 † CYP3A4 appears in the tacrolimus guideline alongside CYP3A5; no standalone CPIC Level A guideline for CYP3A4 genotyping alone.
 ‡ GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
@@ -398,7 +401,10 @@ docker run --privileged pgx-suite:latest
 │                                                                │
 │  Stargazer 2.0.3       (/usr/local/bin/stargazer wrapper)     │
 │                                                                │
-│  Java 21 JRE           (Beagle phasing for PyPGx + Stargazer)│
+│  Java 21 JRE           (Beagle phasing for PyPGx + Stargazer; │
+│                         mutserve.jar for MT-RNR1)             │
+│                                                                │
+│  mutserve 2.0.0        (JAR; chrM allele-fraction calling)    │
 │                                                                │
 │  Nextflow              (copied from host binary)              │
 │                                                                │
@@ -443,12 +449,13 @@ pgx-suite/
 ├── run_pgx_suite.sh                    # Host launcher — single command for new samples
 ├── nextflow                            # Nextflow binary (pre-downloaded)
 ├── docker/
-│   ├── pgx-all-genes.sh                # Batch orchestrator: all 29 genes in parallel
+│   ├── pgx-all-genes.sh                # Batch orchestrator: all 31 genes in parallel
 │   ├── pgx-run.sh                      # Single-gene orchestration entry point
 │   ├── pgx-hla.sh                      # HLA typing via OptiType Apptainer SIF
+│   ├── pgx-mt.sh                       # MT-RNR1 calling via mutserve JAR
 │   ├── pgx-compare.py                  # Result parser → comparison TSV + detail JSON
-│   ├── pgx-report.py                   # HTML report generator (landing + per-gene pages)
-│   ├── pgx-bamstats.sh                 # Whole-BAM QC → bam_stats.json (27 genes)
+│   ├── pgx-report.py                   # HTML report generator (standalone single-file)
+│   ├── pgx-bamstats.sh                 # Whole-BAM QC → bam_stats.json (29 genes + chrM)
 │   ├── test.sh                         # Smoke tests (no BAM required)
 │   ├── docker-run.sh                   # Convenience docker run wrapper
 │   └── README.md                       # Container-specific notes
@@ -473,7 +480,7 @@ pgx-suite/
 
 | Document | Description |
 |----------|-------------|
-| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 5 callers: algorithms, gene lists, SV handling, output formats, limitations |
+| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 6 callers: algorithms, gene lists, SV handling, output formats, limitations |
 | [`CHANGES.md`](CHANGES.md) | Reverse-chronological changelog |
 | [`TODO.md`](TODO.md) | Roadmap and open tasks |
 | [`docker/README.md`](docker/README.md) | Container-specific notes and examples |
@@ -489,5 +496,6 @@ pgx-suite/
 | StellarPGx | MIT |
 | Stargazer | Non-commercial academic (University of Washington) |
 | Aldy | Non-commercial academic (Indiana University Research and Technology Corporation) |
+| mutserve | MIT |
 
 Stargazer and Aldy source code is bundled in this image for academic research use only. **Do not publish this image to Docker Hub, GHCR, or any public container registry.**

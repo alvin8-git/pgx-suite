@@ -105,7 +105,7 @@
   - [x] Dockerfile: pgx-hla.sh installed + symlinked to /usr/local/bin/
   - [x] OptiType SIF pulled separately: `apptainer pull --name optitype.sif docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1`
 - [x] Key Clinical Findings cards now clickable → link to gene detail HTML page
-- [x] CPIC coverage: 17/19 Level A genes (up from 15/19); gaps: CACNA1S (natural MH partner to RYR1), MT-RNR1 (mitochondrial)
+- [x] CPIC coverage: 17/19 Level A genes (up from 15/19); gaps closed in Phase 7
 
 ---
 
@@ -186,130 +186,98 @@ These are flagged red in the HTML report. Root causes:
 
 ---
 
-## Phase 7: CPIC Level A Gap Closure — CACNA1S and MT-RNR1
+## Phase 7: CPIC Level A Gap Closure — CACNA1S and MT-RNR1 ✅ COMPLETE
 
-Two CPIC Level A genes remain unsupported. Coverage would bring the pipeline to 19/19 Level A genes.
+Pipeline now covers **19/19 CPIC Level A genes** across **31 genes total** with **6 callers**.
 
 ---
 
-### CACNA1S — Malignant Hyperthermia Susceptibility (MHS) partner to RYR1
+### Phase 7a: CACNA1S ✅ COMPLETE
 
 **Gene:** `CACNA1S` · chr1:201,006,956-201,083,927 (GRCh38) · ~77 kb · CPIC Level A
-**Drug:** Volatile anaesthetics (halothane, sevoflurane, desflurane, isoflurane) and succinylcholine
-**Clinical significance:** Loss-of-function variants → malignant hyperthermia susceptibility (MHS). Key actionable
-variants: c.520C>T (p.Arg174Trp), c.3257G>A (p.Arg1086His). Diplotype-based recommendation: MHS-susceptible vs.
-MHS-normal phenotype.
+**Drug:** Volatile anaesthetics + succinylcholine (malignant hyperthermia susceptibility)
+**Callers:** PyPGx + StellarPGx (`1 0 0 1`)
 
-**Tool support (current):**
-| Tool       | CACNA1S support | Notes |
-|------------|----------------|-------|
-| PyPGx      | ✅ Yes          | Supported since ≥ v0.19; SV panel available; requires `--panel wgs` |
-| Aldy       | ❌ No           | Not in Aldy 4.x gene database |
-| Stargazer  | ❌ No           | Not in Stargazer 2.x gene list |
-| StellarPGx | ✅ Yes          | Supported in StellarPGx ≥ 1.2; part of default gene set |
-
-**What is needed:**
-- [ ] Add `CACNA1S` to `GENE_COORDS` and `GENE_SUPPORT` (`1 0 0 1`) in `pgx-run.sh`
-- [ ] Add `CACNA1S` to `GENES` list in `pgx-all-genes.sh`
-- [ ] Add BED entry `chr1:201006956-201083927` to `pgx-bamstats.sh` mosdepth BED
-- [ ] Extend `pgx-compare.py` `GENE_SUPPORT` dict and verify PyPGx `parse_pypgx()` handles CACNA1S
-  (PyPGx outputs `MHS-susceptible` / `MHS-normal` in the Phenotype column — not a standard metabolizer label)
-- [ ] Add CPIC_DB entry to `pgx-report.py`:
-  - drugs: volatile anaesthetics + succinylcholine
-  - phenotypes: MHS-susceptible → avoid triggering agents; MHS-normal → standard care
-  - risk_alleles: `*2` (Arg174Trp), `*3` (Arg1086His)
-- [ ] Add `GENE_LOCI` entry for CACNA1S in `pgx-report.py`
-- [ ] Validate on HG002 (expected: no MHS variants → MHS-normal)
-
-**No new tools required** — PyPGx and StellarPGx already handle CACNA1S with standard WGS BAM input. This
-is a configuration-only addition, similar to how ABCG2 was added in Phase 4.
+- [x] `pgx-run.sh`: GENE_COORDS + GENE_SUPPORT (`1 0 0 1`)
+- [x] `pgx-all-genes.sh`: added to GENES list
+- [x] `pgx-bamstats.sh`: BED entry `chr1 201006955 201083927 CACNA1S`
+- [x] `pgx-compare.py`: GENE_SUPPORT entry (pypgx=True, stellarpgx=True)
+- [x] `pgx-report.py`: GENE_LOCI + CPIC_DB (volatile anaesthetics, succinylcholine, Level A)
+- [ ] Validate on HG002 (expected: MHS-normal / Reference/Reference — no MHS variants in NA24385)
 
 ---
 
-### MT-RNR1 — Aminoglycoside-Induced Hearing Loss
+### Phase 7b: MT-RNR1 ✅ COMPLETE
 
-**Gene:** `MT-RNR1` (12S rRNA) · chrM:648-1601 (GRCh38, NC_012920.1) · ~954 bp · CPIC Level A
-**Drug:** Aminoglycosides (gentamicin, tobramycin, amikacin, streptomycin, neomycin)
-**Clinical significance:** m.1555A>G (most common, ~1/500 Europeans) and m.1494C>T → ribosomal hypersensitivity
-to aminoglycosides → irreversible sensorineural hearing loss. Even a single dose can be ototoxic in carriers.
+**Gene:** `MT-RNR1` (12S rRNA) · chrM:648-1601 · ~954 bp · CPIC Level A
+**Drug:** Aminoglycosides — m.1555A>G (~1/500 Europeans) / m.1494C>T → irreversible hearing loss
+**Caller:** mutserve v2.0.0 (standalone JAR; AF-based; Java 21 already in image)
 
-**Tool support (current):**
-| Tool       | MT-RNR1 support | Notes |
-|------------|----------------|-------|
-| PyPGx      | ❌ No           | No mitochondrial gene support |
-| Aldy       | ❌ No           | No mitochondrial gene support |
-| Stargazer  | ❌ No           | No mitochondrial gene support |
-| StellarPGx | ❌ No           | No mitochondrial gene support |
+- [x] `docker/pgx-mt.sh`: chrM read extraction → `mutserve.jar call` → JSON result
+  - `--level 0.01` (1% AF detection threshold; CPIC carrier threshold ≥2%)
+  - Output: `mt-rnr1/<sample>_mtrna1_result.json` with diplotype, AF, classification, notes
+- [x] `Dockerfile`: mutserve.jar downloaded + pgx-mt.sh installed
+- [x] `pgx-run.sh`: DO_MUTSERVE flag, `run_mt()` function, MT-RNR1 special-case bypass
+- [x] `pgx-all-genes.sh`: added to GENES list
+- [x] `pgx-bamstats.sh`: BED entry `chrM 647 1601 MT-RNR1`
+- [x] `pgx-compare.py`: GENE_SUPPORT (mutserve=True) + `parse_mutserve()` reading JSON
+- [x] `pgx-report.py`: GENE_LOCI + CPIC_DB (aminoglycosides, Level A, min_tools=1)
+- [x] `ToolsDocumentation.md`: Section 6 — mutserve overview, workflow, limitations
+- [ ] Validate on HG002 (expected: Reference — no m.1555A>G or m.1494C>T in NA24385)
 
-**Why none of the current tools work:**
-- All four tools are diplotype callers designed for nuclear (biallelic) genes.
-- Mitochondrial DNA is polyploid (hundreds to thousands of copies per cell), maternally inherited,
-  and haploid (no second allele). Standard genotype callers report the wrong ploidy and fail.
-- Heteroplasmy: a variant may be present in 2–98% of mt copies. A threshold of ≥5% allele
-  fraction is typical for clinical reporting.
-- NUMTs (nuclear mitochondrial DNA segments) can create false-positive calls at chrM positions
-  if not properly filtered.
+---
 
-**Dedicated mitochondrial variant callers required:**
+## Phase 8: Documentation & Validation
 
-| Tool | Approach | Availability | Notes |
-|------|----------|--------------|-------|
-| **mtDNA-Server 2 + mutserve** | Nextflow pipeline; mutserve for SNPs, Mutect2 for indels, or "fusion" mode for both | Free; Nextflow + Docker; runs via `nextflow run genepi/mtdna-server-2` | Outputs `variants.annotated.txt` (39 columns incl. AF, gene locus, pathogenicity, population freq) + haplogroup + HTML report. Detection limit 0.02 (2%) by default. NUMT annotation column from 1000GP Phase 1 data. Requires ≥50× mean chrM coverage. **Simplest integration path.** |
-| **mutserve standalone** | SNP-only AF caller for chrM | Free; JAR/CLI; `--contig-name chrM` for WGS BAMs | Outputs VCF with AF field or tab-delimited text. `--level 0.01` default (1%). Handles homoplasmic + heteroplasmic. Does NOT call indels. Used as SNP engine inside mtDNA-Server 2. |
-| **GATK Mutect2 `--mitochondria-mode`** | Somatic-style AF caller adapted for chrM; SNP + indel | Free, GATK 4.2+; ~1.5 GB image | GATK best-practices mtDNA workflow; strand-bias + NUMT contamination filters via `FilterMutectCalls`. More complex setup. Outputs VCF with AF field. |
-| **haplocheck** | Contamination detection from mtDNA VCF | Free, CLI | Post-calling step; not a variant caller |
-| **HaploGrep3 / Yleaf** | Haplogroup assignment | Free | Context only; not actionable for m.1555A>G |
+- [ ] `PGxDocumentation.md` — scientific gene summary for all 31 genes
+  - Overview, pharmacogenomic significance, key variants, population frequencies, CPIC level, tool support
+  - Special notes: IFNL3/IFNL4 causal variant distinction (ss469415590 in IFNL4), GSTT1 alt-contig caveat,
+    GSTM1 whole-gene deletion, G6PD X-linked hemizygous males, MT-RNR1 AF-based heteroplasmy model
+- [ ] End-to-end validation of CACNA1S and MT-RNR1 on HG002/NA24385 and a second sample
+- [ ] `test.sh` smoke tests: add mutserve JAR version check + CACNA1S support entry check
 
-**Recommended approach — mtDNA-Server 2 (fusion mode):**
+---
 
-mtDNA-Server 2 is the most practical integration path: it is a Nextflow pipeline requiring only
-Docker (no GATK installation), handles a WGS BAM directly, and its "fusion" mode combines
-mutserve (SNPs, including m.1555A>G / m.1494C>T) with Mutect2 (indels). It annotates variants
-with 1000GP NUMT flags, pathogenicity predictions, and population frequencies — all in one run.
+## Phase 9: Beyond CPIC Level A — Population PGx Expansion
 
-```bash
-# Minimal run (single BAM, fusion mode, detection limit 2%)
-nextflow run genepi/mtdna-server-2 -r v2.1.16 \
-    -profile docker \
-    --input  /pgx/data/${SAMPLE}.bam \
-    --output /pgx/results/MT-RNR1/ \
-    --mode fusion \
-    --detection_limit 0.02 \
-    --contig-name chrM
-```
+After 19/19 CPIC Level A coverage, the next highest-yield additions for a population-based
+genome project are:
 
-Key output: `variants.annotated.txt` — parse for positions 1555 (A→G) and 1494 (C→T).
-- AF ≥ 0.02 at m.1555A>G or m.1494C>T → carrier (flag for aminoglycoside avoidance)
-- No variant detected → non-carrier (standard care)
-- Report AF value alongside classification (e.g. homoplasmic 0.99 vs heteroplasmic 0.15)
+### Priority 1 — Strong evidence, transporter / drug interaction scope
 
-**What is needed:**
-- [ ] New script `docker/pgx-mt.sh`:
-  - Run mtDNA-Server 2 Nextflow pipeline in Docker-in-Docker (or Apptainer equivalent)
-  - Parse `variants.annotated.txt` for chrM:1555 and chrM:1494
-  - Output: `{gene}/{sample}_mtrna1_result.json` — variant, AF, classification (carrier/non-carrier)
-  - Minimum coverage check: warn if mean chrM depth < 50× (mtDNA-Server 2 requirement)
-- [ ] Add **Nextflow** to `Dockerfile` (already present — used by StellarPGx) ✅
-- [ ] Add **Docker-in-Docker** capability or convert mtDNA-Server 2 to **Apptainer SIF**:
-  - Preferred: `apptainer pull mtdna-server-2.sif docker://ghcr.io/genepi/mtdna-server-2:v2.1.16`
-  - Then run via `apptainer exec mtdna-server-2.sif nextflow run ...` (consistent with OptiType pattern)
-  - The Nextflow pipeline itself handles internal tool execution — no separate GATK install needed
-- [ ] Add `MT-RNR1` to `pgx-run.sh` as a special case (like HLA-A/B calling pgx-hla.sh)
-  - `run_mt()` function that calls `pgx-mt.sh` instead of standard mpileup → tool callers chain
-- [ ] Add `MT-RNR1` to `pgx-all-genes.sh` GENES list
-- [ ] Extend `pgx-compare.py` with `parse_mtrna1()`:
-  - Read `_mtrna1_result.json`; emit diplotype-style row: e.g. `m.1555A>G(AF=0.98)` or `Reference`
-  - Phenotype: `Aminoglycoside-ototoxicity risk` vs. `Standard risk`
-- [ ] Add CPIC_DB entry to `pgx-report.py`:
-  - drugs: gentamicin, tobramycin, amikacin, streptomycin, neomycin
-  - risk_alleles: `m.1555A>G`, `m.1494C>T`
-  - min_tools: 1
-- [ ] Add mosdepth BED entry `chrM:448-1801` (MT-RNR1 ± 200 bp flank) to `pgx-bamstats.sh`
-  - Note: chrM depth is typically very high (500–5000×) — flag if < 100× as insufficient for AF calling
-- [ ] Add `GENE_LOCI` entry for MT-RNR1: `chrM:648-1,601 (GRCh38)`
+| Gene | CPIC Level | Clinical relevance | Notes |
+|------|-----------|-------------------|-------|
+| **ABCB1** (MDR1/P-glycoprotein) | B | Efflux transporter; wide drug interaction scope: tacrolimus, digoxin, antiretrovirals, statins, loperamide | chr7:87,133,500-87,342,000; PyPGx supported |
+| **F5** (Factor V Leiden) | — | OCP / HRT / surgery thrombotic risk; rs1799963 G20210A | Not a classic PGx gene but population-critical for prescribing safety |
+| **F2** (Prothrombin) | — | Thrombophilia; partner to F5 for VTE risk assessment | Relevant for warfarin initiation and OCP safety |
 
-**Complexity assessment:** High — requires a new caller paradigm (AF-based, not diplotype-based),
-GATK in Docker, and new parsing logic. Suggest implementing as a standalone Phase 7b after CACNA1S (Phase 7a).
+### Priority 2 — Expanded metaboliser genes
+
+| Gene | CPIC Level | Notes |
+|------|-----------|-------|
+| **UGT2B15** / **UGT2B17** | B | Androgen metabolism; tamoxifen, lorazepam; copy-number deletions common in Asian populations |
+| **CYP1B1** | — | Cancer pharmacogenomics; tamoxifen oestrogen metabolism; widely studied |
+| **MTHFR** | — | Methotrexate, folate; controversial evidence but widely ordered clinically; C677T + A1298C |
+
+### Priority 3 — Psychiatric / neurology focus
+
+| Gene | Notes |
+|------|-------|
+| **HTR2A** | SSRI, clozapine, antipsychotic response (CPIC B) |
+| **COMT** | Pain, dopamine, antipsychotic response (Val158Met, rs4680) |
+| **ANKK1/DRD2** | Tardive dyskinesia risk with antipsychotics |
+
+### Southeast Asian population priorities (Singapore / TTSH context)
+
+| Gene | Rationale |
+|------|-----------|
+| HLA-B*15:02 | Already covered via HLA-B ✅ |
+| HLA-B*58:01 | Already covered via HLA-B ✅ |
+| CYP2C19 poor metabolizer | High frequency in East Asian populations ✅ |
+| G6PD A- / Mediterranean | Already covered ✅ |
+| CYP2B6 *6 | ~50% allele frequency in African populations → efavirenz/HIV ✅ |
+| **SLCO1B1 *15** | Higher frequency in Asian populations → already covered ✅ |
+| **UGT2B17 deletion** | ~70% deletion frequency in East Asians; tamoxifen, steroid metabolism |
 
 ---
 
