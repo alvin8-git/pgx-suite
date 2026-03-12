@@ -5,6 +5,167 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-03-12 — Hypersensitivity Panel: HLA-B Level B allele annotations
+
+### Summary
+
+Annotation-only extension of the HLA-B CPIC_DB entry in `pgx-report.py`.
+OptiType already genotypes HLA-B\*13:01 and HLA-B\*57:03 internally; these
+changes ensure the clinical significance is surfaced in the HTML report.
+
+### `docker/pgx-report.py` — HLA-B CPIC_DB
+
+- **`desc`**: extended to mention HLA-B\*13:01 (dapsone/DRESS, Asian ancestry)
+  and HLA-B\*57:03 (flucloxacillin/DILI, European ancestry)
+- **`diplotype_check` lambda**: now includes `"B*13:01"` and `"B*57:03"` in the
+  `any()` check, so the detail page risk banner triggers for these alleles
+- **`risk_alleles`**: two new entries:
+  - `B*13:01` → dapsone: avoid — high risk of DRESS/HSS (esp. Asian ancestry)
+  - `B*57:03` → flucloxacillin: use with caution — increased DILI risk (esp. European ancestry)
+- **`no_risk_note`**: updated to list all five alleles with CPIC level annotations
+  (B\*57:01, B\*15:02, B\*58:01 Level A; B\*13:01, B\*57:03 Level B)
+- **`drugs`**: two new drug entries:
+  - Dapsone (CPIC Level B) — recommend alternative if B\*13:01 positive
+  - Flucloxacillin (CPIC Level B / PharmGKB) — monitor LFTs; consider alternative
+    beta-lactam
+
+### `TODO.md` — Phase 9: Hypersensitivity Panel Expansion
+
+New Phase 9 section added (former Phase 9 Population PGx Expansion renumbered to Phase 10):
+- **9a** (done ✅): B\*13:01 + B\*57:03 CPIC_DB annotations (this change)
+- **9b**: HLA Class II typing (HLA-DRB1, DQA1, DQB1) — requires HLA-HD or arcasHLA;
+  implementation tasks listed
+- **9c**: CYB5R3 (dapsone methaemoglobinaemia; rs1799931) — custom bcftools lookup
+- **9d**: HLA-C clinical reporting — OptiType already genotypes it; needs
+  GENE_LOCI + CPIC_DB entry
+
+---
+
+## 2026-03-12 — Phase 7: CACNA1S + MT-RNR1 (19/19 CPIC Level A) + mutserve v2.0.0
+
+### Summary
+
+Completed 19/19 CPIC Level A gene coverage by adding CACNA1S (malignant hyperthermia
+susceptibility) and MT-RNR1 (aminoglycoside-induced hearing loss). A sixth calling tool,
+mutserve v2.0.0, was integrated for chrM heteroplasmy calling. Scientific documentation
+for all 31 genes was authored in `PGxDocumentation.md`.
+
+### CACNA1S
+
+CACNA1S encodes the α1S subunit of the voltage-gated L-type calcium channel.
+Risk alleles (*2, c.3257G>A) increase susceptibility to malignant hyperthermia
+(MHS) triggered by volatile anaesthetics and succinylcholine.
+
+- **Tool support**: PyPGx ✓, StellarPGx ✓ (configuration-only; no new tool required)
+- `pgx-run.sh`: `GENE_COORDS[CACNA1S]="chr1:201006956-201083927"`;
+  `GENE_SUPPORT[CACNA1S]="1 0 0 1"` (PyPGx + StellarPGx)
+- `pgx-all-genes.sh`: CACNA1S added to GENES list (31 total)
+- `pgx-bamstats.sh`: BED entry `chr1 201006955 201083927 CACNA1S`
+- `pgx-compare.py`: GENE_SUPPORT + RYR1-style parse routing
+- `pgx-report.py`: GENE_LOCI + CPIC_DB (volatile anaesthetics + succinylcholine,
+  Level A; `diplotype_check` flags non-reference diplotypes as MHS-susceptible)
+
+### MT-RNR1 + mutserve v2.0.0
+
+MT-RNR1 encodes the mitochondrial 12S rRNA. Variants m.1555A>G and m.1494C>T cause
+aminoglycoside-induced irreversible sensorineural hearing loss (CPIC Level A).
+MT-RNR1 is not amenable to star-allele diplotype calling; allele fraction (AF)
+based heteroplasmy detection is used instead.
+
+**New tool — mutserve v2.0.0** (standalone JAR, MIT licence, Java 21 already in image):
+
+```bash
+java -Xmx2g -jar mutserve.jar call \
+    --input chrM_sorted.bam --output variants.txt \
+    --reference chrM_ref.fa \
+    --level 0.01 --threads N
+```
+
+- `Dockerfile`: `curl -sL …/mutserve.jar -o /usr/local/bin/mutserve.jar`; pgx-mt.sh installed
+- **New script `docker/pgx-mt.sh`** (164 lines):
+  - Extracts chrM reads from BAM via `samtools view -b | sort`
+  - Extracts chrM FASTA at runtime via `samtools faidx /pgx/ref/hg38.fa chrM`
+    (GRCh38 chrM = rCRS; no pre-baked reference needed)
+  - Runs mutserve at `--level 0.01`; parses tab-delimited output for pos 1555/1494
+  - Writes `mt-rnr1/<sample>_mtrna1_result.json`:
+    `{diplotype, AF, type, classification, phenotype, notes}`
+- `pgx-run.sh`: `DO_MUTSERVE` flag, `run_mt()` function, MT-RNR1 bypass of the
+  standard bcftools/PyPGx/Stargazer/Aldy/StellarPGx pipeline
+- `pgx-compare.py`: `"mutserve": True` in GENE_SUPPORT; `parse_mutserve()` reads JSON
+- `pgx-report.py`: GENE_LOCI `"chrM:648-1,601 (rCRS / GRCh38 chrM)"`; CPIC_DB entry
+  (aminoglycosides, Level A, `min_tools=1`, AF-based diplotype_check)
+- `TOOLS`: extended from 5 to 6 — `["PyPGx","Stargazer","Aldy","StellarPGx","OptiType","mutserve"]`
+
+### ToolsDocumentation.md
+
+New **Section 6 — mutserve**: overview, pgx-mt.sh workflow, key differences table
+(AF/heteroplasmy vs diplotype callers), limitations (SNPs only, CPIC variants only,
+no star alleles). Quick Comparison table and Gene Support Matrix updated.
+
+### README.md
+
+Updated for 6-tool / 31-gene / 19/19 CPIC Level A state. Bundled Tools table, Gene
+Coverage table, and Architecture section all reflect the new additions.
+
+### PGxDocumentation.md (new, ~1300 lines)
+
+Scientific gene summaries for all 31 genes. Each section covers:
+Overview, PGx Significance, Key Variants (table), Population Frequencies, CPIC Level,
+and Tool Support. Special notes: IFNL3/IFNL4 causal variant distinction, GSTT1 alt-contig
+caveat, GSTM1/GSTT1 deletion genetics, G6PD X-linked hemizygous males, MT-RNR1
+AF-based heteroplasmy model, CACNA1S/RYR1 pharmacogenomic relationship.
+
+---
+
+## 2026-03-12 — Phase 6: Output restructure, standalone HTML, depth colour flags, host launcher
+
+### Summary
+
+Four independent improvements made to the output pipeline and report generation,
+plus a new host-side convenience launcher script.
+
+### Output directory restructure (`pgx-all-genes.sh`, `pgx-run.sh`)
+
+Per-gene results moved from flat `results/<GENE>/` to structured subdirectories:
+- `Genes/<GENE>/` — per-gene tool outputs and comparison TSV
+- `log/` — per-gene log files
+
+`pgx-compare.py` and `pgx-report.py` updated to read from the new paths.
+
+### Standalone single-file HTML report (default)
+
+`pgx-report.py` now writes a single self-contained `<SAMPLE>_pgx_report.html`
+at the output root by default (all per-gene detail sections embedded inline,
+no subdirectory required). The multi-file mode (separate per-gene HTML pages)
+remains available but is no longer the default. This simplifies sharing: one
+file captures the full report.
+
+### Depth coverage colour flags (`pgx-report.py`, `pgx-bamstats.sh`)
+
+Per-gene mean depth displayed on gene cards and detail panels now uses colour
+coding to indicate coverage adequacy:
+
+| Colour | Threshold | Meaning |
+|--------|-----------|---------|
+| Green | ≥30× | Adequate for reliable calling |
+| Amber | 20–29× | Marginal — interpret with caution |
+| Red | <20× | Insufficient — results unreliable |
+
+Depth values are sourced from `bam_stats.json → gene_depth` written by
+`pgx-bamstats.sh`. Genes not covered by the mosdepth BED (e.g. GSTT1 on
+alt contig) show no colour flag.
+
+### `run_pgx_suite.sh` — host-side launcher
+
+New file at repo root. A convenience wrapper that assembles the full
+`docker run --privileged …` command with all required volume mounts and
+passes through `<GENE> <BAM>` arguments. Eliminates the need to type the
+full multi-volume Docker run command manually.
+
+Usage: `./run_pgx_suite.sh <GENE> /absolute/path/to/sample.bam [--output /path]`
+
+---
+
 ## 2026-03-09 — Phase 5: HTML Report Enhancements + HLA depth
 
 ### Summary

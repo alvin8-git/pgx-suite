@@ -474,18 +474,20 @@ CPIC_DB: dict = {
         ],
     },
     "HLA-B": {
-        "desc": "Major histocompatibility complex class I gene. Multiple HLA-B alleles are associated with severe drug hypersensitivity: HLA-B*57:01 (abacavir), HLA-B*58:01 (allopurinol), HLA-B*15:02 (carbamazepine/phenytoin in Asian ancestry).",
+        "desc": "Major histocompatibility complex class I gene. Multiple HLA-B alleles are associated with severe drug hypersensitivity: HLA-B*57:01 (abacavir), HLA-B*58:01 (allopurinol), HLA-B*15:02 (carbamazepine/phenytoin in Asian ancestry), HLA-B*13:01 (dapsone-induced DRESS/HSS, prevalent in Asian populations), HLA-B*57:03 (flucloxacillin-induced DILI, prevalent in European populations).",
         "pharmvar_url": None,
         "high_pheno":     [],
         "moderate_pheno": [],
         "min_tools": 1,   # OptiType is the sole HLA typing tool
-        "diplotype_check": lambda d: any(x in (d or "") for x in ("B*57:01", "B*15:02", "B*58:01")),
+        "diplotype_check": lambda d: any(x in (d or "") for x in ("B*57:01", "B*15:02", "B*58:01", "B*13:01", "B*57:03")),
         "risk_alleles": {
-            "B*57:01": "abacavir / flucloxacillin: contraindicated — high hypersensitivity risk",
+            "B*57:01": "abacavir: contraindicated — high hypersensitivity risk",
             "B*15:02": "carbamazepine / phenytoin: avoid — high SJS/TEN risk (esp. Asian ancestry)",
             "B*58:01": "allopurinol: avoid — high SJS/TEN risk",
+            "B*13:01": "dapsone: avoid — high risk of DRESS/HSS (esp. Asian ancestry)",
+            "B*57:03": "flucloxacillin: use with caution — increased DILI risk (esp. European ancestry)",
         },
-        "no_risk_note": "No CPIC Level A high-risk HLA-B alleles (B*57:01, B*15:02, B*58:01) detected.",
+        "no_risk_note": "No high-risk HLA-B alleles (B*57:01, B*15:02, B*58:01 [CPIC Level A]; B*13:01, B*57:03 [CPIC Level B]) detected.",
         "landing_notes": {
             "_diplotype": "High-risk HLA-B allele detected — see detail page for drug-specific recommendations.",
         },
@@ -502,6 +504,12 @@ CPIC_DB: dict = {
             {"name": "Phenytoin / Fosphenytoin", "level": "A",
              "url": "https://cpicpgx.org/guidelines/guideline-for-phenytoin-and-cyp2c9-and-hla-b/",
              "rec": "HLA-B*15:02 positive: increased SJS risk. Avoid or use with extreme caution; consider alternative anticonvulsant."},
+            {"name": "Dapsone", "level": "B",
+             "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-dapsone-and-hla-b/",
+             "rec": "HLA-B*13:01 positive: dapsone associated with high risk of DRESS (drug reaction with eosinophilia and systemic symptoms) and HSS (hypersensitivity syndrome), particularly in Asian populations. Consider alternative antimicrobial (e.g., trimethoprim-sulfamethoxazole, atovaquone)."},
+            {"name": "Flucloxacillin", "level": "B",
+             "url": "https://www.pharmgkb.org/chemical/PA10001/clinicalAnnotation",
+             "rec": "HLA-B*57:03 positive: flucloxacillin associated with increased risk of drug-induced liver injury (DILI), predominantly reported in individuals of European ancestry. Use with caution and monitor liver function; consider an alternative narrow-spectrum beta-lactam if available."},
         ],
     },
     "CYP1A1": {

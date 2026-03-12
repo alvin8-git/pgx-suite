@@ -238,7 +238,64 @@ Pipeline now covers **19/19 CPIC Level A genes** across **31 genes total** with 
 
 ---
 
-## Phase 9: Beyond CPIC Level A — Population PGx Expansion
+## Phase 9: Hypersensitivity Panel Expansion
+
+The quick-win annotations below leverage OptiType's existing Class I genotyping output.
+Class II alleles require a dedicated tool (HLA-HD or arcasHLA) and are not yet implemented.
+
+### 9a. Annotation-only additions (OptiType already calls these — DONE ✅)
+
+- [x] `pgx-report.py` CPIC_DB — HLA-B entry: add **HLA-B\*13:01** (dapsone → DRESS/HSS, CPIC Level B, Asian ancestry)
+- [x] `pgx-report.py` CPIC_DB — HLA-B entry: add **HLA-B\*57:03** (flucloxacillin → DILI, CPIC Level B, European ancestry)
+
+### 9b. New tool required — HLA Class II typing (HLA-HD or arcasHLA)
+
+OptiType covers only **MHC Class I** (HLA-A, -B, -C). Class II genes need a separate tool.
+Candidate tools: **HLA-HD** (IMGT-based, high resolution) or **arcasHLA** (RNA-seq + WGS).
+
+| Gene | Allele | Drug | Reaction | Evidence |
+|------|--------|------|----------|----------|
+| **HLA-DRB1** | *07:01 | Abacavir (additional locus), lapatinib | DILI | PharmGKB Level 2A |
+| **HLA-DQA1** | *02:01 | Lapatinib | DILI | CPIC annotation |
+| **HLA-DQB1** | *06:02 | Clozapine (agranulocytosis protective) | — | Observational |
+
+**Implementation tasks:**
+- [ ] Evaluate HLA-HD vs arcasHLA for WGS (non-RNA) input compatibility with GRCh38
+- [ ] Add Class II tool to `Dockerfile` (Apptainer SIF or conda install)
+- [ ] Write `docker/pgx-hla2.sh`: MHC read extraction (chr6:28510020-33480577) → HLA Class II calling
+- [ ] Parse Class II results in `pgx-compare.py` and `pgx-report.py`
+- [ ] Add HLA-DRB1, HLA-DQA1, HLA-DQB1 to gene support matrix and CPIC_DB
+
+### 9c. CYB5R3 (dapsone methaemoglobinaemia)
+
+CYB5R3 encodes NADH-cytochrome b5 reductase; deficiency causes Type I congenital
+methaemoglobinaemia and exacerbates dapsone-induced methaemoglobinaemia.
+
+| Variant | Clinical impact | CPIC Level |
+|---------|----------------|------------|
+| *2 (rs1799931 → G72E) | Reduced enzyme activity | B |
+
+- [ ] Assess gene size (chr22:42,511,583-42,556,659, ~45 kb) — bcftools lookup is feasible
+- [ ] Determine PyPGx / Aldy support (likely no star-allele support; custom bcftools genotyper)
+- [ ] Implement variant-level lookup for key CYB5R3 variants (rs1799931)
+- [ ] Add to CPIC_DB with cross-reference to HLA-B\*13:01 + dapsone context
+
+### 9d. HLA-C clinical reporting (OptiType already genotypes internally)
+
+OptiType outputs HLA-C alleles but `pgx-report.py` currently ignores them.
+
+| Allele | Drug | Reaction | Evidence |
+|--------|------|----------|----------|
+| C*04:01 | Clozapine | Agranulocytosis | Observational (CPIC annotation) |
+| C*08:01 | Abacavir (additive) | Hypersensitivity | PharmGKB |
+
+- [ ] Add HLA-C to `GENE_LOCI` (chr6:31,268,749-31,272,092)
+- [ ] Parse HLA-C allele from OptiType output in `pgx-hla.sh` + `pgx-compare.py`
+- [ ] Add CPIC_DB entry for HLA-C with C*04:01 (clozapine) annotation
+
+---
+
+## Phase 10: Beyond CPIC Level A — Population PGx Expansion
 
 After 19/19 CPIC Level A coverage, the next highest-yield additions for a population-based
 genome project are:
