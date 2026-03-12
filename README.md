@@ -13,7 +13,8 @@ A Docker container that bundles five pharmacogenomics (PGx) callers — **PyPGx*
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Run all genes (batch)](#run-all-genes-batch)
+  - [Host launcher — recommended](#host-launcher--recommended)
+  - [Run all genes (batch, manual docker)](#run-all-genes-batch-manual-docker)
   - [Run a single gene](#run-a-single-gene)
   - [Volume mounts reference](#volume-mounts-reference)
   - [Expected output](#expected-output)
@@ -143,15 +144,59 @@ All 12 checks should report `PASS`:
 
 ## Usage
 
-### Run all genes (batch)
+### Host launcher — recommended
+
+**`run_pgx_suite.sh`** is the single-command entry point for new samples. It handles
+all Docker volume mounts automatically, accepts BAM or CRAM, and delegates to
+`pgx-all-genes.sh` inside the container.
+
+```bash
+# Minimal — output defaults to results/<SAMPLE>/ under the repo root
+./run_pgx_suite.sh /path/to/sample.bam
+
+# With explicit output directory
+./run_pgx_suite.sh /path/to/sample.bam --output /data/pgx_out
+
+# CRAM input, 8 parallel gene workers
+./run_pgx_suite.sh /path/to/sample.cram --output /data/pgx_out --jobs 8
+
+# Override Docker image (e.g. a tagged release)
+./run_pgx_suite.sh /path/to/sample.bam --image pgx-suite:v1.0
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--output DIR` | `<repo>/results/<SAMPLE>` | Output directory on host |
+| `--jobs N` | `4` | Genes to run in parallel inside the container |
+| `--image NAME` | `pgx-suite:latest` | Docker image to use |
+
+**Pre-flight checks performed before launching Docker:**
+- BAM/CRAM exists and has a matching `.bai`/`.crai` index
+- `StellarPGx/`, `StellarPGx/containers/`, `pypgx/pypgx-bundle/`, `GRCh38/` are present
+- `pgx-suite:latest` image is built
+
+Sample name is derived from the filename before the first `.`
+(e.g. `NA12878.bwa.bam` → `NA12878`).
+
+The container is run with `--privileged` (required for Apptainer used by StellarPGx
+and OptiType HLA typing).
+
+---
+
+### Run all genes (batch, manual docker)
+
+The manual `docker run` equivalent of `run_pgx_suite.sh` — useful when you need to
+customise volume mounts or run from inside another script:
 
 ```bash
 docker run --privileged --rm \
   -v "$(pwd)/StellarPGx:/pgx/stellarpgx" \
   -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
   -v "$(pwd)/pypgx/pypgx-bundle:/pgx/bundle" \
-  -v "/path/to/ref:/pgx/ref" \
-  -v "/path/to/data:/pgx/data" \
+  -v "/path/to/ref:/pgx/ref:ro" \
+  -v "/path/to/data:/pgx/data:ro" \
   -v "/path/to/results:/pgx/results" \
   pgx-suite:latest \
   pgx-all-genes.sh /pgx/data/sample.bam --output /pgx/results
@@ -160,7 +205,7 @@ docker run --privileged --rm \
 **Supported options:**
 
 ```
-pgx-all-genes.sh <BAM> [--ref PATH] [--output PATH] [--jobs N]
+pgx-all-genes.sh <BAM|CRAM> [--ref PATH] [--output PATH] [--jobs N]
 ```
 
 `pgx-all-genes.sh` runs every gene in the 29-gene support matrix in parallel batches,
@@ -221,8 +266,8 @@ pgx-run.sh <GENE> <BAM> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]
 ```
 
 `pgx-run.sh` automatically:
-- Validates the BAM index, reference FASTA, and gene support
-- Extracts the sample name from the BAM `@RG SM:` tag
+- Validates the BAM/CRAM index, reference FASTA, and gene support
+- Derives the sample name from the filename before the first `.` (e.g. `NA12878.bwa.bam` → `NA12878`)
 - Generates a gene-region VCF via `bcftools mpileup | bcftools call | tabix`
 - Runs SV-aware preprocessing (depth-of-coverage + VDR control stats) for PyPGx SV genes
 - Runs GDF depth-profile creation for Stargazer's three paralog genes (CYP2A6, CYP2B6, CYP2D6)
@@ -393,8 +438,9 @@ docker run --privileged pgx-suite:latest
 
 ```
 pgx-suite/
-├── Dockerfile                          # Ubuntu 22.04 image with all 4 tools
+├── Dockerfile                          # Ubuntu 22.04 image with all 5 tools
 ├── .dockerignore
+├── run_pgx_suite.sh                    # Host launcher — single command for new samples
 ├── nextflow                            # Nextflow binary (pre-downloaded)
 ├── docker/
 │   ├── pgx-all-genes.sh                # Batch orchestrator: all 29 genes in parallel
@@ -427,7 +473,7 @@ pgx-suite/
 
 | Document | Description |
 |----------|-------------|
-| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 4 callers: algorithms, gene lists, SV handling, output formats, limitations |
+| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 5 callers: algorithms, gene lists, SV handling, output formats, limitations |
 | [`CHANGES.md`](CHANGES.md) | Reverse-chronological changelog |
 | [`TODO.md`](TODO.md) | Roadmap and open tasks |
 | [`docker/README.md`](docker/README.md) | Container-specific notes and examples |
