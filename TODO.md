@@ -126,6 +126,66 @@
 
 ---
 
+## Phase 6: Report Quality & Coverage Flags ✅ COMPLETE
+
+- [x] **Depth coverage colour flags** on gene cards and gene detail panels
+  - Thresholds based on CAP/AMP 2021 PGx guidance and CPIC tool recommendations
+  - ≥80% at ≥30× → green (`depth-ok`) — reliable calling
+  - 50–79%        → amber (`depth-caution`) — SNV OK, SV uncertain
+  - 10–49%        → orange (`depth-poor`) — results may be unreliable
+  - <10%          → red (`depth-critical`) — insufficient for calling
+  - Applied in: gene card `.gene-depth` text, detail panel header, per-gene depth table
+- [x] `_depth_css()` helper added to `pgx-report.py`
+
+---
+
+## Investigation Required — Low ≥30× Coverage Genes
+
+Three genes consistently show near-zero ≥30× coverage in test samples (HG003, T7_NA24385).
+These are flagged red in the HTML report. Root causes:
+
+### GSTT1 — BED coordinates point to wrong region
+- The GSTT1 gene body is on `chr22_KI270879v1_alt` (alternate contig), NOT on the primary
+  chr22 assembly. Standard WGS alignment pipelines (BWA-MEM2 with GRCh38 primary assembly)
+  do not align reads to alternate contigs.
+- **Our mosdepth BED uses `chr22` coordinates** from the primary assembly where GSTT1 is
+  represented only as a gap/placeholder. This region has essentially zero real read coverage.
+- Fix options:
+  - [ ] Use alt-aware alignment with GRCh38 full + alt contigs; add `chr22_KI270879v1_alt`
+        BED entry to pgx-bamstats.sh for true GSTT1 depth
+  - [ ] Or accept that GSTT1 depth is unmeasurable on primary assembly BAMs and display
+        "Alt contig — depth not measurable" in the report (already done for the null entry;
+        mosdepth BED entry should be removed to avoid false red flag)
+
+### GSTM1 — Whole-gene deletion (null allele)
+- GSTM1 has a common whole-gene deletion polymorphism (*0 null allele). Population
+  frequency of homozygous deletion (GSTM1*0/*0) is ~40–50% in European populations.
+- If the sample is GSTM1*0/*0 (null/null), there are literally no reads from this locus;
+  mean depth ≈ 0× and ≥30× ≈ 0%.
+- This is NOT a QC failure — it is the true biological finding (homozygous deletion).
+- Fix options:
+  - [ ] Annotate the depth card/table: if GSTM1 diplotype is *0/*0 or *0/*, display
+        "Deletion detected — depth reflects null allele" instead of a red flag
+  - [ ] Suppress depth flag for GSTM1 when SV caller reports deletion
+
+### G6PD — X-linked hemizygous coverage in males
+- G6PD is on chrX. For XY (male) samples, coverage of chrX is ~half that of autosomes
+  (hemizygous, one copy vs two copies).
+- At typical WGS depth of ~30× autosomal, chrX is ~15× → ≥30× fraction near 0%.
+- This is expected and NOT a QC failure for male samples.
+- Fix options:
+  - [ ] Use inferred sex from `bam_stats.json` (`inferred_sex` field) to skip or adjust
+        the ≥30× threshold for X-linked genes in male samples
+  - [ ] Display "X-linked — hemizygous coverage expected (~15X in males)" annotation
+        when inferred sex = MALE and gene = G6PD
+
+### Recommended fixes (priority order)
+1. [ ] Remove GSTT1 from mosdepth primary BED; show null entry as before (already partially done)
+2. [ ] Use `inferred_sex` from `bam_stats.json` to annotate G6PD depth appropriately
+3. [ ] Cross-reference GSTM1 diplotype call to explain zero depth as deletion finding
+
+---
+
 ## Known Limitations / Notes
 
 - `StellarPGx` requires `--privileged` Docker flag (Apptainer inside Docker)

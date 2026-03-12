@@ -1083,6 +1083,11 @@ LANDING_EXTRA_CSS = """
 }
 .gene-concord { font-size: 0.7rem; margin-top: 0.4rem; }
 .gene-depth   { font-size: 0.7rem; margin-top: 0.25rem; color: var(--muted); }
+/* ── Sequencing depth coverage flags ── */
+.depth-ok       { color: #2d7d46; font-weight: 700; }   /* ≥80% at ≥30× */
+.depth-caution  { color: #b38600; font-weight: 700; }   /* 50–79% */
+.depth-poor     { color: #d46b08; font-weight: 700; }   /* 10–49% */
+.depth-critical { color: #c0392b; font-weight: 700; }   /* <10%  */
 /* ── Key Clinical Findings section ── */
 .cf-disclaimer { font-size: 0.75rem; color: var(--muted); margin-bottom: 1rem; font-style: italic; }
 .cf-container { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -1146,6 +1151,28 @@ def bam_stats_cards(bs: dict) -> str:
     return cards
 
 
+def _depth_css(pct_ge_30x) -> str:
+    """Return CSS class for a ≥30× coverage fraction value.
+
+    Thresholds align with CAP/AMP PGx guidance and tool recommendations:
+      ≥80%  → depth-ok       (green)  — reliable calling
+      50–79% → depth-caution (amber)  — SNV OK, SV uncertain
+      10–49% → depth-poor    (orange) — results may be unreliable
+       <10%  → depth-critical (red)   — insufficient for calling
+    """
+    try:
+        v = float(pct_ge_30x)
+    except (TypeError, ValueError):
+        return ""
+    if v >= 80:
+        return "depth-ok"
+    if v >= 50:
+        return "depth-caution"
+    if v >= 10:
+        return "depth-poor"
+    return "depth-critical"
+
+
 def gene_depth_table(bs: dict) -> str:
     gd = bs.get("gene_depth", {})
     if not gd:
@@ -1163,12 +1190,14 @@ def gene_depth_table(bs: dict) -> str:
             mean  = d.get('mean', '—')
             p20   = d.get('pct_ge_20x', '—')
             p30   = d.get('pct_ge_30x', '—')
+            p30_cls = _depth_css(p30)
+            p30_cell = f'<span class="{p30_cls}">{p30}%</span>' if p30_cls else f'{p30}%'
             rows += f"""
         <tr>
             <td>{gene}</td>
             <td>{mean}X</td>
             <td>{p20}%</td>
-            <td>{p30}%</td>
+            <td>{p30_cell}</td>
         </tr>"""
     return f"""
     <div class="section">
@@ -1225,7 +1254,9 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             else:
                 mean  = depth_info.get("mean", "—")
                 pct30 = depth_info.get("pct_ge_30x", "—")
-                depth_html = f'<div class="gene-depth">Depth: {mean}X &nbsp;|&nbsp; &#8805;30X: {pct30}%</div>'
+                p30_cls = _depth_css(pct30)
+                p30_str = f'<span class="{p30_cls}">{pct30}%</span>' if p30_cls else f'{pct30}%'
+                depth_html = f'<div class="gene-depth">Depth: {mean}X &nbsp;|&nbsp; &#8805;30X: {p30_str}</div>'
         else:
             depth_html = ""
 
@@ -1791,11 +1822,14 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
         mean  = gene_depth.get("mean", "—")
         pct30 = gene_depth.get("pct_ge_30x", "—")
         pct20 = gene_depth.get("pct_ge_20x", "—")
+        p30_cls = _depth_css(pct30)
+        p30_str = (f'<span class="{p30_cls}">{pct30}%</span>'
+                   if p30_cls else f'<strong>{pct30}%</strong>')
         depth_detail_html = (
             f'<div class="gene-depth-detail">'
             f'Mean depth: <strong>{mean}X</strong>'
             f' &nbsp;|&nbsp; &#8805;20X: <strong>{pct20}%</strong>'
-            f' &nbsp;|&nbsp; &#8805;30X: <strong>{pct30}%</strong>'
+            f' &nbsp;|&nbsp; &#8805;30X: {p30_str}'
             f'</div>'
         )
     else:
