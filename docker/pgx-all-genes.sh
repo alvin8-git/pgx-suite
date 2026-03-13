@@ -114,22 +114,19 @@ mkdir -p "$LOG_DIR" "$GENES_DIR"
 # a single BAM once per sample run, then hand that BAM to all per-gene calls.
 if [[ "$_INPUT_EXT" == "cram" ]]; then
     _PGX_BAM="${LOG_DIR}/pgx_input.bam"
-    _NCPU=$(nproc 2>/dev/null || echo 4)
+    # Cap at 8 threads: BGZF block ordering corruption observed with high counts (>16)
+    _NCPU=$(( $(nproc 2>/dev/null || echo 4) > 8 ? 8 : $(nproc 2>/dev/null || echo 4) ))
     if [[ ! -f "${_PGX_BAM}.bai" ]]; then
+        rm -f "$_PGX_BAM"   # remove any leftover corrupt BAM from a previous failed run
         echo "INFO: CRAM input detected — extracting PGx regions to BAM …"
         echo "      Reference : ${REF}"
         echo "      Threads   : ${_NCPU}"
         echo "      (this is a one-time step; all per-gene calls will reuse ${_PGX_BAM})"
 
-        # Verify that the provided reference matches what the CRAM was encoded with.
-        # If there is an M5 mismatch samtools will abort; the CRAM header UR: field
-        # identifies the original reference (check with: samtools view -H <cram> | grep ^@SQ).
-        # Fix: pass the exact reference used during CRAM encoding via --ref on run_pgx_suite.sh.
+        # Identify the reference the CRAM was encoded with (shown on mismatch errors).
         _CRAM_REF_URI=$(samtools view -H "$BAM" 2>/dev/null \
             | awk '/^@SQ/{for(i=1;i<=NF;i++) if($i~/^UR:/) {sub(/^UR:/,"",$i); print $i; exit}}')
-        if [[ -n "$_CRAM_REF_URI" ]]; then
-            echo "      CRAM encoded with: ${_CRAM_REF_URI}"
-        fi
+        [[ -n "$_CRAM_REF_URI" ]] && echo "      CRAM encoded with: ${_CRAM_REF_URI}"
 
         if ! samtools view -b -@ "$_NCPU" -T "$REF" \
                 -L /opt/pgx/pgx_cram_regions.bed \
@@ -141,16 +138,26 @@ if [[ "$_INPUT_EXT" == "cram" ]]; then
             echo "       the reference currently mounted at: ${REF}" >&2
             if [[ -n "$_CRAM_REF_URI" ]]; then
                 echo "" >&2
-                echo "       CRAM declares its reference as:" >&2
-                echo "         ${_CRAM_REF_URI}" >&2
-                echo "" >&2
-                echo "       Re-run with the matching reference, e.g.:" >&2
-                echo "         ./run_pgx_suite.sh <cram> --ref /path/to/matching/hg38.fa" >&2
+                echo "       CRAM declares its reference as: ${_CRAM_REF_URI}" >&2
+                echo "       Re-run with: ./run_pgx_suite.sh <cram> --ref /path/to/matching/hg38.fa" >&2
             fi
             rm -f "$_PGX_BAM"
             exit 1
         fi
-        samtools index -@ "$_NCPU" "$_PGX_BAM"
+
+        # Verify BAM integrity before indexing — catches BGZF truncation from write errors.
+        if ! samtools quickcheck "$_PGX_BAM" 2>&1; then
+            echo "ERROR: CRAM → BAM conversion produced a corrupt BAM (quickcheck failed)." >&2
+            echo "       Check disk space (df -h) and re-run." >&2
+            rm -f "$_PGX_BAM"
+            exit 1
+        fi
+
+        if ! samtools index -@ "$_NCPU" "$_PGX_BAM"; then
+            echo "ERROR: samtools index failed on ${_PGX_BAM}" >&2
+            rm -f "$_PGX_BAM" "${_PGX_BAM}.bai"
+            exit 1
+        fi
         echo "INFO: CRAM conversion complete → ${_PGX_BAM}"
     else
         echo "INFO: Reusing existing PGx-region BAM: ${_PGX_BAM}"
