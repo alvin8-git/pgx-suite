@@ -8,10 +8,12 @@ Usage: pgx-compare.py --gene GENE --sample SAMPLE --output-dir DIR
 import argparse
 import csv
 import glob
+import gzip
 import io
 import json
 import os
 import re
+import subprocess
 import sys
 import zipfile
 from collections import Counter, defaultdict
@@ -87,7 +89,7 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "CYP4F2":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "NUDT15":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "TPMT":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "UGT1A1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
+    "UGT1A1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True,  "vcf_check": True},
     "SLCO1B1":  {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "DPYD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
     "NAT1":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
@@ -660,6 +662,140 @@ def parse_mutserve(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: UGT1A1 VCF-Check (promoter + coding SNP supplement) ───────────────
+# Star-allele callers inconsistently report UGT1A1 *60 (rs45530432) and *80
+# (rs887829) — East Asian promoter variants that compound the activity of *28.
+# *6 (rs4148323) is missed by some tools in East Asian samples.
+# This parser reads the gene VCF produced by bcftools and checks each position
+# directly, providing an independent fifth call for UGT1A1.
+_UGT1A1_SNP_ALLELES: list[dict] = [
+    # (GRCh38 pos, REF, ALT, star-allele, rsID, functional note)
+    {"pos": 233757013, "ref": "T", "alt": "G", "allele": "*60", "rsid": "rs45530432",
+     "note": "Promoter -3279T>G; reduces UGT1A1 expression; common East Asian allele"},
+    {"pos": 233759924, "ref": "C", "alt": "T", "allele": "*80", "rsid": "rs887829",
+     "note": "Promoter -401C>T; moderate expression reduction"},
+    {"pos": 233760498, "ref": "G", "alt": "A", "allele": "*6",  "rsid": "rs4148323",
+     "note": "c.211G>A (p.Gly71Arg); decreased function; common in East Asians"},
+]
+_UGT1A1_INDEL_POS = 233760233  # *28 TA-repeat locus (rs3064744); detected as indel
+
+
+def parse_ugt1a1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Query UGT1A1.vcf.gz for *28, *60, *80, *6 alleles independently of star-allele callers."""
+    result = CallerResult(
+        tool="VCF-Check",
+        phasing_method="bcftools mpileup — direct variant query (unphased)",
+    )
+
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    if not os.path.exists(vcf):
+        result.status = "failed"
+        result.diplotype = "VCF not found"
+        return result
+
+    # Query the promoter + coding region spanning all target alleles
+    region = "chr2:233757013-233760498"
+    try:
+        proc = subprocess.run(
+            ["bcftools", "view", "-r", region, vcf],
+            capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError:
+        result.status = "failed"
+        result.diplotype = "bcftools not in PATH"
+        return result
+    except subprocess.TimeoutExpired:
+        result.status = "failed"
+        result.diplotype = "bcftools timed out"
+        return result
+
+    # Parse VCF lines for target positions
+    # alleles_found: star-allele -> (gt string, depth, alt_copies, rsid, note)
+    alleles_found: dict[str, tuple] = {}
+    variants_list: list[dict] = []
+
+    for line in proc.stdout.splitlines():
+        if line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) < 10:
+            continue
+        pos = int(fields[1])
+        ref, alt_str = fields[3], fields[4]
+        fmt_keys = fields[8].split(":")
+        fmt_vals = fields[9].split(":")
+        fmt = dict(zip(fmt_keys, fmt_vals))
+        gt_raw = fmt.get("GT", "./.")
+        gt = gt_raw.replace("|", "/")
+        dp  = fmt.get("DP", "-")
+        ad  = fmt.get("AD", "-")
+        alt_copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
+        if alt_copies == 0:
+            continue
+
+        # Check *28 TA-repeat indel (any indel at this position is *28)
+        if pos == _UGT1A1_INDEL_POS and len(alt_str) != len(ref):
+            alleles_found["*28"] = (gt, dp, alt_copies, "rs3064744",
+                                    "TA-repeat insertion; *28 = 7 TA (Gilbert's); "
+                                    f"REF={ref[:16]}… ALT={alt_str[:16]}…")
+            variants_list.append({
+                "allele": "*28", "chrom": "chr2", "pos": str(pos),
+                "ref": ref[:20], "alt": alt_str[:20],
+                "af": ad, "depth": dp, "effect": "promoter TA-repeat expansion",
+                "rsid": "rs3064744",
+            })
+            continue
+
+        # Check SNP alleles
+        alts = alt_str.split(",")
+        for adef in _UGT1A1_SNP_ALLELES:
+            if adef["pos"] != pos:
+                continue
+            if adef["alt"] not in alts:
+                continue
+            alleles_found[adef["allele"]] = (gt, dp, alt_copies, adef["rsid"], adef["note"])
+            variants_list.append({
+                "allele": adef["allele"], "chrom": "chr2", "pos": str(pos),
+                "ref": ref, "alt": adef["alt"],
+                "af": ad, "depth": dp, "effect": adef["note"],
+                "rsid": adef["rsid"],
+            })
+
+    result.status = "ok"
+    result.supporting_variants = variants_list
+
+    if not alleles_found:
+        result.diplotype = "*1/*1"
+        result.phenotype = "Normal Function"
+        return result
+
+    # Report as compound allele list with genotype (unphased; phasing requires LRS).
+    # Format: *28(het)+*60(hom)+*80(het)
+    # Sorted by allele number so output is deterministic.
+    def _sort_key(name: str) -> int:
+        m = re.search(r"(\d+)", name)
+        return int(m.group(1)) if m else 999
+
+    parts = []
+    for aname in sorted(alleles_found, key=_sort_key):
+        gt, dp, copies, rsid, note = alleles_found[aname]
+        zygosity = "hom" if copies >= 2 else "het"
+        parts.append(f"{aname}({zygosity})")
+    result.diplotype = "+".join(parts) + " [unphased]"
+
+    # Coarse phenotype
+    risk = set(alleles_found)
+    is_28_hom = alleles_found.get("*28", ("",))[0] in ("1/1", "1|1")
+    if "*28" in risk and is_28_hom and len(risk) == 1:
+        result.phenotype = "Poor Function (Gilbert's — *28/*28)"
+    elif risk:
+        result.phenotype = "Reduced Function (variant allele(s) detected)"
+    else:
+        result.phenotype = "Normal Function"
+
+    return result
+
+
 # ── SV mode note ──────────────────────────────────────────────────────────────
 def _sv_note(gene: str) -> str:
     notes = []
@@ -769,6 +905,8 @@ def main() -> None:
         results.append(parse_optitype(args.output_dir, gene, args.sample))
     if support.get("mutserve"):
         results.append(parse_mutserve(args.output_dir, gene, args.sample))
+    if support.get("vcf_check"):
+        results.append(parse_ugt1a1_vcf(args.output_dir, gene, args.sample))
 
     print_table(gene, args.sample, results, args.output_dir)
 
