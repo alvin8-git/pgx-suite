@@ -77,29 +77,6 @@ if [[ ! -f "$REF" ]]; then
     echo "ERROR: Reference FASTA not found: $REF" >&2; exit 1
 fi
 
-# ── CRAM → PGx-region BAM conversion ─────────────────────────────────────────
-# Aldy, PyPGx, and Stargazer use pysam/internal samtools without an explicit
-# --reference flag, so they cannot decode CRAM inside the container (the CRAM
-# header's UR: path points to the host filesystem, not /pgx/ref/).
-# Solution: extract all PGx gene regions + VDR control + MHC + full chrM into
-# a single BAM once per sample run, then hand that BAM to all per-gene calls.
-if [[ "$_INPUT_EXT" == "cram" ]]; then
-    _PGX_BAM="${LOG_DIR}/pgx_input.bam"
-    if [[ ! -f "${_PGX_BAM}.bai" ]]; then
-        echo "INFO: CRAM input detected — extracting PGx regions to BAM …"
-        echo "      (this is a one-time step; all per-gene calls will reuse ${_PGX_BAM})"
-        samtools view -b -T "$REF" \
-            -L /opt/pgx/pgx_cram_regions.bed \
-            -o "$_PGX_BAM" "$BAM" \
-            && samtools index "$_PGX_BAM" \
-            || { echo "ERROR: CRAM → BAM conversion failed" >&2; exit 1; }
-        echo "INFO: CRAM conversion complete → ${_PGX_BAM}"
-    else
-        echo "INFO: Reusing existing PGx-region BAM: ${_PGX_BAM}"
-    fi
-    BAM="$_PGX_BAM"
-fi
-
 # ── Gene list — all unique supported genes ────────────────────────────────────
 # POR/CYPOR are the same locus; only POR is kept here.
 GENES=(
@@ -128,6 +105,29 @@ TOTAL=${#GENES[@]}
 LOG_DIR="${OUTPUT}/log"
 GENES_DIR="${OUTPUT}/Genes"
 mkdir -p "$LOG_DIR" "$GENES_DIR"
+
+# ── CRAM → PGx-region BAM conversion ─────────────────────────────────────────
+# Aldy, PyPGx, and Stargazer use pysam/internal samtools without an explicit
+# --reference flag, so they cannot decode CRAM inside the container (the CRAM
+# header's UR: path points to the host filesystem, not /pgx/ref/).
+# Solution: extract all PGx gene regions + VDR control + MHC + full chrM into
+# a single BAM once per sample run, then hand that BAM to all per-gene calls.
+if [[ "$_INPUT_EXT" == "cram" ]]; then
+    _PGX_BAM="${LOG_DIR}/pgx_input.bam"
+    if [[ ! -f "${_PGX_BAM}.bai" ]]; then
+        echo "INFO: CRAM input detected — extracting PGx regions to BAM …"
+        echo "      (this is a one-time step; all per-gene calls will reuse ${_PGX_BAM})"
+        samtools view -b -T "$REF" \
+            -L /opt/pgx/pgx_cram_regions.bed \
+            -o "$_PGX_BAM" "$BAM" \
+            && samtools index "$_PGX_BAM" \
+            || { echo "ERROR: CRAM → BAM conversion failed" >&2; exit 1; }
+        echo "INFO: CRAM conversion complete → ${_PGX_BAM}"
+    else
+        echo "INFO: Reusing existing PGx-region BAM: ${_PGX_BAM}"
+    fi
+    BAM="$_PGX_BAM"
+fi
 
 # ── Extract sample name from BAM filename (before the first ".") ──────────────
 # e.g. T7_NA24385.bwa.sortdup.bqsr.bam → T7_NA24385
