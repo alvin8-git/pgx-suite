@@ -5,6 +5,53 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-03-13 — Post-validation pipeline improvements + Docker rebuild
+
+### Summary
+
+Applied four actionable fixes derived from the TTSH validation study and added a
+fifth independent UGT1A1 caller (VCF-Check). Docker image rebuilt to incorporate
+all changes.
+
+### `docker/pgx-run.sh`
+
+- **ABCG2:** StellarPGx support flag changed `1 → 0` — no calls produced in 13
+  validation samples; tool is not compatible with this gene in practice
+
+### `docker/pgx-compare.py`
+
+- **ABCG2 GENE_SUPPORT:** `stellarpgx: True → False` to match run.sh
+- **UGT1A1 VCF-Check (new):** fifth independent caller `parse_ugt1a1_vcf()` queries
+  the bcftools VCF already produced by the pipeline for promoter/coding alleles:
+  - *60 rs45530432 chr2:233757013 T>G (East Asian promoter)
+  - *80 rs887829 chr2:233759924 C>T (promoter, moderate reduction)
+  - *6  rs4148323 chr2:233760498 G>A (Gly71Arg, common East Asian)
+  - *28 rs3064744 chr2:233760233 (TA-repeat indel)
+  - Reports compound unphased notation: e.g. `*28(het)+*60(hom)+*80(het) [unphased]`
+  - Validated on ILMN CRAM cohort: detects alleles missed by all four star-allele tools
+
+### `docker/pgx-report.py`
+
+- **RYR1 diplotype_check:** added `*ference/*ference` to exclusion list to prevent
+  Aldy's reference notation from triggering spurious clinical alert banners
+- **DPYD/RYR1 low-depth warning:** new `_DEPTH_SENSITIVE_GENES` constant; amber
+  warning banner rendered when mean gene depth < 30× (threshold based on TTSH
+  cohort observation that rare het variants were missed below this depth)
+- **DPYD description:** notes that WGS detects full variant spectrum including *5
+  (c.1627A>G) and *9A (c.85T>C) not covered by standard pharmacogenomics arrays
+- **UGT1A1 description:** notes that promoter alleles *60 and *80 are not uniformly
+  represented across tool databases and may differ between tool outputs
+- **TOOLS list:** `VCF-Check` added as seventh recognised tool
+
+### CRAM sample reports regenerated
+
+- `results/cram/C-5839/C-5839_pgx_report.html` — depth warnings fire for DPYD
+  (29.6×) and RYR1 (25.8×); VCF-Check row added to UGT1A1 section
+- `results/cram/EQ_2017/EQ_2017_pgx_report.html` — VCF-Check correctly calls
+  `*28(het)+*60(hom)+*80(het) [unphased]` for UGT1A1
+
+---
+
 ## 2026-03-13 — TTSH Validation Report (13 samples × 16 genes, ILMN + MGI)
 
 ### Summary
