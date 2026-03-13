@@ -203,10 +203,16 @@ fi
 if [[ ! -f "$BAM" ]]; then
     echo "ERROR: BAM file not found: $BAM" >&2; exit 1
 fi
-BAI="${BAM}.bai"
-[[ ! -f "$BAI" ]] && BAI="${BAM%.bam}.bai"
+_INPUT_EXT="${BAM##*.}"
+case "$_INPUT_EXT" in
+    bam)  _IDX_EXT="bai" ;;
+    cram) _IDX_EXT="crai" ;;
+    *)    echo "ERROR: Input must be .bam or .cram: $BAM" >&2; exit 1 ;;
+esac
+BAI="${BAM}.${_IDX_EXT}"
+[[ ! -f "$BAI" ]] && BAI="${BAM%.*}.${_IDX_EXT}"
 if [[ ! -f "$BAI" ]]; then
-    echo "ERROR: BAM index not found. Run: samtools index $BAM" >&2; exit 1
+    echo "ERROR: Index not found (${BAM}.${_IDX_EXT}). Run: samtools index $BAM" >&2; exit 1
 fi
 if [[ ! -f "$REF" ]]; then
     echo "ERROR: Reference FASTA not found: $REF" >&2; exit 1
@@ -220,7 +226,7 @@ echo ""
 
 # ── Sample name from BAM read group ──────────────────────────────────────────
 SAMPLE=$(samtools view -H "$BAM" | grep '^@RG' | grep -oP 'SM:\K[^\t]+' | head -1 || true)
-[[ -z "$SAMPLE" ]] && SAMPLE=$(basename "$BAM" .bam)
+[[ -z "$SAMPLE" ]] && SAMPLE=$(basename "${BAM%.*}")
 log_status "Sample: ${SAMPLE}"
 echo ""
 
@@ -376,14 +382,14 @@ run_stellarpgx() {
     local log="${OUTPUT}/logs/stellarpgx.log"
     local bam_dir bam_base
     bam_dir="$(dirname "$BAM")"
-    bam_base="$(basename "$BAM" .bam)"
+    bam_base="$(basename "${BAM%.*}")"   # strips .bam or .cram
     # StellarPGx main.nf uses 'cypor' not 'por' as the gene identifier.
     local stellar_gene="${GENE_LOWER}"
     [[ "$stellar_gene" == "por" ]] && stellar_gene="cypor"
     log_status "START  StellarPGx"
     if nextflow run /pgx/stellarpgx/main.nf \
             --gene "${stellar_gene}" \
-            --in_bam "${bam_dir}/${bam_base}*{bam,bai}" \
+            --in_bam "${bam_dir}/${bam_base}*{${_INPUT_EXT},${_IDX_EXT}}" \
             --ref_file "$REF" \
             --out_dir "${OUTPUT}/stellarpgx" \
             --res_init /pgx/stellarpgx/resources \

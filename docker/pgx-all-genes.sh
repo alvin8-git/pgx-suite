@@ -60,15 +60,44 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ── Validate BAM ──────────────────────────────────────────────────────────────
+# ── Validate input alignment file (BAM or CRAM) ───────────────────────────────
 if [[ ! -f "$BAM" ]]; then
-    echo "ERROR: BAM file not found: $BAM" >&2; exit 1
+    echo "ERROR: Input file not found: $BAM" >&2; exit 1
 fi
-if [[ ! -f "${BAM}.bai" && ! -f "${BAM%.bam}.bai" ]]; then
-    echo "ERROR: BAM index not found (expected ${BAM}.bai)" >&2; exit 1
+_INPUT_EXT="${BAM##*.}"
+case "$_INPUT_EXT" in
+    bam)  _IDX_EXT="bai" ;;
+    cram) _IDX_EXT="crai" ;;
+    *)    echo "ERROR: Input must be .bam or .cram: $BAM" >&2; exit 1 ;;
+esac
+if [[ ! -f "${BAM}.${_IDX_EXT}" && ! -f "${BAM%.*}.${_IDX_EXT}" ]]; then
+    echo "ERROR: Index not found (expected ${BAM}.${_IDX_EXT})" >&2; exit 1
 fi
 if [[ ! -f "$REF" ]]; then
     echo "ERROR: Reference FASTA not found: $REF" >&2; exit 1
+fi
+
+# ── CRAM → PGx-region BAM conversion ─────────────────────────────────────────
+# Aldy, PyPGx, and Stargazer use pysam/internal samtools without an explicit
+# --reference flag, so they cannot decode CRAM inside the container (the CRAM
+# header's UR: path points to the host filesystem, not /pgx/ref/).
+# Solution: extract all PGx gene regions + VDR control + MHC + full chrM into
+# a single BAM once per sample run, then hand that BAM to all per-gene calls.
+if [[ "$_INPUT_EXT" == "cram" ]]; then
+    _PGX_BAM="${LOG_DIR}/pgx_input.bam"
+    if [[ ! -f "${_PGX_BAM}.bai" ]]; then
+        echo "INFO: CRAM input detected — extracting PGx regions to BAM …"
+        echo "      (this is a one-time step; all per-gene calls will reuse ${_PGX_BAM})"
+        samtools view -b -T "$REF" \
+            -L /opt/pgx/pgx_cram_regions.bed \
+            -o "$_PGX_BAM" "$BAM" \
+            && samtools index "$_PGX_BAM" \
+            || { echo "ERROR: CRAM → BAM conversion failed" >&2; exit 1; }
+        echo "INFO: CRAM conversion complete → ${_PGX_BAM}"
+    else
+        echo "INFO: Reusing existing PGx-region BAM: ${_PGX_BAM}"
+    fi
+    BAM="$_PGX_BAM"
 fi
 
 # ── Gene list — all unique supported genes ────────────────────────────────────
