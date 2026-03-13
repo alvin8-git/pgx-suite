@@ -5,6 +5,36 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-03-13 — TTSH Validation Report (13 samples × 16 genes, ILMN + MGI)
+
+### Summary
+
+Comprehensive concordance analysis of 13 clinical samples previously genotyped
+on the Thermofisher Axiom Pharmacogenomics array (P6/P9) against the pgx-suite
+pipeline on both Illumina and MGI WGS platforms.
+
+### `TTSHvalidation.md` (new)
+
+- **13 samples**, 26 platform-sample pairs (ILMN + MGI), **16 genes** evaluated
+- **Tool concordance:** Stargazer 81.5% > PyPGx 79.9% > Aldy 78.1% > StellarPGx 76.5%
+- **Key finding — DPYD:** Pipeline detects reduced-function variants (*9A, *5)
+  in samples Axiom reports as `*1/*1`; Axiom array covers only major DPYD
+  variants while WGS calls the full gene — may have direct 5-FU dosing impact
+- **CYP2D6 (55% concordance):** Hybrid allele nomenclature differences
+  (*36+*10 vs *36-*10, *106 sub-classification); biologically concordant in most
+  cases; Axiom P6 returns "Indeterminate" for most samples
+- **UGT1A1 (62%):** *60 and *80 promoter alleles systematically missing from
+  tool allele databases — documented gap
+- **RYR1 (60%):** Rare het variants missed by PyPGx/Stargazer; Aldy most
+  sensitive for RYR1 rare variant detection
+- **ABCG2:** Only Aldy calls this gene; 100% concordant with Axiom
+- **Platform:** ILMN and MGI produce equivalent genotypes; MGI has markedly
+  lower duplication (6–10% vs 20–44%), giving higher effective depth
+- Recommendations: DPYD clinical review, consensus ≥3/4 tools policy, 30×
+  minimum gene depth for RYR1/DPYD, standardise VKORC1 to rsID notation
+
+---
+
 ## 2026-03-12 — Hypersensitivity Panel: HLA-B Level B allele annotations
 
 ### Summary
