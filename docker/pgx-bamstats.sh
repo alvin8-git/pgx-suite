@@ -109,14 +109,21 @@ BEDEOF
 STATS_REGION="chr1:10000000-14000000"
 
 # ── CRAM reference flags ────────────────────────────────────────────────────────
-# samtools stats, samtools view, and mosdepth all need the reference to decode
-# CRAM data. idxstats reads from the .crai index and does not need a reference.
+# samtools and mosdepth need the reference to decode CRAM data.
+# idxstats reads from the .crai index and does NOT need a reference.
+#
+# NOTE: samtools uses DIFFERENT reference flags per sub-command:
+#   samtools stats  → -r FILE   (not -T; -T is silently ignored by stats)
+#   samtools view   → -T FILE
+#   mosdepth        → --fasta FILE
 _EXT="${BAM##*.}"
-_ST_REF_FLAG=()    # extra flags for samtools stats / samtools view
-_MSD_REF_FLAG=()   # extra flags for mosdepth
+_ST_STATS_REF_FLAG=()   # for samtools stats
+_ST_VIEW_REF_FLAG=()    # for samtools view
+_MSD_REF_FLAG=()        # for mosdepth
 if [[ "$_EXT" == "cram" ]]; then
     if [[ -n "$REF" && -f "$REF" ]]; then
-        _ST_REF_FLAG=(-T "$REF")
+        _ST_STATS_REF_FLAG=(-r "$REF")
+        _ST_VIEW_REF_FLAG=(-T "$REF")
         _MSD_REF_FLAG=(--fasta "$REF")
         echo "[bamstats] CRAM input — will use reference: ${REF}"
     else
@@ -143,7 +150,7 @@ else
 fi
 
 # paired_reads: check one read in the chr1 window; WGS is always paired
-paired_flag=$(samtools view "${_ST_REF_FLAG[@]}" -f 0x1 -c -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
+paired_flag=$(samtools view "${_ST_VIEW_REF_FLAG[@]}" -f 0x1 -c -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
 paired_reads=$(( paired_flag > 0 ? mapped_reads : 0 ))
 
 # ── 2. samtools stats — 4 Mb representative chr1 window (~15 sec) ─────────────
@@ -154,10 +161,10 @@ paired_reads=$(( paired_flag > 0 ? mapped_reads : 0 ))
 # in full (~248 Mb scan reduced to a ~4 Mb scan).
 echo "[bamstats] Running samtools stats on chr1:10M-14M …"
 _T=$(_t0)
-STATS=$(samtools stats "${_ST_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null)
+STATS=$(samtools stats "${_ST_STATS_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null)
 if ! grep -q "^SN" <<< "$STATS" 2>/dev/null; then
     # Fallback: non-chr-prefixed reference (e.g. "1" instead of "chr1")
-    STATS=$(samtools stats "${_ST_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "1:10000000-14000000" 2>/dev/null)
+    STATS=$(samtools stats "${_ST_STATS_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "1:10000000-14000000" 2>/dev/null)
 fi
 echo "[bamstats] samtools stats: $(_elapsed $_T)"
 
@@ -243,9 +250,9 @@ done < <(zcat "${MSD}.thresholds.bed.gz" 2>/dev/null)
 # Duplicate rate estimated from chr1 window (FLAG 0x400 set by MarkDuplicates).
 echo "[bamstats] Computing MAPQ≥20 and duplicate fraction from chr1:10M-14M …"
 _T=$(_t0)
-chr1_total=$(  samtools view "${_ST_REF_FLAG[@]}" -c          -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
-chr1_mapq20=$( samtools view "${_ST_REF_FLAG[@]}" -c -q 20    -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
-chr1_dups=$(   samtools view "${_ST_REF_FLAG[@]}" -c -f 0x400 -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
+chr1_total=$(  samtools view "${_ST_VIEW_REF_FLAG[@]}" -c          -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
+chr1_mapq20=$( samtools view "${_ST_VIEW_REF_FLAG[@]}" -c -q 20    -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
+chr1_dups=$(   samtools view "${_ST_VIEW_REF_FLAG[@]}" -c -f 0x400 -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null || echo 0)
 echo "[bamstats] samtools view -c (×3): $(_elapsed $_T)"
 chr1_total="${chr1_total:-0}"; chr1_mapq20="${chr1_mapq20:-0}"; chr1_dups="${chr1_dups:-0}"
 if [[ "$chr1_total" -gt 0 ]]; then
