@@ -112,6 +112,12 @@ mkdir -p "$LOG_DIR" "$GENES_DIR"
 # header's UR: path points to the host filesystem, not /pgx/ref/).
 # Solution: extract all PGx gene regions + VDR control + MHC + full chrM into
 # a single BAM once per sample run, then hand that BAM to all per-gene calls.
+#
+# _ORIG_BAM is kept pointing to the original input (CRAM or BAM) so that
+# pgx-bamstats.sh can compute whole-genome QC from the full file, not just the
+# extracted subset (total reads, genome depth, dup%, mapq% would all be wrong
+# if computed from the small region-extracted BAM).
+_ORIG_BAM="$BAM"
 if [[ "$_INPUT_EXT" == "cram" ]]; then
     _PGX_BAM="${LOG_DIR}/pgx_input.bam"
     # Cap at 8 threads: BGZF block ordering corruption observed with high counts (>16)
@@ -165,17 +171,23 @@ if [[ "$_INPUT_EXT" == "cram" ]]; then
     BAM="$_PGX_BAM"
 fi
 
-# ── Extract sample name from BAM filename (before the first ".") ──────────────
-# e.g. T7_NA24385.bwa.sortdup.bqsr.bam → T7_NA24385
-SAMPLE=$(basename "$BAM" | cut -d'.' -f1)
+# ── Extract sample name from the original input filename (before the first ".") ─
+# Use _ORIG_BAM so that CRAM inputs give the real sample name, not "pgx_input".
+# e.g. C-5839.bwa.sortdup.bqsr.cram → C-5839
+SAMPLE=$(basename "$_ORIG_BAM" | cut -d'.' -f1)
 
 # ── BAM QC — launched in background, runs in parallel with gene callers ───────
 # pgx-bamstats.sh is I/O bound (~6 min on 167 GB WGS at 490 MB/s disk).
 # Running it concurrently with gene calling keeps total wall time at
 # max(bamstats_time, gene_calling_time) instead of their sum.
 # BAMSTATS_PID is waited on after the gene loop, before HTML report generation.
+#
+# Pass _ORIG_BAM (the full CRAM or BAM), not the extracted pgx_input.bam.
+# pgx-bamstats.sh supports CRAM natively — it adds -T/--fasta reference flags
+# when the input extension is .cram, so all samtools/mosdepth calls decode
+# correctly without a full BAM conversion.
 echo "Starting BAM QC in background …"
-pgx-bamstats.sh "$BAM" "$SAMPLE" "${LOG_DIR}" "$REF" \
+pgx-bamstats.sh "$_ORIG_BAM" "$SAMPLE" "${LOG_DIR}" "$REF" \
     > "${LOG_DIR}/bamstats.log" 2>&1 &
 BAMSTATS_PID=$!
 
