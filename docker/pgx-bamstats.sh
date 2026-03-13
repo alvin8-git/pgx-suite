@@ -75,7 +75,7 @@ PGX_BED="${TMP}/pgx_regions.bed"
 # its depth entry in bam_stats.json is set to null with note "alt_contig".
 cat > "$PGX_BED" << 'BEDEOF'
 chr4	88085264	88236626	ABCG2
-chr1	201006955	201083927	CACNA1S
+chr1	201006955	201095000	CACNA1S
 chrM	647	1601	MT-RNR1
 chr15	74716540	74728528	CYP1A1
 chr15	74745843	74759607	CYP1A2

@@ -94,7 +94,7 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "DPYD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
     "NAT1":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "NAT2":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "G6PD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
+    "G6PD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False, "vcf_check": True},
     "GSTM1":    {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "GSTT1":    {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True},
     "POR":      {"pypgx": True,  "stargazer": True,  "aldy": False, "stellarpgx": True},
@@ -109,7 +109,7 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "ABCG2":    {"pypgx": False, "stargazer": False, "aldy": True,  "stellarpgx": False, "optitype": False},
     "HLA-A":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
     "HLA-B":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
-    "CACNA1S":  {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True},
+    "CACNA1S":  {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True,  "vcf_check": True},
     "MT-RNR1":  {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "mutserve": True},
 }
 
@@ -662,6 +662,246 @@ def parse_mutserve(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: CACNA1S VCF-Check (MHS pathogenic alleles *2 and *3) ──────────────
+# Only PyPGx and StellarPGx call CACNA1S; if StellarPGx fails, a single-tool
+# call is the only result. The entire CPIC-relevant allele set for CACNA1S is
+# just two missense SNPs — both are directly detectable from the gene VCF.
+# NOTE: CACNA1S is on the negative strand. REF/ALT below are positive-strand
+# (genomic) alleles as reported in VCF FORMAT.
+# *2 (rs772226819) sits at chr1:201091993 — 8 kb beyond the old GENE_COORDS
+# endpoint; pgx-run.sh CACNA1S coords have been extended to chr1:201006956-
+# 201095000 to capture it in the bcftools VCF.
+_CACNA1S_SNP_ALLELES: list[dict] = [
+    {"pos": 201091993, "ref": "G", "alt": "A", "allele": "*2", "rsid": "rs772226819",
+     "note": "p.Arg174Trp (c.520C>T); most common CACNA1S MHS allele in European families; CPIC Level A"},
+    {"pos": 201060815, "ref": "C", "alt": "T", "allele": "*3", "rsid": "rs1800559",
+     "note": "p.Arg1086His (c.3257G>A); most common overall CACNA1S MHS allele; CPIC Level A"},
+]
+
+
+def parse_cacna1s_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Query CACNA1S.vcf.gz for *2 (Arg174Trp) and *3 (Arg1086His) MHS-associated alleles."""
+    result = CallerResult(
+        tool="VCF-Check",
+        phasing_method="bcftools mpileup — direct variant query (unphased)",
+    )
+
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    if not os.path.exists(vcf):
+        result.status = "failed"
+        result.diplotype = "VCF not found"
+        return result
+
+    region = "chr1:201060815-201091993"
+    try:
+        proc = subprocess.run(
+            ["bcftools", "view", "-r", region, vcf],
+            capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError:
+        result.status = "failed"
+        result.diplotype = "bcftools not in PATH"
+        return result
+    except subprocess.TimeoutExpired:
+        result.status = "failed"
+        result.diplotype = "bcftools timed out"
+        return result
+
+    alleles_found: dict[str, tuple] = {}
+    variants_list: list[dict] = []
+
+    for line in proc.stdout.splitlines():
+        if line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) < 10:
+            continue
+        pos = int(fields[1])
+        ref, alt_str = fields[3], fields[4]
+        fmt_keys = fields[8].split(":")
+        fmt_vals = fields[9].split(":")
+        fmt = dict(zip(fmt_keys, fmt_vals))
+        gt_raw = fmt.get("GT", "./.")
+        gt = gt_raw.replace("|", "/")
+        dp  = fmt.get("DP", "-")
+        ad  = fmt.get("AD", "-")
+        alt_copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
+        if alt_copies == 0:
+            continue
+        alts = alt_str.split(",")
+        for adef in _CACNA1S_SNP_ALLELES:
+            if adef["pos"] != pos or adef["alt"] not in alts:
+                continue
+            alleles_found[adef["allele"]] = (gt, dp, alt_copies, adef["rsid"], adef["note"])
+            variants_list.append({
+                "allele": adef["allele"], "chrom": "chr1", "pos": str(pos),
+                "ref": ref, "alt": adef["alt"],
+                "af": ad, "depth": dp, "effect": adef["note"],
+                "rsid": adef["rsid"],
+            })
+
+    result.status = "ok"
+    result.supporting_variants = variants_list
+
+    if not alleles_found:
+        result.diplotype = "*1/*1"
+        result.phenotype = "No CPIC-listed CACNA1S MHS variants detected"
+        return result
+
+    def _sort_key(name: str) -> int:
+        m = re.search(r"(\d+)", name)
+        return int(m.group(1)) if m else 999
+
+    parts = []
+    for aname in sorted(alleles_found, key=_sort_key):
+        gt, dp, copies, rsid, note = alleles_found[aname]
+        zygosity = "hom" if copies >= 2 else "het"
+        parts.append(f"{aname}({zygosity})")
+    result.diplotype = "+".join(parts) + " [unphased]"
+    result.phenotype = "MHS-associated variant(s) detected — evaluate for malignant hyperthermia susceptibility"
+    return result
+
+
+# ── Parser: G6PD VCF-Check (deficiency alleles including Southeast Asian) ─────
+# PyPGx, Stargazer, and Aldy call G6PD but their allele databases are built
+# primarily around the African A- and Mediterranean variants.  The Viangchan
+# (Class II, Southeast Asia) and Mahidol (Class III, Myanmar/Thailand) alleles
+# are common in the TTSH population and may be absent from tool databases.
+# G6PD is X-linked (negative strand, chrX).  REF/ALT below are positive-strand
+# genomic alleles (reverse complement of the coding-strand HGVS c. notation).
+# A376G (rs1050829) alone does NOT cause deficiency — it is meaningful only
+# when co-occurring with G202A (together they form the G6PD A- haplotype).
+_G6PD_SNP_ALLELES: list[dict] = [
+    {"pos": 154536002, "ref": "C", "alt": "T", "allele": "G202A",         "rsid": "rs1050828",
+     "g6pd_class": "III",
+     "note": "p.Val68Met (c.202G>A); G6PD A- primary variant; moderate deficiency in isolation; "
+             "severe when combined with A376G — common in African ancestry"},
+    {"pos": 154535277, "ref": "T", "alt": "C", "allele": "A376G",         "rsid": "rs1050829",
+     "g6pd_class": "IV",
+     "note": "p.Asn126Asp (c.376A>G); normal function alone (G6PD A); "
+             "co-occurs with G202A in the G6PD A- deficiency haplotype"},
+    {"pos": 154534419, "ref": "G", "alt": "A", "allele": "Mediterranean", "rsid": "rs5030868",
+     "g6pd_class": "II",
+     "note": "p.Ser188Phe (c.563C>T); severe deficiency (<10% activity); "
+             "common in Mediterranean, Middle East, South Asian ancestry"},
+    {"pos": 154533122, "ref": "C", "alt": "T", "allele": "Viangchan",     "rsid": "rs137852327",
+     "g6pd_class": "II",
+     "note": "p.Val291Met (c.871G>A); severe deficiency (<10% activity); "
+             "common in Southeast Asian ancestry (Lao, Thai, Cambodian, Singapore Malay/Chinese)"},
+    {"pos": 154534495, "ref": "C", "alt": "T", "allele": "Mahidol",       "rsid": "rs137852314",
+     "g6pd_class": "III",
+     "note": "p.Gly163Ser (c.487G>A); moderate deficiency (10–60% activity); "
+             "common in Myanmar/Thailand ancestry"},
+]
+
+
+def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Query G6PD.vcf.gz for deficiency alleles including Southeast Asian-prevalent variants.
+
+    Checks five positions: G202A/A376G (African A-), Mediterranean, Viangchan, Mahidol.
+    Reports zygosity; notes X-linkage — hemizygous males show GT without '/' in bcftools output.
+    """
+    result = CallerResult(
+        tool="VCF-Check",
+        phasing_method="bcftools mpileup — direct variant query (unphased, X-linked)",
+    )
+
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    if not os.path.exists(vcf):
+        result.status = "failed"
+        result.diplotype = "VCF not found"
+        return result
+
+    # Single region spanning all five target positions
+    region = "chrX:154533122-154536002"
+    try:
+        proc = subprocess.run(
+            ["bcftools", "view", "-r", region, vcf],
+            capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError:
+        result.status = "failed"
+        result.diplotype = "bcftools not in PATH"
+        return result
+    except subprocess.TimeoutExpired:
+        result.status = "failed"
+        result.diplotype = "bcftools timed out"
+        return result
+
+    alleles_found: dict[str, tuple] = {}
+    variants_list: list[dict] = []
+
+    for line in proc.stdout.splitlines():
+        if line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) < 10:
+            continue
+        pos = int(fields[1])
+        ref, alt_str = fields[3], fields[4]
+        fmt_keys = fields[8].split(":")
+        fmt_vals = fields[9].split(":")
+        fmt = dict(zip(fmt_keys, fmt_vals))
+        gt_raw = fmt.get("GT", "./.")
+        gt = gt_raw.replace("|", "/")
+        dp  = fmt.get("DP", "-")
+        ad  = fmt.get("AD", "-")
+        # Detect hemizygosity: bcftools may output GT="1" (no slash) for chrX in males
+        is_hemizygous = "/" not in gt and gt not in (".", "0")
+        alt_copies = (1 if is_hemizygous else
+                      sum(1 for g in gt.split("/") if g not in ("0", ".")))
+        if alt_copies == 0:
+            continue
+        alts = alt_str.split(",")
+        for adef in _G6PD_SNP_ALLELES:
+            if adef["pos"] != pos or adef["alt"] not in alts:
+                continue
+            alleles_found[adef["allele"]] = (
+                gt, dp, alt_copies, is_hemizygous, adef["rsid"],
+                adef["note"], adef["g6pd_class"],
+            )
+            variants_list.append({
+                "allele": adef["allele"], "chrom": "chrX", "pos": str(pos),
+                "ref": ref, "alt": adef["alt"],
+                "af": ad, "depth": dp, "effect": adef["note"],
+                "rsid": adef["rsid"],
+            })
+
+    result.status = "ok"
+    result.supporting_variants = variants_list
+
+    if not alleles_found:
+        result.diplotype = "Reference (no deficiency variants at checked positions)"
+        result.phenotype = "No G6PD deficiency variants detected (checked: G202A, A376G, Mediterranean, Viangchan, Mahidol)"
+        return result
+
+    # Classify severity — A376G alone is not deficiency-causing
+    has_a376g_only = set(alleles_found) == {"A376G"}
+    has_class_ii   = any(v[6] == "II"  for v in alleles_found.values())
+    has_class_iii  = any(v[6] == "III" for v in alleles_found.values() if v[0] != "A376G")
+
+    # Build diplotype string
+    parts = []
+    for aname, (gt, dp, copies, hemi, rsid, note, cls) in alleles_found.items():
+        if hemi:
+            zygosity = "hemi"
+        elif copies >= 2:
+            zygosity = "hom"
+        else:
+            zygosity = "het"
+        parts.append(f"{aname}({zygosity})")
+    result.diplotype = "+".join(parts) + " [X-linked, unphased]"
+
+    if has_a376g_only:
+        result.phenotype = "G6PD A376G only — normal function in isolation (G6PD A, not deficient)"
+    elif has_class_ii:
+        result.phenotype = "Severe G6PD deficiency allele detected (Class II, <10% activity) — rasburicase contraindicated; avoid primaquine/dapsone"
+    else:
+        result.phenotype = "Moderate G6PD deficiency allele detected (Class III, 10–60% activity) — rasburicase risk; monitor with oxidant drugs"
+
+    return result
+
+
 # ── Parser: UGT1A1 VCF-Check (promoter + coding SNP supplement) ───────────────
 # Star-allele callers inconsistently report UGT1A1 *60 (rs45530432) and *80
 # (rs887829) — East Asian promoter variants that compound the activity of *28.
@@ -796,6 +1036,17 @@ def parse_ugt1a1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── VCF-Check dispatch table ───────────────────────────────────────────────────
+# Maps gene name → gene-specific VCF parser function.
+# Add new genes here; the main() loop calls the appropriate function via
+# support.get("vcf_check") + _VCF_CHECK_PARSERS lookup.
+_VCF_CHECK_PARSERS: dict = {
+    "UGT1A1":  parse_ugt1a1_vcf,
+    "CACNA1S": parse_cacna1s_vcf,
+    "G6PD":    parse_g6pd_vcf,
+}
+
+
 # ── SV mode note ──────────────────────────────────────────────────────────────
 def _sv_note(gene: str) -> str:
     notes = []
@@ -906,7 +1157,9 @@ def main() -> None:
     if support.get("mutserve"):
         results.append(parse_mutserve(args.output_dir, gene, args.sample))
     if support.get("vcf_check"):
-        results.append(parse_ugt1a1_vcf(args.output_dir, gene, args.sample))
+        _vcf_fn = _VCF_CHECK_PARSERS.get(gene)
+        if _vcf_fn:
+            results.append(_vcf_fn(args.output_dir, gene, args.sample))
 
     print_table(gene, args.sample, results, args.output_dir)
 

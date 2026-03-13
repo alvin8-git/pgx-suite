@@ -107,7 +107,7 @@ GENE_COORDS=(
     [ABCG2]="chr4:88085265-88236626"
     [HLA-A]="chr6:28510020-33480577"   # MHC region — used for read extraction by pgx-hla.sh
     [HLA-B]="chr6:28510020-33480577"   # MHC region — same extraction as HLA-A
-    [CACNA1S]="chr1:201006956-201083927"
+    [CACNA1S]="chr1:201006956-201095000"  # extended: *2 (rs772226819) at 201091993 requires 8 kb beyond old 201083927
     [MT-RNR1]="chrM:648-1601"          # mitochondrial 12S rRNA; mutserve uses full chrM
 )
 
