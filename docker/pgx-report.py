@@ -191,7 +191,7 @@ CPIC_DB: dict = {
         ],
     },
     "DPYD": {
-        "desc": "Rate-limiting enzyme in 5-FU and capecitabine catabolism. Even heterozygous loss-of-function variants confer significant toxicity risk — CPIC recommends pre-emptive genotyping.",
+        "desc": "Rate-limiting enzyme in 5-FU and capecitabine catabolism. Even heterozygous loss-of-function variants confer significant toxicity risk — CPIC recommends pre-emptive genotyping. WGS detects the full variant spectrum including reduced-function alleles *5 (c.1627A>G) and *9A (c.85T>C) that are not covered by standard pharmacogenomics arrays.",
         "pharmvar_url": None,
         "high_pheno":     ["poor"],
         "moderate_pheno": ["intermediate", "decreased"],
@@ -260,7 +260,7 @@ CPIC_DB: dict = {
         ],
     },
     "UGT1A1": {
-        "desc": "Glucuronidates irinotecan's active metabolite (SN-38) and bilirubin. Reduced activity (*28/*28, Gilbert's syndrome) substantially increases irinotecan toxicity risk.",
+        "desc": "Glucuronidates irinotecan's active metabolite (SN-38) and bilirubin. Reduced activity (*28/*28, Gilbert's syndrome) substantially increases irinotecan toxicity risk. Note: promoter alleles *60 (rs45530432) and *80 (rs887829) compound the phenotype of *28 but are not uniformly represented across tool allele databases — individual tool outputs may differ.",
         "pharmvar_url": None,
         "high_pheno":     ["poor"],
         "moderate_pheno": ["intermediate", "decreased"],
@@ -367,7 +367,7 @@ CPIC_DB: dict = {
         "pharmvar_url": None,
         "high_pheno":     ["susceptible", "pathogenic"],
         "moderate_pheno": [],
-        "diplotype_check": lambda d: bool(d) and d not in (None, "-", "Reference/Reference", "*1/*1", ""),
+        "diplotype_check": lambda d: bool(d) and d not in (None, "-", "Reference/Reference", "*1/*1", "*ference/*ference", ""),
         "landing_notes": {
             "_diplotype":  "Non-reference RYR1 variant detected. Evaluate for malignant hyperthermia susceptibility — avoid volatile anaesthetics and succinylcholine if susceptible.",
             "susceptible": "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available.",
@@ -1210,6 +1210,15 @@ def bam_stats_cards(bs: dict) -> str:
     return cards
 
 
+# Genes where low mean gene depth (&lt;30×) materially reduces calling sensitivity.
+# Validation study (TTSH 2026-03): DPYD rare variants and RYR1 het variants were
+# missed in samples with gene depth &lt;30×; all tools performed adequately above that.
+_DEPTH_SENSITIVE_GENES: dict[str, int] = {
+    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in TTSH cohort
+    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in TTSH cohort
+}
+
+
 def _depth_css(pct_ge_30x) -> str:
     """Return CSS class for a ≥30× coverage fraction value.
 
@@ -1600,6 +1609,7 @@ DETAIL_EXTRA_CSS = """
 .gene-page-nav a { font-size: 0.85rem; color: var(--primary); text-decoration: none; padding: 0.35rem 0.8rem; border: 1px solid var(--primary-light); border-radius: 6px; transition: background 0.12s ease; }
 .gene-page-nav a:hover { background: var(--primary-light); color: white; }
 .gene-depth-detail { font-size: 0.82rem; color: var(--muted); margin-top: 0.4rem; }
+.depth-sensitivity-warn { font-size: 0.78rem; color: #92400e; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 0.25rem 0.5rem; margin-top: 0.35rem; }
 .gene-locus { font-size: 0.78rem; color: var(--muted); font-family: monospace; margin-top: 0.2rem; }
 /* ── CPIC reference section (gene detail page) ── */
 .cpic-section { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
@@ -1893,6 +1903,19 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
             f' &nbsp;|&nbsp; &#8805;30X: {p30_str}'
             f'</div>'
         )
+        # Low-depth clinical warning for depth-sensitive genes
+        _min_depth = _DEPTH_SENSITIVE_GENES.get(gene)
+        try:
+            _mean_val = float(mean)
+        except (TypeError, ValueError):
+            _mean_val = None
+        if _min_depth and _mean_val is not None and _mean_val < _min_depth:
+            depth_detail_html += (
+                f'<div class="depth-sensitivity-warn">'
+                f'&#9888; Mean gene depth {mean}X is below the recommended {_min_depth}X for '
+                f'{gene}. Rare heterozygous variants may be missed — consider confirmatory testing.'
+                f'</div>'
+            )
     else:
         depth_detail_html = ""
 

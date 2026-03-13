@@ -104,7 +104,7 @@ GENE_SUPPORT: dict[str, dict[str, bool]] = {
     "CYP2E1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
     "IFNL3":    {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
     "RYR1":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
-    "ABCG2":    {"pypgx": False, "stargazer": False, "aldy": True,  "stellarpgx": True,  "optitype": False},
+    "ABCG2":    {"pypgx": False, "stargazer": False, "aldy": True,  "stellarpgx": False, "optitype": False},
     "HLA-A":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
     "HLA-B":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
     "CACNA1S":  {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True},
