@@ -979,82 +979,61 @@ SHARED_CSS = """
 :root {
     --primary: #1a365d;
     --primary-light: #2b6cb0;
-    --bg: #f3f6fa;
+    --bg: #f7fafc;
     --card-bg: #ffffff;
-    --border: #dde3ec;
-    --text: #1e2a3a;
-    --muted: #64748b;
-    --green: #166534;
-    --green-bg: #dcfce7;
-    --amber: #92400e;
-    --amber-bg: #fef3c7;
-    --orange: #9a3412;
-    --orange-bg: #ffedd5;
-    --red: #991b1b;
-    --red-bg: #fee2e2;
-    --blue: #1e3a5f;
-    --blue-bg: #dbeafe;
-    --grey: #475569;
-    --grey-bg: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #2d3748;
+    --muted: #718096;
+    --green: #276749;
+    --green-bg: #c6f6d5;
+    --amber: #744210;
+    --amber-bg: #fefcbf;
+    --orange: #7b341e;
+    --orange-bg: #feebc8;
+    --red: #742a2a;
+    --red-bg: #fed7d7;
+    --blue: #2a4365;
+    --blue-bg: #bee3f8;
+    --grey: #4a5568;
+    --grey-bg: #edf2f7;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
-    line-height: 1.6;
-    font-size: 15px;
+    line-height: 1.5;
 }
 header {
     background: var(--primary);
     color: white;
-    padding: 0.9rem 2rem;
+    padding: 1.25rem 2rem;
     display: flex;
     align-items: center;
     gap: 1rem;
-    border-bottom: 3px solid #2b6cb0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 header .logo {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.5px;
 }
 header .subtitle {
-    font-size: 0.78rem;
-    opacity: 0.8;
-    margin-top: 0.1rem;
+    font-size: 0.85rem;
+    opacity: 0.75;
 }
 header .spacer { flex: 1; }
-header .report-meta {
-    text-align: right;
-    font-size: 0.75rem;
-    opacity: 0.9;
-    line-height: 1.75;
-}
+header .report-date { font-size: 0.8rem; opacity: 0.7; text-align: right; }
 .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
-h2 {
-    font-family: 'Source Serif 4', 'Georgia', serif;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 0.85rem;
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid var(--border);
-}
-h3 { font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom: 0.75rem; }
-.section {
-    margin-bottom: 2.25rem;
-    padding-top: 1.75rem;
-    border-top: 1px solid var(--border);
-}
-.section:first-child { border-top: none; padding-top: 0; }
+h2 { font-size: 1.2rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; }
+h3 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 0.75rem; }
+.section { margin-bottom: 2.5rem; }
 .badge {
     display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: 4px;
-    font-size: 0.72rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
 }
 .badge-green  { background: var(--green-bg);  color: var(--green);  }
 .badge-amber  { background: var(--amber-bg);  color: var(--amber);  }
@@ -1062,31 +1041,28 @@ h3 { font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom:
 .badge-red    { background: var(--red-bg);    color: var(--red);    }
 .badge-grey   { background: var(--grey-bg);   color: var(--grey);   }
 .badge-blue   { background: var(--blue-bg);   color: var(--blue);   }
-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 th {
     background: var(--primary);
     color: white;
-    padding: 0.55rem 0.75rem;
+    padding: 0.6rem 0.75rem;
     text-align: left;
     font-weight: 600;
-    font-size: 0.73rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
 }
-thead tr th { border-bottom: 2px solid #2b6cb0; }
 td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-tr:nth-child(even) td { background: #f8fafc; }
-tr:hover td { background: #eef2f7; }
+tr:hover td { background: #f0f4f8; }
 tr:last-child td { border-bottom: none; }
 .dash { color: var(--muted); }
 footer {
     text-align: center;
-    padding: 1.5rem 2rem;
-    font-size: 0.73rem;
+    padding: 2rem;
+    font-size: 0.78rem;
     color: var(--muted);
-    border-top: 2px solid var(--border);
+    border-top: 1px solid var(--border);
     margin-top: 3rem;
-    line-height: 1.9;
 }
 .back-link {
     display: inline-flex;
@@ -1099,20 +1075,6 @@ footer {
     margin-bottom: 1.5rem;
 }
 .back-link:hover { text-decoration: underline; }
-@media print {
-    header .report-meta { opacity: 1; }
-    .gene-panel[hidden] { display: block !important; page-break-before: always; }
-    .gene-panel { display: block !important; }
-    nav, .gene-page-nav, .back-link { display: none; }
-    body { font-size: 10.5pt; background: white; color: #000; }
-    * { box-shadow: none !important; }
-    a[href]::after { content: none; }
-    .gene-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 0.5rem !important; }
-    .qc-bar { flex-wrap: wrap; }
-    .container { padding: 0.5rem; }
-    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .gene-card { border: 1px solid #ccc; break-inside: avoid; }
-}
 """
 
 # ── Landing page ──────────────────────────────────────────────────────────────
@@ -1130,35 +1092,21 @@ LANDING_EXTRA_CSS = """
 }
 .sample-id { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
 .sample-meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.2rem; }
-.qc-bar {
+.qc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+.qc-card {
     background: white;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.7rem 1.25rem;
-    display: flex;
-    align-items: stretch;
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
-    margin-bottom: 1.75rem;
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
 }
-.qc-bar-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 0.2rem 1rem;
-    min-width: 88px;
-}
-.qc-bar-item:first-child { padding-left: 0.25rem; }
-.qc-bar-sep {
-    width: 1px;
-    background: var(--border);
-    align-self: stretch;
-    margin: 0.2rem 0;
-    flex-shrink: 0;
-}
-.qc-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 500; }
-.qc-value { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-top: 0.1rem; font-variant-numeric: tabular-nums; }
-.qc-unit  { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+.qc-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.qc-value { font-size: 1.25rem; font-weight: 700; color: var(--primary); margin-top: 0.2rem; }
+.qc-unit  { font-size: 0.78rem; color: var(--muted); }
 .gene-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -1241,28 +1189,25 @@ def fmt_num(n, suffix=""):
 
 def bam_stats_cards(bs: dict) -> str:
     items = [
-        ("Total Reads",  fmt_num(bs.get("total_reads", 0)),      ""),
-        ("Mapped",       f"{bs.get('mapped_pct','—')}",           "%"),
-        ("Duplicates",   f"{bs.get('duplicate_pct','—')}",        "%"),
-        ("Depth",        f"{bs.get('mean_depth_genome','—')}",    "×"),
-        ("Read Length",  f"{bs.get('read_length','—')}",          "\u202fbp"),
-        ("Insert Size",  f"{bs.get('insert_size_mean','—')}",     "\u202fbp"),
-        ("MAPQ\u226520", f"{bs.get('mapq20_pct','—')}",           "%"),
-        ("Sex",          f"{bs.get('inferred_sex','—')}",         ""),
-        ("X/Y Ratio",    f"{bs.get('xy_depth_ratio','—')}",       ""),
-        ("Error Rate",   f"{bs.get('error_rate','—')}",           ""),
+        ("Total reads",    fmt_num(bs.get("total_reads", 0)),       ""),
+        ("Mapped",         f"{bs.get('mapped_pct','—')}",            "%"),
+        ("Duplicates",     f"{bs.get('duplicate_pct','—')}",         "%"),
+        ("Mean depth",     f"{bs.get('mean_depth_genome','—')}",     "X"),
+        ("Read length",    f"{bs.get('read_length','—')}",           " bp"),
+        ("Insert size",    f"{bs.get('insert_size_mean','—')}",      " bp"),
+        ("MAPQ≥20",        f"{bs.get('mapq20_pct','—')}",            "%"),
+        ("Inferred sex",   f"{bs.get('inferred_sex','—')}",          ""),
+        ("X/Y ratio",      f"{bs.get('xy_depth_ratio','—')}",        ""),
+        ("Error rate",     f"{bs.get('error_rate','—')}",            ""),
     ]
-    parts = []
-    for i, (label, val, unit) in enumerate(items):
-        if i > 0:
-            parts.append('<div class="qc-bar-sep"></div>')
-        parts.append(
-            f'<div class="qc-bar-item">'
-            f'<span class="qc-label">{label}</span>'
-            f'<span class="qc-value">{val}<span class="qc-unit">{unit}</span></span>'
-            f'</div>'
-        )
-    return f'<div class="qc-bar">{"".join(parts)}</div>'
+    cards = ""
+    for label, val, unit in items:
+        cards += f"""
+        <div class="qc-card">
+            <div class="qc-label">{label}</div>
+            <div class="qc-value">{val}<span class="qc-unit">{unit}</span></div>
+        </div>"""
+    return cards
 
 
 # Genes where low mean gene depth (&lt;30×) materially reduces calling sensitivity.
@@ -1418,7 +1363,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         qc_html = f"""
         <div class="section">
             <h2>BAM Quality Control</h2>
-            {bam_stats_cards(bs)}
+            <div class="qc-grid">{bam_stats_cards(bs)}</div>
         </div>"""
         gene_depth_html = gene_depth_table(bs)
 
@@ -1461,9 +1406,6 @@ function pgxShowMain() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PGx Report &#8212; {sample}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
     <style>
 {SHARED_CSS}
 {LANDING_EXTRA_CSS}{extra_style}
@@ -1473,15 +1415,11 @@ function pgxShowMain() {
 <body>
 <header>
     <div>
-        <div class="logo">PGx Suite</div>
+        <div class="logo">&#9652; PGx Suite</div>
         <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
     </div>
     <div class="spacer"></div>
-    <div class="report-meta">
-        <div><strong>Sample:</strong> {sample}</div>
-        <div><strong>Date:</strong> {today}</div>
-        <div>GRCh38 &bull; CPIC Guidelines</div>
-    </div>
+    <div class="report-date">Report date: {today}<br>GRCh38</div>
 </header>
 
 <div id="main-view">
@@ -1543,9 +1481,8 @@ function pgxShowMain() {
 {gene_panels_html}
 
 <footer>
-    <div>PGx Suite &bull; GRCh38 Reference &bull; CPIC Guidelines (cpicpgx.org) &bull; PharmVar (pharmvar.org)</div>
-    <div>PyPGx 0.26 &bull; Stargazer 2.0.3 &bull; Aldy 4.8.3 &bull; StellarPGx 1.2.7 &bull; OptiType 1.3.5</div>
-    <div style="margin-top:0.4rem;font-style:italic">For clinical decision support only &#8212; not a standalone diagnostic report. Results require clinical validation and interpretation by a qualified clinician.</div>
+    PGx Suite &bull; GRCh38 &bull; PyPGx 0.26 / Stargazer 2.0.3 / Aldy 4.8 / StellarPGx 1.2.7 / OptiType 1.3.5
+    &bull; For research and clinical decision support only &#8212; not a standalone diagnostic.
 </footer>
 </body>
 </html>"""
@@ -2057,9 +1994,6 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PGx Report &#8212; {sample} &#8212; {gene}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
     <style>
 {SHARED_CSS}
 {DETAIL_EXTRA_CSS}
@@ -2068,14 +2002,11 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
 <body>
 <header>
     <div>
-        <div class="logo">PGx Suite</div>
+        <div class="logo">&#9652; PGx Suite</div>
         <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
     </div>
     <div class="spacer"></div>
-    <div class="report-meta">
-        <div><strong>Sample:</strong> {sample} &bull; <strong>Gene:</strong> {gene}</div>
-        <div><strong>Date:</strong> {today} &bull; GRCh38</div>
-    </div>
+    <div class="report-date">Report date: {today}<br>GRCh38</div>
 </header>
 
 <div class="container">
@@ -2083,9 +2014,8 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
 </div>
 
 <footer>
-    <div>PGx Suite &bull; GRCh38 Reference &bull; CPIC Guidelines (cpicpgx.org)</div>
-    <div>PyPGx 0.26 &bull; Stargazer 2.0.3 &bull; Aldy 4.8.3 &bull; StellarPGx 1.2.7 &bull; OptiType 1.3.5</div>
-    <div style="margin-top:0.4rem;font-style:italic">For clinical decision support only &#8212; not a standalone diagnostic report.</div>
+    PGx Suite &bull; GRCh38 &bull; PyPGx 0.26 / Stargazer 2.0.3 / Aldy 4.8 / StellarPGx 1.2.7 / OptiType 1.3.5
+    &bull; For research and clinical decision support only &#8212; not a standalone diagnostic.
 </footer>
 </body>
 </html>"""
