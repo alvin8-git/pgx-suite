@@ -123,12 +123,13 @@ STATS_REGION="chr1:10000000-14000000"
 #   samtools view   → -T FILE
 #   mosdepth        → --fasta FILE
 _EXT="${BAM##*.}"
-_ST_STATS_REF_FLAG=()   # for samtools stats
-_ST_VIEW_REF_FLAG=()    # for samtools view
-_MSD_REF_FLAG=()        # for mosdepth
+_ST_VIEW_REF_FLAG=()    # for samtools view (-T FILE)
+_MSD_REF_FLAG=()        # for mosdepth (--fasta FILE)
+# Note: samtools stats uses a pipe workaround for CRAM (see section 2 below).
+# samtools stats -r FILE is the correct flag but htslib ignores it in favour
+# of the CRAM's embedded UR: header, so we pipe view -T | stats - instead.
 if [[ "$_EXT" == "cram" ]]; then
     if [[ -n "$REF" && -f "$REF" ]]; then
-        _ST_STATS_REF_FLAG=(-r "$REF")
         _ST_VIEW_REF_FLAG=(-T "$REF")
         _MSD_REF_FLAG=(--fasta "$REF")
         echo "[bamstats] CRAM input — will use reference: ${REF}"
@@ -178,12 +179,29 @@ paired_reads=$(( paired_flag > 0 ? mapped_reads : 0 ))
 # A 4 Mb window at chr1:10M-14M avoids telomere/centromere and gives stable
 # estimates of read length, insert size, and error rate much faster than chr1
 # in full (~248 Mb scan reduced to a ~4 Mb scan).
+#
+# CRAM note: samtools stats -r FILE is the correct flag, but htslib ignores it
+# for CRAM decoding — it resolves the CRAM reference from the embedded UR:
+# header (which may point to an inaccessible host path) rather than the -r arg.
+# Workaround: pipe through samtools view -T (which DOES honour the reference
+# override) so the reads arrive as SAM/BAM and samtools stats decodes without
+# needing CRAM reference access.
 echo "[bamstats] Running samtools stats on chr1:10M-14M …"
 _T=$(_t0)
-STATS=$(samtools stats "${_ST_STATS_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null)
+if [[ "$_EXT" == "cram" && -n "$REF" && -f "$REF" ]]; then
+    STATS=$(samtools view -h -T "$REF" -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null \
+            | samtools stats - 2>/dev/null)
+else
+    STATS=$(samtools stats -@ "$NCPU" "$BAM" "$STATS_REGION" 2>/dev/null)
+fi
 if ! grep -q "^SN" <<< "$STATS" 2>/dev/null; then
     # Fallback: non-chr-prefixed reference (e.g. "1" instead of "chr1")
-    STATS=$(samtools stats "${_ST_STATS_REF_FLAG[@]}" -@ "$NCPU" "$BAM" "1:10000000-14000000" 2>/dev/null)
+    if [[ "$_EXT" == "cram" && -n "$REF" && -f "$REF" ]]; then
+        STATS=$(samtools view -h -T "$REF" -@ "$NCPU" "$BAM" "1:10000000-14000000" 2>/dev/null \
+                | samtools stats - 2>/dev/null)
+    else
+        STATS=$(samtools stats -@ "$NCPU" "$BAM" "1:10000000-14000000" 2>/dev/null)
+    fi
 fi
 echo "[bamstats] samtools stats: $(_elapsed $_T)"
 
