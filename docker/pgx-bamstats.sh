@@ -17,7 +17,12 @@
 # Dependencies: mosdepth ≥0.3.12, samtools ≥1.10
 #
 # Usage (called from pgx-all-genes.sh, typically run in background):
-#   pgx-bamstats.sh <BAM|CRAM> <SAMPLE> <OUTPUT_DIR> [<REF_FASTA>]
+#   pgx-bamstats.sh <BAM|CRAM> <SAMPLE> <OUTPUT_DIR> [<REF_FASTA> [<DEPTH_BAM>]]
+#
+# Optional 5th argument DEPTH_BAM: a separate BAM used exclusively for mosdepth
+# per-gene depth. This avoids slow random seeks across a 30-50 GB CRAM — pass
+# the already-extracted pgx_input.bam (~359 MB) instead. All other stats
+# (idxstats, samtools stats, samtools view -c) still use the full CRAM/BAM.
 #
 # Output:
 #   <OUTPUT_DIR>/bam_stats.json
@@ -38,7 +43,7 @@
 set -uo pipefail
 
 if [[ $# -lt 3 ]]; then
-    echo "Usage: pgx-bamstats.sh <BAM> <SAMPLE> <OUTPUT_DIR> [<REF_FASTA>]" >&2
+    echo "Usage: pgx-bamstats.sh <BAM> <SAMPLE> <OUTPUT_DIR> [<REF_FASTA> [<DEPTH_BAM>]]" >&2
     exit 1
 fi
 
@@ -46,6 +51,7 @@ BAM="$1"
 SAMPLE="$2"
 OUT_DIR="$3"
 REF="${4:-}"
+DEPTH_BAM="${5:-}"
 
 JSON_OUT="${OUT_DIR}/bam_stats.json"
 mkdir -p "$OUT_DIR"
@@ -129,6 +135,19 @@ if [[ "$_EXT" == "cram" ]]; then
     else
         echo "[bamstats] WARN: CRAM input but no reference supplied; samtools/mosdepth may fail." >&2
     fi
+fi
+
+# ── mosdepth input selection ───────────────────────────────────────────────────
+# If DEPTH_BAM is provided (e.g. pgx_input.bam, ~359 MB), use it for mosdepth
+# instead of the full CRAM. This avoids random seeks across 30-50 GB and cuts
+# mosdepth from >20 min (with 759 GB I/O) down to ~9 min.
+# All other stats (idxstats, samtools stats, samtools view -c) continue to use
+# BAM (the full CRAM) so whole-genome metrics remain accurate.
+MSD_BAM="$BAM"
+if [[ -n "$DEPTH_BAM" && -f "$DEPTH_BAM" ]]; then
+    MSD_BAM="$DEPTH_BAM"
+    _MSD_REF_FLAG=()   # pgx_input.bam is a plain BAM — no reference flag needed
+    echo "[bamstats] mosdepth will use fast extracted BAM: ${DEPTH_BAM}"
 fi
 
 # ── 1. samtools idxstats — total + mapped reads from .bai index (28 ms) ───────
@@ -222,7 +241,7 @@ mosdepth \
     --fast-mode            \
     --threads   "$NCPU"    \
     "$MSD"                 \
-    "$BAM"
+    "$MSD_BAM"
 echo "[bamstats] mosdepth: $(_elapsed $_T)"
 
 # Per-gene mean depth from regions BED

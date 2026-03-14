@@ -182,12 +182,13 @@ SAMPLE=$(basename "$_ORIG_BAM" | cut -d'.' -f1)
 # max(bamstats_time, gene_calling_time) instead of their sum.
 # BAMSTATS_PID is waited on after the gene loop, before HTML report generation.
 #
-# Pass _ORIG_BAM (the full CRAM or BAM), not the extracted pgx_input.bam.
-# pgx-bamstats.sh supports CRAM natively — it adds -T/--fasta reference flags
-# when the input extension is .cram, so all samtools/mosdepth calls decode
-# correctly without a full BAM conversion.
+# Pass _ORIG_BAM (the full CRAM or BAM) for whole-genome QC stats (idxstats,
+# samtools stats, dup%), and $BAM (pgx_input.bam for CRAM inputs) as DEPTH_BAM
+# so mosdepth runs against the compact extracted file (~359 MB) instead of the
+# full CRAM (~30-50 GB). For BAM inputs _ORIG_BAM == BAM so passing both is
+# harmless — mosdepth simply uses the same file.
 echo "Starting BAM QC in background …"
-pgx-bamstats.sh "$_ORIG_BAM" "$SAMPLE" "${LOG_DIR}" "$REF" \
+pgx-bamstats.sh "$_ORIG_BAM" "$SAMPLE" "${LOG_DIR}" "$REF" "$BAM" \
     > "${LOG_DIR}/bamstats.log" 2>&1 &
 BAMSTATS_PID=$!
 
