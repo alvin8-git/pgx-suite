@@ -1112,7 +1112,39 @@ footer {
     .container { padding: 0.5rem; }
     th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .gene-card { border: 1px solid #ccc; break-inside: avoid; }
+    .report-status-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+/* ── CAP/CLIA compliance elements ─────────────────────────────────── */
+.report-status-banner {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.3rem 1rem;
+}
+.status-final    { background: #166534; color: #fff; }
+.status-prelim   { background: #92400e; color: #fff; }
+.status-research { background: #475569; color: #fff; }
+.lab-block {
+    text-align: right;
+    border-right: 1px solid rgba(255,255,255,0.25);
+    margin-right: 1rem;
+    padding-right: 1rem;
+}
+.lab-block .lab-name   { font-size: 0.82rem; font-weight: 600; color: #fff; }
+.lab-block .lab-detail { font-size: 0.72rem; opacity: 0.85; color: #fff; line-height: 1.6; }
+.accession-row { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+.accession-row .accession-id { font-family: monospace; font-weight: 600; color: var(--primary); }
+.auth-block {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.auth-block .auth-label { font-weight: 600; }
+.auth-block .auth-name  { color: var(--primary); font-weight: 500; }
 """
 
 # ── Landing page ──────────────────────────────────────────────────────────────
@@ -1336,7 +1368,8 @@ def gene_depth_table(bs: dict) -> str:
 
 def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
                   genes_rel_prefix: str = "",
-                  gene_fragments: dict | None = None):
+                  gene_fragments: dict | None = None,
+                  lab_info: dict | None = None):
     """Build <sample>_pgx_report.html landing page with embedded gene detail panels."""
 
     gene_cards_html = ""
@@ -1424,6 +1457,41 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     today = date.today().isoformat()
 
+    # ── CAP/CLIA lab identification blocks ────────────────────────────────────
+    li               = lab_info or {}
+    lab_name         = li.get("lab_name", "")
+    clia_number      = li.get("clia_number", "")
+    cap_number       = li.get("cap_number", "")
+    medical_director = li.get("medical_director", "")
+    accession_id     = li.get("accession_id", "")
+    authorized_by    = li.get("authorized_by", "")
+    report_status    = li.get("report_status", "RESEARCH USE ONLY")
+
+    if lab_name or clia_number:
+        _rows = ""
+        if lab_name:          _rows += f'<div class="lab-name">{lab_name}</div>'
+        if clia_number:       _rows += f'<div class="lab-detail">CLIA: {clia_number}</div>'
+        if cap_number:        _rows += f'<div class="lab-detail">CAP: {cap_number}</div>'
+        if medical_director:  _rows += f'<div class="lab-detail">Director: {medical_director}</div>'
+        lab_header_html = f'<div class="lab-block">{_rows}</div>'
+    else:
+        lab_header_html = ""
+
+    _rs = report_status.upper()
+    _status_cls = "status-final" if _rs == "FINAL" else ("status-prelim" if _rs == "PRELIMINARY" else "status-research")
+    status_banner_html = f'<div class="report-status-banner {_status_cls}">{report_status}</div>'
+
+    accession_html = (
+        f'<div class="accession-row"><span class="qc-label">Accession:</span>'
+        f' <span class="accession-id">{accession_id}</span></div>'
+    ) if accession_id else ""
+
+    auth_html = (
+        f'<div class="auth-block"><span class="auth-label">Authorized by:</span>'
+        f' <span class="auth-name">{authorized_by}</span>'
+        f' &nbsp;&mdash;&nbsp; <span class="auth-date">{today}</span></div>'
+    ) if authorized_by else ""
+
     # Build embedded gene panels HTML
     gene_panels_html = ""
     if gene_fragments:
@@ -1471,12 +1539,14 @@ function pgxShowMain() {
 {embedded_js}
 </head>
 <body>
+{status_banner_html}
 <header>
     <div>
         <div class="logo">PGx Suite</div>
         <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
     </div>
     <div class="spacer"></div>
+    {lab_header_html}
     <div class="report-meta">
         <div><strong>Sample:</strong> {sample}</div>
         <div><strong>Date:</strong> {today}</div>
@@ -1491,6 +1561,7 @@ function pgxShowMain() {
         <div>
             <div class="qc-label">Sample ID</div>
             <div class="sample-id">{sample}</div>
+            {accession_html}
             <div class="sample-meta">BAM: {bam_basename}</div>
         </div>
         <div>
@@ -1543,6 +1614,7 @@ function pgxShowMain() {
 {gene_panels_html}
 
 <footer>
+    {auth_html}
     <div>PGx Suite &bull; GRCh38 Reference &bull; CPIC Guidelines (cpicpgx.org) &bull; PharmVar (pharmvar.org)</div>
     <div>PyPGx 0.26 &bull; Stargazer 2.0.3 &bull; Aldy 4.8.3 &bull; StellarPGx 1.2.7 &bull; OptiType 1.3.5</div>
     <div style="margin-top:0.4rem;font-style:italic">For clinical decision support only &#8212; not a standalone diagnostic report. Results require clinical validation and interpretation by a qualified clinician.</div>
@@ -2100,11 +2172,19 @@ def build_gene_page(sample: str, gene: str, detail: dict, landing_file: str, out
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description="Generate PGx HTML reports")
-    ap.add_argument("--sample",    required=True, help="Sample ID")
-    ap.add_argument("--output",    required=True, help="Root output directory (landing page written here)")
-    ap.add_argument("--genes-dir", default="",    help="Directory containing per-gene subdirs (default: <output>/Genes)")
-    ap.add_argument("--bam",       default="",    help="BAM file path (for display)")
-    ap.add_argument("--bam-stats", default="",    help="Path to bam_stats.json (default: <output>/log/bam_stats.json)")
+    ap.add_argument("--sample",           required=True, help="Sample ID")
+    ap.add_argument("--output",           required=True, help="Root output directory (landing page written here)")
+    ap.add_argument("--genes-dir",        default="",    help="Directory containing per-gene subdirs (default: <output>/Genes)")
+    ap.add_argument("--bam",              default="",    help="BAM file path (for display)")
+    ap.add_argument("--bam-stats",        default="",    help="Path to bam_stats.json (default: <output>/log/bam_stats.json)")
+    # CAP/CLIA Phase 1 compliance fields (all optional)
+    ap.add_argument("--lab-name",         default="",                  help="Laboratory name")
+    ap.add_argument("--clia-number",      default="",                  help="CLIA certificate number")
+    ap.add_argument("--cap-number",       default="",                  help="CAP accreditation number")
+    ap.add_argument("--medical-director", default="",                  help="Medical/laboratory director name and credentials")
+    ap.add_argument("--accession-id",     default="",                  help="Unique report/accession number")
+    ap.add_argument("--authorized-by",    default="",                  help="Authorizing pathologist or clinical geneticist")
+    ap.add_argument("--report-status",    default="RESEARCH USE ONLY", help="Report status: FINAL, PRELIMINARY, or RESEARCH USE ONLY (default)")
     args = ap.parse_args()
 
     sample  = args.sample
@@ -2198,9 +2278,19 @@ def main():
 
     # Build landing page at <out_dir>/<sample>_pgx_report.html
     print(f"Generating standalone HTML report …")
+    lab_info = {
+        "lab_name":         args.lab_name,
+        "clia_number":      args.clia_number,
+        "cap_number":       args.cap_number,
+        "medical_director": args.medical_director,
+        "accession_id":     args.accession_id,
+        "authorized_by":    args.authorized_by,
+        "report_status":    args.report_status,
+    }
     build_landing(sample, bam_path, genes_data, bs, out_dir,
                   genes_rel_prefix="Genes",
-                  gene_fragments=gene_fragments)
+                  gene_fragments=gene_fragments,
+                  lab_info=lab_info)
     print("Done.")
 
 
