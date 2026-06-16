@@ -143,6 +143,7 @@ COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
 COPY docker/pgx-hla.sh            /opt/pgx/pgx-hla.sh
 COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
+COPY docker/genes.tsv             /opt/pgx/genes.tsv
 RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
              /opt/pgx/pgx-mt.sh \

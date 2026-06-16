@@ -297,13 +297,15 @@ for GENE in "${GENES[@]}"; do
                || ls "${GENES_DIR}/${GENE}"/*_comparison.tsv 2>/dev/null | head -1 \
                || true)
 
+    DETAIL_JSON=$(ls "${GENES_DIR}/${GENE}/${GENE}_${SAMPLE}_detail.json" 2>/dev/null \
+                  || ls "${GENES_DIR}/${GENE}"/*_detail.json 2>/dev/null | head -1 \
+                  || true)
+
     if [[ "${STATUS[$GENE]:-FAILED}" == "OK" && -f "$TSV_FILE" ]]; then
-        # Comparison TSV columns: Gene Sample Build Tool Diplotype ActivityScore Phenotype Status SVMode
-        # Extract concordant diplotype (most frequent value in Diplotype column = col 5)
-        TOP=$(tail -n +2 "$TSV_FILE" \
-              | awk -F'\t' '$5 != "-" {print $5}' \
-              | sort | uniq -c | sort -rn | head -1 \
-              | awk '{print $2}')
+        # Headline = the single-source verdict written by pgx-compare.py
+        # (NO_CALL / DISCORDANT / consensus). Do NOT recompute concordance here —
+        # the old awk 'sort | uniq -c | head -1' resolved 2-vs-2 ties as a winner.
+        TOP=$(python3 -c "import json,os,sys; p=sys.argv[1]; v=(json.load(open(p)).get('verdict',{}) if os.path.isfile(p) else {}); print(v.get('consensus_diplotype','-'))" "$DETAIL_JSON" 2>/dev/null || echo '-')
         printf " %-10s  %-6s  %-30s  %s\n" \
             "$GENE" "OK" "${TOP:--}" "${LOG_DIR}/${GENE}.log"
         # Append rows to summary TSV

@@ -79,46 +79,39 @@ class CallerResult:
 
 
 # ── SV gene sets ──────────────────────────────────────────────────────────────
-PYPGX_SV_GENES = frozenset(
-    {"CYP2A6", "CYP2B6", "CYP2D6", "CYP2E1", "CYP4F2", "G6PD", "GSTM1", "GSTT1"}
-)
-STARGAZER_SV_GENES = frozenset({"CYP2A6", "CYP2B6", "CYP2D6"})
+# ── Gene support matrix — single source of truth ──────────────────────────────
+# Loaded from genes.tsv, the SAME file pgx-run.sh parses. Previously this matrix
+# was duplicated here (Python dict) and in pgx-run.sh (bash arrays) in different
+# encodings, with nothing checking they agreed.
+def load_gene_config(path: str | None = None):
+    """Return (support, pypgx_sv, stargazer_sv) read from genes.tsv.
 
-# ── Gene support matrix ───────────────────────────────────────────────────────
-GENE_SUPPORT: dict[str, dict[str, bool]] = {
-    "CYP2D6":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2C19":  {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2C9":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2B6":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2C8":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP3A4":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP3A5":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP4F2":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "NUDT15":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "TPMT":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "UGT1A1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True,  "vcf_check": True},
-    "SLCO1B1":  {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "DPYD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
-    "NAT1":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "NAT2":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "G6PD":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False, "vcf_check": True},
-    "GSTM1":    {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "GSTT1":    {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True},
-    "POR":      {"pypgx": True,  "stargazer": True,  "aldy": False, "stellarpgx": True},
-    "CYPOR":    {"pypgx": True,  "stargazer": True,  "aldy": False, "stellarpgx": True},
-    "VKORC1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
-    "CYP1A1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP1A2":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2A6":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "CYP2E1":   {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": True},
-    "IFNL3":    {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
-    "RYR1":     {"pypgx": True,  "stargazer": True,  "aldy": True,  "stellarpgx": False},
-    "ABCG2":    {"pypgx": False, "stargazer": False, "aldy": True,  "stellarpgx": False, "optitype": False},
-    "HLA-A":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
-    "HLA-B":    {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "optitype": True},
-    "CACNA1S":  {"pypgx": True,  "stargazer": False, "aldy": False, "stellarpgx": True,  "vcf_check": True},
-    "MT-RNR1":  {"pypgx": False, "stargazer": False, "aldy": False, "stellarpgx": False, "mutserve": True},
-}
+    `support[gene]` holds only the True tool flags; consumers use
+    `support.get(tool)` (None is falsy), so omitting False is behaviour-identical
+    to the old explicit-False dict.
+    """
+    path = path or os.environ.get("PGX_GENES_TSV") \
+        or os.path.join(os.path.dirname(os.path.abspath(__file__)), "genes.tsv")
+    support: dict[str, dict[str, bool]] = {}
+    pypgx_sv: set[str] = set()
+    stargazer_sv: set[str] = set()
+    with open(path) as fh:
+        for row in csv.DictReader(fh, delimiter="\t"):
+            g = row["gene"]
+            support[g] = {
+                k: True
+                for k in ("pypgx", "stargazer", "aldy", "stellarpgx",
+                          "optitype", "mutserve", "vcf_check")
+                if row[k] == "1"
+            }
+            if row["pypgx_sv"] == "1":
+                pypgx_sv.add(g)
+            if row["stargazer_sv"] == "1":
+                stargazer_sv.add(g)
+    return support, frozenset(pypgx_sv), frozenset(stargazer_sv)
+
+
+GENE_SUPPORT, PYPGX_SV_GENES, STARGAZER_SV_GENES = load_gene_config()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1065,6 +1058,54 @@ def _sv_note(gene: str) -> str:
 
 
 # ── Output ────────────────────────────────────────────────────────────────────
+def _normalize_diplotype(d: str) -> str:
+    """Order-insensitive diplotype so *2/*4 == *4/*2."""
+    if not d or d == "-":
+        return "-"
+    if "/" not in d:
+        return d
+    return "/".join(sorted(p.strip() for p in d.split("/")))
+
+
+def compute_verdict(results: list[CallerResult], no_call: bool) -> dict[str, Any]:
+    """Single source of truth for the gene-level call.
+
+    Emitted into detail.json so pgx-report.py and the batch summary READ this
+    rather than each recomputing concordance (which previously diverged and
+    silently resolved 2-vs-2 ties as a winner).
+
+    status: no_call | no_data | discordant | majority | concordant
+    """
+    if no_call:
+        return {"consensus_diplotype": "NO_CALL", "consensus_phenotype": "-",
+                "n_agree": 0, "n_called": 0, "status": "no_call"}
+
+    dips, phenos = [], []
+    for r in results:
+        if r.status == "ok" and r.diplotype not in ("-", ""):
+            dips.append(_normalize_diplotype(r.diplotype))
+            if r.phenotype not in ("-", ""):
+                phenos.append(r.phenotype)
+
+    n_called = len(dips)
+    if n_called == 0:
+        return {"consensus_diplotype": "-", "consensus_phenotype": "-",
+                "n_agree": 0, "n_called": 0, "status": "no_data"}
+
+    counts = Counter(dips).most_common()
+    top_dip, n_agree = counts[0]
+    pheno = Counter(phenos).most_common(1)[0][0] if phenos else "-"
+
+    # Tie: a second diplotype called by as many tools — no safe winner.
+    if len(counts) > 1 and counts[1][1] == n_agree:
+        return {"consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
+                "n_agree": n_agree, "n_called": n_called, "status": "discordant"}
+
+    status = "concordant" if n_agree == n_called else "majority"
+    return {"consensus_diplotype": top_dip, "consensus_phenotype": pheno,
+            "n_agree": n_agree, "n_called": n_called, "status": status}
+
+
 def print_table(
     gene: str,
     sample: str,
@@ -1078,6 +1119,7 @@ def print_table(
 
     # Coverage gate: a region with too few reads cannot be called at all.
     no_call = region_depth is not None and region_depth < min_depth
+    verdict = compute_verdict(results, no_call)
 
     print()
     print("=" * W)
@@ -1090,25 +1132,24 @@ def print_table(
     print(f"{'Tool':<14}{'Diplotype':<18}{'Activity Score':<18}{'Phenotype'}")
     print(SEP)
 
-    called_diplotypes: list[str] = []
     for r in results:
         print(f"{r.tool:<14}{r.diplotype:<18}{r.activity_score:<18}{r.phenotype}")
-        if r.status == "ok" and r.diplotype not in ("-", ""):
-            called_diplotypes.append(r.diplotype)
 
     print(SEP)
 
-    if no_call:
+    st = verdict["status"]
+    if st == "no_call":
         print(f"VERDICT: NO CALL — insufficient coverage "
               f"({region_depth:.1f}x < {min_depth:.0f}x minimum)")
         print("Tool calls above are suppressed and retained for audit only.")
-    elif called_diplotypes:
-        counts = Counter(called_diplotypes)
-        top_dip, top_count = counts.most_common(1)[0]
-        total = len(results)
-        print(f"Concordance: {top_count}/{total} tools agree on {top_dip}")
-    else:
+    elif st == "discordant":
+        print(f"VERDICT: DISCORDANT — tools disagree "
+              f"({verdict['n_agree']}/{verdict['n_called']} on the top diplotype); no consensus")
+    elif st == "no_data":
         print("Concordance: no calls available")
+    else:  # concordant | majority
+        print(f"Concordance: {verdict['n_agree']}/{verdict['n_called']} tools agree on "
+              f"{verdict['consensus_diplotype']}")
 
     print("=" * W)
     print()
@@ -1151,6 +1192,9 @@ def print_table(
             "min_depth":  min_depth,
             "verdict":    "NO_CALL" if no_call else "OK",
         },
+        # Gene-level verdict — the single authority. pgx-report.py and the batch
+        # summary MUST read this instead of recomputing concordance.
+        "verdict": verdict,
         # Per-tool dict keeps each caller's raw emitted values for audit even
         # when the gene is NO_CALL (the TSV/headline above are suppressed).
         "tools":   {r.tool: r.to_dict(sample, gene) for r in results},

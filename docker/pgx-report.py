@@ -974,6 +974,29 @@ def compute_concordance(tool_data: dict) -> tuple[str, str, str, int]:
     return (most_common_dip, most_common_pheno, card_class, n_agree)
 
 
+def verdict_card(verdict: dict) -> tuple[str, str, str, int, int]:
+    """Map the authoritative detail.json verdict to
+    (diplotype, phenotype, card_class, n_agree, n_called).
+
+    This is the consumer of pgx-compare.py's single-source verdict. NO_CALL and
+    DISCORDANT deliberately assert NO phenotype, so they cannot drive a clinical
+    recommendation downstream. Replaces the old per-page concordance recompute
+    that ignored the coverage gate and resolved ties as a silent winner.
+    """
+    st = verdict.get("status", "no_data")
+    n_agree = int(verdict.get("n_agree", 0) or 0)
+    n_called = int(verdict.get("n_called", 0) or 0)
+    if st == "no_call":
+        return ("NO_CALL", "-", "card-no-data", n_agree, n_called)
+    if st == "discordant":
+        return ("DISCORDANT", "-", "card-red", n_agree, n_called)
+    if st == "no_data":
+        return ("-", "-", "card-no-data", 0, 0)
+    card_class, _ = concordance_color(n_agree, n_called)
+    return (verdict.get("consensus_diplotype", "-"),
+            verdict.get("consensus_phenotype", "-"), card_class, n_agree, n_called)
+
+
 # ── CSS / JS shared across all pages ──────────────────────────────────────────
 SHARED_CSS = """
 :root {
@@ -1971,13 +1994,22 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
     clusters = harmonize_variants(tools_data)
     var_subtable_html = render_variant_subtable(clusters, id_prefix=id_prefix)
 
-    from collections import Counter as _Counter
-    pheno_list = [tools_data.get(t, {}).get("phenotype", "-") for t in TOOLS
-                  if tools_data.get(t, {}).get("phenotype", "-") not in ("-", "")]
-    consensus_pheno = _Counter(pheno_list).most_common(1)[0][0] if pheno_list else ""
-    diplo_list = [normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) for t in TOOLS
-                  if normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) != "-"]
-    consensus_diplo = _Counter(diplo_list).most_common(1)[0][0] if diplo_list else ""
+    # Consensus comes from the authoritative verdict in detail.json (single
+    # source). NO_CALL / DISCORDANT yield no asserted phenotype, so the CPIC
+    # clinical section below cannot fire off a non-call.
+    _v = detail.get("verdict")
+    if _v:
+        consensus_diplo, consensus_pheno, _cc, _na, _nc = verdict_card(_v)
+        consensus_pheno = "" if consensus_pheno == "-" else consensus_pheno
+        consensus_diplo = "" if consensus_diplo == "-" else consensus_diplo
+    else:
+        from collections import Counter as _Counter
+        pheno_list = [tools_data.get(t, {}).get("phenotype", "-") for t in TOOLS
+                      if tools_data.get(t, {}).get("phenotype", "-") not in ("-", "")]
+        consensus_pheno = _Counter(pheno_list).most_common(1)[0][0] if pheno_list else ""
+        diplo_list = [normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) for t in TOOLS
+                      if normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) != "-"]
+        consensus_diplo = _Counter(diplo_list).most_common(1)[0][0] if diplo_list else ""
     all_tool_diplos_page = [tools_data.get(t, {}).get("diplotype", "-") for t in TOOLS
                             if tools_data.get(t, {}).get("diplotype", "-") not in ("-", "")]
     cpic_section_html = build_gene_cpic_section(
@@ -2247,11 +2279,16 @@ def main():
             detail = {"gene": gene, "sample": sample, "tools": {}}
 
         tools_data = detail.get("tools", {})
-        consensus_dip, consensus_pheno, card_class, n_agree = compute_concordance(tools_data)
-        n_called = sum(
-            1 for t in TOOLS
-            if normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) != "-"
-        )
+        _v = detail.get("verdict")
+        if _v:
+            consensus_dip, consensus_pheno, card_class, n_agree, n_called = verdict_card(_v)
+        else:
+            # Backward-compat: detail.json predates the verdict authority.
+            consensus_dip, consensus_pheno, card_class, n_agree = compute_concordance(tools_data)
+            n_called = sum(
+                1 for t in TOOLS
+                if normalize_diplotype(tools_data.get(t, {}).get("diplotype", "-")) != "-"
+            )
 
         # Collect raw per-tool diplotypes (unnormalised) for diplotype_check genes
         all_tool_diplotypes = [

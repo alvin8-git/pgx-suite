@@ -75,100 +75,34 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ── GRCh38 gene coordinate table ──────────────────────────────────────────────
-# Sourced from pypgx gene-table.csv (authoritative regions with upstream/downstream buffer).
-# GSTT1 is on chr22_KI270879v1_alt — bcftools mpileup is skipped for it.
-declare -A GENE_COORDS
-GENE_COORDS=(
-    [CYP1A1]="chr15:74716541-74728528"
-    [CYP1A2]="chr15:74745844-74759607"
-    [CYP2A6]="chr19:40833540-40890447"
-    [CYP2B6]="chr19:40921281-41028398"
-    [CYP2C8]="chr10:95033771-95072497"
-    [CYP2C9]="chr10:94935657-94993091"
-    [CYP2C19]="chr10:94759680-94858547"
-    [CYP2D6]="chr22:42116498-42155810"
-    [CYP2E1]="chr10:133517362-133549123"
-    [CYP3A4]="chr7:99753966-99787184"
-    [CYP3A5]="chr7:99645193-99682996"
-    [CYP4F2]="chr19:15863022-15913074"
-    [DPYD]="chr1:97074742-97924034"
-    [G6PD]="chrX:154528389-154550018"
-    [GSTM1]="chr1:109684816-109696745"
-    [GSTT1]="ALT_CONTIG"   # chr22_KI270879v1_alt — skip bcftools
-    [IFNL3]="chr19:39240552-39253525"
-    [NAT1]="chr8:18207108-18226689"
-    [NAT2]="chr8:18388281-18404218"
-    [NUDT15]="chr13:48034725-48050221"
-    [POR]="chr7:75912154-75989855"
-    [CYPOR]="chr7:75912154-75989855"
-    [RYR1]="chr19:38430690-38590564"
-    [SLCO1B1]="chr12:21128193-21242796"
-    [TPMT]="chr6:18125310-18158169"
-    [UGT1A1]="chr2:233754269-233779300"
-    [VKORC1]="chr16:31087853-31097797"
-    [ABCG2]="chr4:88085265-88236626"
-    [HLA-A]="chr6:28510020-33480577"   # MHC region — used for read extraction by pgx-hla.sh
-    [HLA-B]="chr6:28510020-33480577"   # MHC region — same extraction as HLA-A
-    [CACNA1S]="chr1:201006956-201095000"  # extended: *2 (rs772226819) at 201091993 requires 8 kb beyond old 201083927
-    [MT-RNR1]="chrM:648-1601"          # mitochondrial 12S rRNA; mutserve uses full chrM
-)
+# ── Gene config — single source of truth (docker/genes.tsv) ───────────────────
+# Parsed into the same associative arrays the rest of this script uses. genes.tsv
+# is ALSO read by pgx-compare.py, so the support matrix and coordinates live in
+# ONE file instead of being duplicated here (bash) and there (Python).
+# Columns: gene region pypgx stargazer aldy stellarpgx optitype mutserve vcf_check pypgx_sv stargazer_sv stargazer_control
+GENES_TSV="${PGX_GENES_TSV:-/opt/pgx/genes.tsv}"
+if [[ ! -f "$GENES_TSV" ]]; then
+    _self="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+    GENES_TSV="$(dirname "$_self")/genes.tsv"
+fi
+if [[ ! -f "$GENES_TSV" ]]; then
+    echo "ERROR: gene config not found (looked for /opt/pgx/genes.tsv and beside the script)." >&2
+    exit 1
+fi
 
-# ── Gene support matrix (pypgx stargazer aldy stellarpgx) ─────────────────────
-# 1=supported, 0=not supported
-declare -A GENE_SUPPORT
-GENE_SUPPORT=(
-    [CYP2D6]="1 1 1 1"
-    [CYP2C19]="1 1 1 1"
-    [CYP2C9]="1 1 1 1"
-    [CYP2B6]="1 1 1 1"
-    [CYP2C8]="1 1 1 1"
-    [CYP3A4]="1 1 1 1"
-    [CYP3A5]="1 1 1 1"
-    [CYP4F2]="1 1 1 1"
-    [NUDT15]="1 1 1 1"
-    [TPMT]="1 1 1 1"
-    [UGT1A1]="1 1 1 1"
-    [SLCO1B1]="1 1 1 1"
-    [DPYD]="1 1 1 0"
-    [NAT1]="1 1 1 1"
-    [NAT2]="1 1 1 1"
-    [G6PD]="1 1 1 0"
-    [GSTM1]="1 1 1 1"
-    [GSTT1]="1 0 0 1"
-    [POR]="1 1 0 1"
-    [CYPOR]="1 1 0 1"
-    [VKORC1]="1 1 1 0"
-    [CYP1A1]="1 1 1 1"
-    [CYP1A2]="1 1 1 1"
-    [CYP2A6]="1 1 1 1"
-    [CYP2E1]="1 1 1 1"
-    [IFNL3]="1 1 1 0"
-    [RYR1]="1 1 1 0"
-    [ABCG2]="0 0 1 0"   # PyPGx/Stargazer unsupported; StellarPGx fails consistently (validation 2026-03)
-    [HLA-A]="0 0 0 0"   # OptiType only — handled by run_hla() special case
-    [HLA-B]="0 0 0 0"   # OptiType only — handled by run_hla() special case
-    [CACNA1S]="1 0 0 1" # PyPGx + StellarPGx; Stargazer/Aldy do not support CACNA1S
-    [MT-RNR1]="0 0 0 0" # mutserve only — handled by run_mt() special case
-)
-
-# ── PyPGx SV genes — need depth-of-coverage + control-statistics (VDR) ───────
-PYPGX_SV_GENES=(CYP2A6 CYP2B6 CYP2D6 CYP2E1 CYP4F2 G6PD GSTM1 GSTT1)
-
-# ── Stargazer SV genes — need GDF depth profile created from BAM ──────────────
-STARGAZER_SV_GENES=(CYP2A6 CYP2B6 CYP2D6)
-
-# ── Stargazer control gene mapping ────────────────────────────────────────────
-declare -A STARGAZER_CONTROL
-STARGAZER_CONTROL=(
-    [CYP2D6]="vdr"   [CYP2C19]="vdr"  [CYP2C9]="vdr"   [CYP2B6]="vdr"
-    [CYP2C8]="vdr"   [CYP3A4]="vdr"   [CYP3A5]="vdr"   [CYP4F2]="vdr"
-    [CYP1A1]="vdr"   [CYP1A2]="vdr"   [CYP2A6]="vdr"   [CYP2E1]="vdr"
-    [SLCO1B1]="vdr"  [G6PD]="vdr"     [VKORC1]="vdr"
-    [NUDT15]="vdr"   [TPMT]="vdr"     [UGT1A1]="vdr"   [DPYD]="vdr"
-    [NAT1]="vdr"     [NAT2]="vdr"     [GSTM1]="vdr"    [IFNL3]="vdr"
-    [RYR1]="vdr"     [POR]="vdr"
-)
+declare -A GENE_COORDS GENE_SUPPORT STARGAZER_CONTROL
+PYPGX_SV_GENES=()
+STARGAZER_SV_GENES=()
+while IFS=$'\t' read -r _g _region _pypgx _stargazer _aldy _stellarpgx \
+                        _optitype _mutserve _vcf_check _pypgx_sv _stargazer_sv _control \
+                        || [[ -n "$_g" ]]; do
+    [[ "$_g" == "gene" || -z "$_g" ]] && continue   # skip header / blank lines
+    GENE_COORDS[$_g]="$_region"
+    GENE_SUPPORT[$_g]="$_pypgx $_stargazer $_aldy $_stellarpgx"
+    [[ "$_pypgx_sv"     == "1" ]] && PYPGX_SV_GENES+=("$_g")
+    [[ "$_stargazer_sv" == "1" ]] && STARGAZER_SV_GENES+=("$_g")
+    [[ "$_control" != "-" && -n "$_control" ]] && STARGAZER_CONTROL[$_g]="$_control"
+done < "$GENES_TSV"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 in_array() {
