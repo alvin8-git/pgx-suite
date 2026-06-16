@@ -20,6 +20,13 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+# Mean read depth (x) below which a gene cannot be called. Without this gate a
+# variant caller that sees no ALT alleles in an uncovered region emits wild-type
+# (*1/*1) — a confident-looking call manufactured from missing data.
+# ponytail: single global floor; CNV-heavy genes may warrant a higher value —
+# override per run with --min-depth if assay validation demands it.
+DEFAULT_MIN_DEPTH = 10.0
+
 
 @dataclass
 class CallerResult:
@@ -1063,9 +1070,14 @@ def print_table(
     sample: str,
     results: list[CallerResult],
     output_dir: str,
+    region_depth: float | None = None,
+    min_depth: float = DEFAULT_MIN_DEPTH,
 ) -> None:
     W = 72
     SEP = "─" * W
+
+    # Coverage gate: a region with too few reads cannot be called at all.
+    no_call = region_depth is not None and region_depth < min_depth
 
     print()
     print("=" * W)
@@ -1086,7 +1098,11 @@ def print_table(
 
     print(SEP)
 
-    if called_diplotypes:
+    if no_call:
+        print(f"VERDICT: NO CALL — insufficient coverage "
+              f"({region_depth:.1f}x < {min_depth:.0f}x minimum)")
+        print("Tool calls above are suppressed and retained for audit only.")
+    elif called_diplotypes:
         counts = Counter(called_diplotypes)
         top_dip, top_count = counts.most_common(1)[0]
         total = len(results)
@@ -1107,9 +1123,19 @@ def print_table(
         )
         sv_mode = _sv_note(gene)
         for r in results:
+            if no_call:
+                # Suppress every tool's diplotype so neither this TSV nor the
+                # batch-summary headline can present a call without coverage.
+                dip, score, pheno, status = (
+                    "NO_CALL", "-",
+                    f"Insufficient coverage ({region_depth:.1f}x<{min_depth:.0f}x)",
+                    "no_call",
+                )
+            else:
+                dip, score, pheno, status = (
+                    r.diplotype, r.activity_score, r.phenotype, r.status)
             writer.writerow(
-                [gene, sample, "GRCh38", r.tool, r.diplotype,
-                 r.activity_score, r.phenotype, r.status, sv_mode]
+                [gene, sample, "GRCh38", r.tool, dip, score, pheno, status, sv_mode]
             )
     print(f"Full results saved to: {tsv_path}")
 
@@ -1120,6 +1146,13 @@ def print_table(
         "sample":  sample,
         "build":   "GRCh38",
         "sv_mode": _sv_note(gene),
+        "coverage": {
+            "mean_depth": region_depth,
+            "min_depth":  min_depth,
+            "verdict":    "NO_CALL" if no_call else "OK",
+        },
+        # Per-tool dict keeps each caller's raw emitted values for audit even
+        # when the gene is NO_CALL (the TSV/headline above are suppressed).
         "tools":   {r.tool: r.to_dict(sample, gene) for r in results},
     }
     with open(json_path, "w") as fh:
@@ -1135,6 +1168,12 @@ def main() -> None:
     parser.add_argument("--gene",       required=True, help="Gene name (e.g. CYP2D6)")
     parser.add_argument("--sample",     required=True, help="Sample name")
     parser.add_argument("--output-dir", required=True, help="Results directory")
+    parser.add_argument("--region-depth", type=float, default=None,
+                        help="Mean read depth over the gene region (drives the coverage gate)")
+    parser.add_argument("--min-depth", type=float, default=DEFAULT_MIN_DEPTH,
+                        help=f"Min mean depth to attempt a call (default {DEFAULT_MIN_DEPTH:g}x)")
+    parser.add_argument("--failed-tools", default="",
+                        help="Comma-separated tools that ran but failed (marked 'failed', not 'not_run')")
     args = parser.parse_args()
 
     gene = args.gene.upper()
@@ -1161,7 +1200,16 @@ def main() -> None:
         if _vcf_fn:
             results.append(_vcf_fn(args.output_dir, gene, args.sample))
 
-    print_table(gene, args.sample, results, args.output_dir)
+    # Distinguish "tool ran and crashed" from "tool never ran". A crashed caller
+    # leaves no output file, so it would otherwise look identical to not_run.
+    failed = {t.strip() for t in args.failed_tools.split(",") if t.strip()}
+    for r in results:
+        if r.tool in failed and r.status == "not_run":
+            r.status = "failed"
+            r.diplotype = "tool failed (see log)"
+
+    print_table(gene, args.sample, results, args.output_dir,
+                region_depth=args.region_depth, min_depth=args.min_depth)
 
 
 if __name__ == "__main__":

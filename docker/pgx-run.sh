@@ -37,6 +37,7 @@ set -uo pipefail
 REF="/pgx/ref/hg38.fa"
 OUTPUT="/pgx/results"
 SEQUENTIAL=0
+MIN_DEPTH=10   # mean read depth below which the gene is reported NO_CALL
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -47,6 +48,7 @@ Options:
   --ref PATH       GRCh38 reference FASTA (default: /pgx/ref/hg38.fa)
   --output PATH    Output directory (default: /pgx/results)
   --sequential     Disable parallel execution (for debugging)
+  --min-depth N    Min mean depth to attempt a call; below this → NO_CALL (default: 10)
   -h, --help       Show this help
 
 Examples:
@@ -67,6 +69,7 @@ while [[ $# -gt 0 ]]; do
         --ref)        REF="$2";    shift 2 ;;
         --output)     OUTPUT="$2"; shift 2 ;;
         --sequential) SEQUENTIAL=1; shift ;;
+        --min-depth)  MIN_DEPTH="$2"; shift 2 ;;
         -h|--help)    usage; exit 0 ;;
         *) echo "ERROR: Unknown argument: $1" >&2; usage; exit 1 ;;
     esac
@@ -285,10 +288,27 @@ mkdir -p \
     "${OUTPUT}/stellarpgx" \
     "${OUTPUT}/logs"
 
+# Clear stale per-tool exit-code markers from any previous run of this gene.
+rm -f "${OUTPUT}/logs/"*.status 2>/dev/null || true
+
 VCF="${OUTPUT}/${GENE}.vcf.gz"
 DEPTH_ZIP="${OUTPUT}/depth-of-coverage.zip"
 CTRL_ZIP="${OUTPUT}/control-stats-VDR.zip"
 COORDS="${GENE_COORDS[$GENE]:-}"
+
+# ── Per-gene coverage (drives pgx-compare's NO_CALL gate) ─────────────────────
+# Measured at call time over the gene region; cheap even on CRAM (single seek).
+# Without it, a no-coverage region yields a confident wild-type (*1/*1) call.
+MEAN_DEPTH=""
+if [[ -n "$COORDS" && "$COORDS" != "ALT_CONTIG" ]]; then
+    MEAN_DEPTH=$(samtools coverage -r "$COORDS" --reference "$REF" "$BAM" 2>/dev/null \
+                 | awk 'NR==2 {print $7}')   # column 7 = meandepth
+    if [[ -z "$MEAN_DEPTH" ]]; then
+        log_status "WARN  could not measure depth for ${COORDS}; coverage gate disabled"
+    else
+        log_status "INFO  mean depth over ${GENE} (${COORDS}): ${MEAN_DEPTH}x (gate: ${MIN_DEPTH}x)"
+    fi
+fi
 
 # ── Tool runner functions ─────────────────────────────────────────────────────
 # Each writes its own log to ${OUTPUT}/logs/<tool>.log
@@ -363,6 +383,7 @@ run_stargazer_gdf() {
 
 run_aldy() {
     local log="${OUTPUT}/logs/aldy.log"
+    local rc=0
     log_status "START  Aldy"
     if aldy genotype \
             -g "$GENE" \
@@ -372,10 +393,14 @@ run_aldy() {
         >> "$log" 2>&1; then
         log_status "DONE   Aldy"
     else
-        log_status "FAILED Aldy  (see ${log})"
+        rc=$?
+        log_status "FAILED Aldy  (rc=${rc}, see ${log})"
     fi
-    # Aldy failure is non-fatal; always return 0 so it does not kill a background job pool
-    return 0
+    # Failure is non-fatal to the run, but the real exit code is recorded so the
+    # aggregator can tell "ran and crashed" from "never ran" (no set -e, so a
+    # non-zero return does not abort the background job pool).
+    echo "$rc" > "${OUTPUT}/logs/aldy.status"
+    return "$rc"
 }
 
 run_stellarpgx() {
@@ -385,6 +410,7 @@ run_stellarpgx() {
     bam_base="$(basename "${BAM%.*}")"   # strips .bam or .cram
     # StellarPGx main.nf uses 'cypor' not 'por' as the gene identifier.
     local stellar_gene="${GENE_LOWER}"
+    local rc=0
     [[ "$stellar_gene" == "por" ]] && stellar_gene="cypor"
     log_status "START  StellarPGx"
     if nextflow run /pgx/stellarpgx/main.nf \
@@ -399,33 +425,41 @@ run_stellarpgx() {
         >> "$log" 2>&1; then
         log_status "DONE   StellarPGx"
     else
-        log_status "FAILED StellarPGx  (see ${log})"
+        rc=$?
+        log_status "FAILED StellarPGx  (rc=${rc}, see ${log})"
     fi
-    return 0
+    echo "$rc" > "${OUTPUT}/logs/stellarpgx.status"
+    return "$rc"
 }
 
 run_hla() {
     local log="${OUTPUT}/logs/hla.log"
+    local rc=0
     log_status "START  OptiType HLA typing  (gene: ${GENE})"
     if pgx-hla.sh "$GENE" "$BAM" "$SAMPLE" "$OUTPUT" \
         >> "$log" 2>&1; then
         log_status "DONE   OptiType HLA typing"
     else
-        log_status "FAILED OptiType HLA typing  (see ${log})"
+        rc=$?
+        log_status "FAILED OptiType HLA typing  (rc=${rc}, see ${log})"
     fi
-    return 0
+    echo "$rc" > "${OUTPUT}/logs/hla.status"
+    return "$rc"
 }
 
 run_mt() {
     local log="${OUTPUT}/logs/mutserve.log"
+    local rc=0
     log_status "START  mutserve MT-RNR1 calling"
     if pgx-mt.sh "$BAM" "$SAMPLE" "$OUTPUT" --ref "$REF" \
         >> "$log" 2>&1; then
         log_status "DONE   mutserve MT-RNR1 calling"
     else
-        log_status "FAILED mutserve MT-RNR1 calling  (see ${log})"
+        rc=$?
+        log_status "FAILED mutserve MT-RNR1 calling  (rc=${rc}, see ${log})"
     fi
-    return 0
+    echo "$rc" > "${OUTPUT}/logs/mutserve.status"
+    return "$rc"
 }
 
 run_pypgx_pipeline() {
@@ -438,12 +472,15 @@ run_pypgx_pipeline() {
     else
         log_status "START  PyPGx  (standard)"
     fi
+    local rc=0
     if pypgx run-ngs-pipeline "${pypgx_args[@]}" >> "$log" 2>&1; then
         log_status "DONE   PyPGx"
     else
-        log_status "FAILED PyPGx  (see ${log})"
+        rc=$?
+        log_status "FAILED PyPGx  (rc=${rc}, see ${log})"
     fi
-    return 0
+    echo "$rc" > "${OUTPUT}/logs/pypgx.status"
+    return "$rc"
 }
 
 run_stargazer_genotype() {
@@ -459,12 +496,15 @@ run_stargazer_genotype() {
         [[ -n "$control" ]] && stargazer_args+=(-c "$control")
         log_status "START  Stargazer  (VCF-only mode)"
     fi
+    local rc=0
     if stargazer "${stargazer_args[@]}" >> "$log" 2>&1; then
         log_status "DONE   Stargazer"
     else
-        log_status "FAILED Stargazer  (see ${log})"
+        rc=$?
+        log_status "FAILED Stargazer  (rc=${rc}, see ${log})"
     fi
-    return 0
+    echo "$rc" > "${OUTPUT}/logs/stargazer.status"
+    return "$rc"
 }
 
 # ── VCF availability check ────────────────────────────────────────────────────
@@ -589,15 +629,35 @@ echo "------------------------------------------------------------"
 log_status "Waiting for all tools to finish..."
 echo "------------------------------------------------------------"
 
-[[ -n "$PYPGX_PID"      ]] && wait "$PYPGX_PID"
-[[ -n "$STARGAZER_PID"  ]] && wait "$STARGAZER_PID"
-[[ -n "$ALDY_PID"       ]] && wait "$ALDY_PID"
-[[ -n "$STELLARPGX_PID" ]] && wait "$STELLARPGX_PID"
-[[ -n "$HLA_PID"        ]] && wait "$HLA_PID"
-[[ -n "$MT_PID"         ]] && wait "$MT_PID"
+[[ -n "$PYPGX_PID"      ]] && wait "$PYPGX_PID"      || true
+[[ -n "$STARGAZER_PID"  ]] && wait "$STARGAZER_PID"  || true
+[[ -n "$ALDY_PID"       ]] && wait "$ALDY_PID"       || true
+[[ -n "$STELLARPGX_PID" ]] && wait "$STELLARPGX_PID" || true
+[[ -n "$HLA_PID"        ]] && wait "$HLA_PID"        || true
+[[ -n "$MT_PID"         ]] && wait "$MT_PID"         || true
 
 echo ""
 log_status "All tools finished."
+
+# ── Tool execution status (real exit codes, no longer masked as success) ──────
+# Each runner writes <tool>.status with its exit code; a missing file means the
+# tool was not selected for this gene. Failures are reported to pgx-compare so a
+# crashed caller is marked 'failed', not the misleading 'not_run'.
+FAILED_TOOLS=()
+echo "  Tool execution status:"
+for _pair in "PyPGx:pypgx" "Stargazer:stargazer" "Aldy:aldy" \
+             "StellarPGx:stellarpgx" "OptiType:hla" "mutserve:mutserve"; do
+    _name="${_pair%%:*}"; _key="${_pair##*:}"
+    _sf="${OUTPUT}/logs/${_key}.status"
+    [[ -f "$_sf" ]] || continue
+    _rc="$(cat "$_sf" 2>/dev/null || echo '?')"
+    if [[ "$_rc" == "0" ]]; then
+        echo "    ${_name}: OK"
+    else
+        echo "    ${_name}: FAILED (rc=${_rc})"
+        FAILED_TOOLS+=("$_name")
+    fi
+done
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -606,7 +666,9 @@ echo ""
 echo "------------------------------------------------------------"
 log_status "Phase 3: generating comparison report"
 echo "------------------------------------------------------------"
-python3 /opt/pgx/pgx-compare.py \
-    --gene "$GENE" \
-    --sample "$SAMPLE" \
-    --output-dir "$OUTPUT"
+COMPARE_ARGS=(--gene "$GENE" --sample "$SAMPLE" --output-dir "$OUTPUT" --min-depth "$MIN_DEPTH")
+[[ -n "$MEAN_DEPTH" ]] && COMPARE_ARGS+=(--region-depth "$MEAN_DEPTH")
+if [[ ${#FAILED_TOOLS[@]} -gt 0 ]]; then
+    COMPARE_ARGS+=(--failed-tools "$(IFS=,; echo "${FAILED_TOOLS[*]}")")
+fi
+python3 /opt/pgx/pgx-compare.py "${COMPARE_ARGS[@]}"
