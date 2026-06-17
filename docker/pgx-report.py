@@ -1089,6 +1089,20 @@ h3 { font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom:
 .badge-red    { background: var(--red-bg);    color: var(--red);    }
 .badge-grey   { background: var(--grey-bg);   color: var(--grey);   }
 .badge-blue   { background: var(--blue-bg);   color: var(--blue);   }
+/* At-a-glance headline summary strip (clinician 1-second scan) */
+.summary-strip { display: flex; flex-wrap: wrap; gap: 0.45rem 0.7rem; align-items: center;
+    margin-bottom: 1.75rem; padding: 0.6rem 0.9rem; background: var(--card-bg);
+    border: 1px solid var(--border); border-radius: 8px; }
+.summary-total { font-weight: 700; font-size: 0.95rem; color: var(--primary); }
+.summary-flagged { font-weight: 700; font-size: 0.8rem; color: var(--red); }
+.summary-flagged.summary-ok { color: var(--green); }
+.summary-pill { font-size: 0.76rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; }
+.summary-pill b { font-weight: 800; }
+.summary-pill.card-red     { background: var(--red-bg);    color: var(--red); }
+.summary-pill.card-no-data { background: var(--grey-bg);   color: var(--grey); }
+.summary-pill.card-orange  { background: var(--orange-bg); color: var(--orange); }
+.summary-pill.card-amber   { background: var(--amber-bg);  color: var(--amber); }
+.summary-pill.card-green   { background: var(--green-bg);  color: var(--green); }
 table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
 th {
     background: var(--primary);
@@ -1498,6 +1512,22 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     bam_basename = os.path.basename(bam) if bam else "—"
 
+    # At-a-glance headline counts — the 1-second clinician scan before the cards.
+    _counts = Counter(gd["card_class"] for gd in genes_data)
+    _total = len(genes_data)
+    _flagged = sum(_counts.get(c, 0) for c in ("card-red", "card-no-data", "card-orange", "card-amber"))
+    _flag_html = (f'<span class="summary-flagged">{_flagged} need review</span>'
+                  if _flagged else '<span class="summary-flagged summary-ok">all concordant</span>')
+    _pills = "".join(
+        f'<span class="summary-pill {_cc}"><b>{_counts[_cc]}</b> {_g} {_lbl}</span>'
+        for _cc, _g, _lbl in (("card-red", "✗", "Discordant"), ("card-no-data", "▢", "No call"),
+                              ("card-orange", "≈", "2/4"), ("card-amber", "≈", "3/4"),
+                              ("card-green", "✓", "Concordant"))
+        if _counts.get(_cc, 0)
+    )
+    summary_strip_html = (f'<div class="summary-strip"><span class="summary-total">'
+                          f'{_total} genes assessed</span>{_flag_html}{_pills}</div>')
+
     clinical_html = build_clinical_findings_section(
         genes_data, sample, genes_rel_prefix,
         embedded=(gene_fragments is not None))
@@ -1632,6 +1662,8 @@ function pgxShowMain() {
             </div>
         </div>
     </div>
+
+{summary_strip_html}
 
 {clinical_html}
 
