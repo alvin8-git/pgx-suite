@@ -1273,6 +1273,9 @@ LANDING_EXTRA_CSS = """
 .card-no-data{ border-left-color: #a0aec0; }
 .gene-name   { font-size: 1rem; font-weight: 700; }
 .gene-status { font-size: 0.72rem; font-weight: 700; margin-top: 0.15rem; color: var(--text); }
+.grid-divider { grid-column: 1 / -1; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.6rem 0 0.15rem; border-bottom: 1px solid var(--border); }
+.grid-divider-flagged { color: var(--red); }
+.grid-divider-normal  { color: var(--green); margin-top: 0.5rem; }
 .gene-diplo  { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gene-pheno-pill {
     display: inline-block;
@@ -1444,7 +1447,10 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         "card-red":     "✗ Discordant",
         "card-no-data": "▢ No call",
     }
-    for gd in sorted(genes_data, key=lambda g: (_SEV_RANK.get(g["card_class"], 5), g["gene"])):
+    _sorted_genes = sorted(genes_data, key=lambda g: (_SEV_RANK.get(g["card_class"], 5), g["gene"]))
+    _n_flagged = sum(1 for g in _sorted_genes if g["card_class"] != "card-green")
+    _normal_divider_done = False
+    for _i, gd in enumerate(_sorted_genes):
         gene = gd["gene"]
         dip  = gd["consensus_diplotype"]
         pheno = gd["consensus_phenotype"]
@@ -1496,6 +1502,11 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             else:
                 card_href = f"{sample}.{gene}.pgx.html"
 
+        if _i == 0 and _n_flagged:
+            gene_cards_html += f'<div class="grid-divider grid-divider-flagged">⚠ Needs review ({_n_flagged})</div>'
+        if card_class == "card-green" and not _normal_divider_done:
+            gene_cards_html += f'<div class="grid-divider grid-divider-normal">Normal — concordant ({len(_sorted_genes) - _n_flagged})</div>'
+            _normal_divider_done = True
         gene_cards_html += f"""
             <a href="{card_href}" {card_onclick} class="gene-card {css_cls}">
                 <div class="gene-name">{gene}</div>
