@@ -1,0 +1,33 @@
+name: tests
+
+# Runs the pure-Python unit suite (parsers, verdict logic, NO_CALL coverage gate,
+# and the single-source genes.tsv regression). No Docker image or sample data
+# needed — these import the scripts directly and run in seconds.
+
+on:
+  push:
+    paths:
+      - 'docker/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'docker/**'
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile check
+        run: python3 -m py_compile docker/pgx-compare.py docker/pgx-report.py
+      - name: genes.tsv regression
+        run: python3 docker/test_genes_config.py
+      - name: Output parsers
+        run: python3 docker/test_parsers.py
+      - name: Verdict authority
+        run: python3 docker/test_verdict.py
+      - name: NO_CALL coverage gate
+        run: python3 docker/test_coverage_gate.py

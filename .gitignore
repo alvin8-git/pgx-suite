@@ -3,6 +3,13 @@ pypgx/pypgx-bundle/
 StellarPGx/containers/
 StellarPGx/tests/reference/
 
+# Input sequencing data (e.g. 167 GB WGS BAM) — never committed
+TestData/
+
+# Tooling state and run artifacts (machine-local)
+.omc/
+nohup.out
+
 # Nextflow working directories
 work/
 .nextflow/
@@ -27,3 +34,4 @@ Stargazer_v2.0.3.zip
 # Only the example/ dir is committed (needed for smoke tests)
 stargazer-grc38-2.0.3/stargazer/1kgp_vcf/
 stargazer-grc38-2.0.3/unit_test/
+.gstack/

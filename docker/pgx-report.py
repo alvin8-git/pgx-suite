@@ -22,6 +22,7 @@ import os
 import sys
 from collections import Counter
 from datetime import date
+from html import escape
 
 # ── Field metadata (17 rows in the detail table) ──────────────────────────────
 FIELDS = [
@@ -1431,7 +1432,8 @@ def gene_depth_table(bs: dict) -> str:
 def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
                   genes_rel_prefix: str = "",
                   gene_fragments: dict | None = None,
-                  lab_info: dict | None = None):
+                  lab_info: dict | None = None,
+                  provenance: dict | None = None):
     """Build <sample>_pgx_report.html landing page with embedded gene detail panels."""
 
     gene_cards_html = ""
@@ -1590,6 +1592,30 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         f' &nbsp;&mdash;&nbsp; <span class="auth-date">{today}</span></div>'
     ) if authorized_by else ""
 
+    # Provenance footer (F2) — proves what produced this report. Optional: only
+    # rendered when a provenance.json was passed in.
+    provenance_html = ""
+    if provenance:
+        ref = provenance.get("reference", {}) or {}
+        tools = provenance.get("tools", {}) or {}
+        tool_bits = " &bull; ".join(f"{k} {v}" for k, v in tools.items() if v)
+        rows = [
+            ("Pipeline",   provenance.get("pipeline", "")),
+            ("Generated",  provenance.get("generated_utc", "")),
+            ("Reference",  f'{ref.get("path","")} ({ref.get("n_contigs","?")} contigs, {ref.get("bytes","?")} bytes)' if ref else ""),
+            ("Tools",      tool_bits),
+        ]
+        cells = "".join(
+            f'<div><span class="prov-k">{k}:</span> <span class="prov-v">{escape(str(v))}</span></div>'
+            for k, v in rows if v
+        )
+        provenance_html = (
+            '<div class="provenance" style="margin-top:0.6rem;font-size:0.78rem;'
+            'color:#475569;text-align:left;display:inline-block">'
+            '<div style="font-weight:600;color:#334155">Provenance</div>'
+            f'{cells}</div>'
+        )
+
     # Build embedded gene panels HTML
     gene_panels_html = ""
     if gene_fragments:
@@ -1718,6 +1744,7 @@ function pgxShowMain() {
     <div>PGx Suite &bull; GRCh38 Reference &bull; CPIC Guidelines (cpicpgx.org) &bull; PharmVar (pharmvar.org)</div>
     <div>PyPGx 0.26 &bull; Stargazer 2.0.3 &bull; Aldy 4.8.3 &bull; StellarPGx 1.2.7 &bull; OptiType 1.3.5</div>
     <div style="margin-top:0.4rem;font-style:italic">For clinical decision support only &#8212; not a standalone diagnostic report. Results require clinical validation and interpretation by a qualified clinician.</div>
+    {provenance_html}
 </footer>
 </body>
 </html>"""
@@ -2296,6 +2323,7 @@ def main():
     ap.add_argument("--accession-id",     default="",                  help="Unique report/accession number")
     ap.add_argument("--authorized-by",    default="",                  help="Authorizing pathologist or clinical geneticist")
     ap.add_argument("--report-status",    default="RESEARCH USE ONLY", help="Report status: FINAL, PRELIMINARY, or RESEARCH USE ONLY (default)")
+    ap.add_argument("--provenance",       default="",                  help="Path to provenance.json (tool versions/reference/timestamp; rendered in the report footer)")
     args = ap.parse_args()
 
     sample  = args.sample
@@ -2403,10 +2431,17 @@ def main():
         "authorized_by":    args.authorized_by,
         "report_status":    args.report_status,
     }
+    prov = None
+    if args.provenance and os.path.isfile(args.provenance):
+        try:
+            with open(args.provenance) as fh:
+                prov = json.load(fh)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"  warning: could not read provenance {args.provenance}: {e}")
     build_landing(sample, bam_path, genes_data, bs, out_dir,
                   genes_rel_prefix="Genes",
                   gene_fragments=gene_fragments,
-                  lab_info=lab_info)
+                  lab_info=lab_info, provenance=prov)
     print("Done.")
 
 

@@ -219,7 +219,7 @@ docker run \
     snakemake \
         -s /opt/pgx/Snakefile \
         --cores "$JOBS" \
-        --config bam="$INPUT_CONTAINER" outdir=/pgx/results ref=/pgx/ref/hg38.fa
+        --config bam="$INPUT_CONTAINER" outdir=/pgx/results ref=/pgx/ref/hg38.fa sample="$SAMPLE"
 
 RC=$?
 

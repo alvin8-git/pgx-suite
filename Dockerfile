@@ -54,7 +54,7 @@ RUN pip install --no-cache-dir /opt/pypgx/
 # Snakemake — workflow orchestrator (replaces the bash phase/parallelism logic in
 # pgx-run.sh / pgx-all-genes.sh). Added last to preserve build-cache on the heavy
 # layers above.
-RUN pip install --no-cache-dir snakemake
+RUN pip install --no-cache-dir snakemake==9.23.0   # pinned: orchestrator the pipeline depends on
 
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
@@ -148,6 +148,10 @@ COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/Snakefile             /opt/pgx/Snakefile
+# Pipeline version stamp for the provenance block (override with
+# --build-arg PGX_VERSION=$(git rev-parse --short HEAD)).
+ARG PGX_VERSION=dev
+RUN echo "pgx-suite ${PGX_VERSION} (image built $(date -u +%Y-%m-%dT%H:%M:%SZ))" > /opt/pgx/VERSION
 RUN chmod +x /opt/pgx/test.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
              /opt/pgx/pgx-mt.sh \

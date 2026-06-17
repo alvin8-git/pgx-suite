@@ -63,6 +63,26 @@ BAM_BASE = os.path.splitext(os.path.basename(BAM))[0]
 EXT      = os.path.splitext(BAM)[1].lstrip(".")
 IDX_EXT  = "bai" if EXT == "bam" else "crai"
 
+# ── Startup integrity guards — fail loud BEFORE any caller runs ──────────────
+# F6: a truncated BAM/CRAM otherwise reads as low coverage (silent NO_CALL).
+# F9: a typo'd region / wrong-reference contig naming otherwise reads as NO_CALL.
+def _startup_checks():
+    if subprocess.run(["samtools", "quickcheck", BAM]).returncode != 0:
+        raise RuntimeError(f"samtools quickcheck failed on {BAM} — truncated/corrupt input or missing index")
+    fai = REF + ".fai"
+    if os.path.exists(fai):
+        contigs = {ln.split("\t", 1)[0] for ln in open(fai)}
+        for g in TARGET:
+            r = region(g)
+            if r == "ALT_CONTIG":
+                continue
+            chrom = r.split(":", 1)[0]
+            if chrom not in contigs:
+                raise RuntimeError(
+                    f"{g}: contig '{chrom}' (from genes.tsv region {r}) not found in {fai} — "
+                    f"bad coordinates or a reference with different contig naming")
+_startup_checks()
+
 wildcard_constraints:
     gene=r"[A-Z0-9-]+",   # hyphen for HLA-A / HLA-B / MT-RNR1
 
@@ -77,6 +97,8 @@ rule all:
     input:
         os.path.join(OUT, f"{SAMPLE}_pgx_report.html"),
         os.path.join(OUT, "all_genes_summary.tsv"),
+        os.path.join(OUT, "provenance.json"),
+        os.path.join(OUT, ".sanity_ok"),
 
 
 # ── Standard star-allele callers (non-fatal; output = status sentinel) ────────
@@ -96,6 +118,9 @@ rule bcftools:
 rule aldy:
     output:
         STAT("{gene}", "aldy"),
+    threads: 2
+    resources:
+        mem_mb=4000
     params:
         real=lambda w: G(w.gene, "aldy", f"{w.gene}.aldy"),
     shell:
@@ -107,6 +132,9 @@ rule aldy:
 rule stellarpgx:
     output:
         STAT("{gene}", "stellarpgx"),
+    threads: 2
+    resources:
+        mem_mb=4000
     params:
         real=lambda w: G(w.gene, "stellarpgx"),
         work=lambda w: G(w.gene, "stellarpgx", ".work"),
@@ -118,13 +146,16 @@ rule stellarpgx:
         "--in_bam '{params.in_bam}' --ref_file {REF} --out_dir {params.real} "
         "--res_init /pgx/stellarpgx/resources --db_init /pgx/stellarpgx/database "
         "--caller_init /pgx/stellarpgx/scripts -work-dir {params.work} || rc=$?; "
-        "echo $rc > {output}"
+        "rm -rf {params.work} 2>/dev/null || true; echo $rc > {output}"   # F8: drop Nextflow work tree
 
 
 # ── Special callers (HLA / MT) — non-fatal ───────────────────────────────────
 rule optitype:
     output:
         STAT("{gene}", "optitype"),
+    threads: 2
+    resources:
+        mem_mb=4000
     params:
         outdir=lambda w: G(w.gene),
     shell:
@@ -184,6 +215,9 @@ rule pypgx_pipeline:
         unpack(pypgx_inputs),
     output:
         STAT("{gene}", "pypgx"),
+    threads: 2
+    resources:
+        mem_mb=4000
     params:
         outdir=lambda w: G(w.gene, "pypgx"),
         variants=lambda w: (f"--variants {G(w.gene, f'{w.gene}.vcf.gz')}" if needs_vcf(w.gene) else ""),
@@ -269,6 +303,9 @@ rule compare:
 rule bamstats:
     output:
         os.path.join(OUT, "bam_stats.json"),
+    threads: 4
+    resources:
+        mem_mb=2000
     shell:
         # pgx-bamstats.sh <orig_bam> <sample> <log_dir> <ref> <depth_bam>
         "pgx-bamstats.sh {BAM} {SAMPLE} {OUT} {REF} {DEPTH_BAM}"
@@ -278,11 +315,14 @@ rule report:
     input:
         details=[G(g, f"{g}_{SAMPLE}_detail.json") for g in TARGET],
         bamstats=os.path.join(OUT, "bam_stats.json"),
+        provenance=os.path.join(OUT, "provenance.json"),
+        summary=os.path.join(OUT, "all_genes_summary.tsv"),   # report reads this; make the dep explicit
     output:
         os.path.join(OUT, f"{SAMPLE}_pgx_report.html"),
     shell:
         "pgx-report.py --sample {SAMPLE} --output {OUT} "
-        "--genes-dir {OUT}/genes --bam {BAM} --bam-stats {input.bamstats}"
+        "--genes-dir {OUT}/genes --bam {BAM} --bam-stats {input.bamstats} "
+        "--provenance {input.provenance}"
 
 
 # ── Verdict-driven summary (replaces the pgx-all-genes.sh awk loop) ───────────
@@ -305,3 +345,79 @@ rule all_genes_summary:
                     v.get("consensus_phenotype", "-"), v.get("n_agree", 0),
                     v.get("n_called", 0), cov.get("mean_depth", "-"),
                 ]) + "\n")
+
+
+# ── F2: run-level provenance (tool versions, reference, timestamp) ───────────
+rule provenance:
+    output:
+        os.path.join(OUT, "provenance.json"),
+    run:
+        import json, datetime
+        def first_line(cmd):
+            # encoding/errors guard against tools that emit non-UTF-8 bytes;
+            # skip warning/traceback/source-path lines so we land on the real version.
+            try:
+                r = subprocess.run(cmd, shell=True, capture_output=True,
+                                   encoding="utf-8", errors="replace", timeout=60)
+                out = (r.stdout or r.stderr or "").strip()
+                for ln in out.splitlines():
+                    s = ln.strip()
+                    low = s.lower()
+                    if not s or "warning" in low or "traceback" in low \
+                       or s.startswith('File "') or '.py:' in s:
+                        continue
+                    return s
+                return out.splitlines()[0] if out else "unknown"
+            except Exception as e:
+                return f"unavailable ({e.__class__.__name__})"
+        ref_fai = REF + ".fai"
+        prov = {
+            "pipeline": (open("/opt/pgx/VERSION").read().strip()
+                         if os.path.exists("/opt/pgx/VERSION") else "unknown"),
+            "generated_utc": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "sample": SAMPLE,
+            "reference": {
+                "path": REF,
+                "bytes": os.path.getsize(REF) if os.path.exists(REF) else None,
+                "n_contigs": (sum(1 for _ in open(ref_fai)) if os.path.exists(ref_fai) else None),
+            },
+            "genes_assessed": len(TARGET),
+            "tools": {
+                "pypgx": first_line("python3 -c \"import importlib.metadata as m; print(m.version('pypgx'))\""),
+                "aldy": first_line("python3 -c \"import importlib.metadata as m; print(m.version('aldy'))\""),
+                "stargazer": first_line("PYTHONWARNINGS=ignore stargazer --version 2>&1"),
+                "stellarpgx": "1.2.7 (image)",
+                "optitype": "1.3.5 (image)",
+                "mutserve": "2.0.0 (image)",
+                "samtools": first_line("samtools --version 2>&1"),
+                "bcftools": first_line("bcftools --version 2>&1"),
+                "snakemake": first_line("snakemake --version 2>&1"),
+            },
+        }
+        with open(output[0], "w") as fh:
+            json.dump(prov, fh, indent=2)
+
+
+# ── F1: fail loud if a misconfigured run produced mostly non-calls ───────────
+# Non-fatal callers mean a wrong reference / unreadable BAM otherwise yields an
+# all-NO_CALL report and exit 0. This gate flips that to a non-zero exit (the
+# report is still written for inspection) so a broken run can't pass silently.
+rule sanity_gate:
+    input:
+        os.path.join(OUT, "all_genes_summary.tsv"),
+    output:
+        os.path.join(OUT, ".sanity_ok"),
+    run:
+        import sys
+        rows = [ln.split("\t") for ln in open(input[0]).read().splitlines()[1:] if ln.strip()]
+        total = len(rows)
+        bad = sum(1 for r in rows if len(r) > 1 and r[1] in ("no_call", "no_data"))
+        frac = (bad / total) if total else 1.0
+        if total == 0 or frac > 0.6:
+            sys.stderr.write(
+                f"SANITY FAIL: {bad}/{total} genes are no_call/no_data ({frac:.0%}). "
+                "Likely a misconfigured run (wrong reference, unreadable BAM, or wholesale "
+                "low coverage). The HTML report was still written for inspection.\n")
+            sys.exit(1)
+        with open(output[0], "w") as fh:
+            fh.write(f"ok: {total - bad}/{total} genes called\n")
