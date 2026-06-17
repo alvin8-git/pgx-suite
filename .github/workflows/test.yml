@@ -31,3 +31,5 @@ jobs:
         run: python3 docker/test_verdict.py
       - name: NO_CALL coverage gate
         run: python3 docker/test_coverage_gate.py
+      - name: CPIC data file + registry
+        run: python3 docker/test_cpic.py

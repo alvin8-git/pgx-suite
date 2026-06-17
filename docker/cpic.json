@@ -1,0 +1,709 @@
+{
+  "CYP2D6": {
+    "desc": "Hepatic enzyme metabolising ~25% of commonly prescribed drugs including opioids, antidepressants, tamoxifen and atomoxetine.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2D6",
+    "high_pheno": [
+      "poor",
+      "ultrarapid"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Codeine/tramadol contraindicated (inefficacy). Dose reduction required for TCAs, SSRIs, tamoxifen and atomoxetine.",
+      "ultrarapid": "Codeine/tramadol contraindicated (rapid morphine conversion — life-threatening toxicity). Antidepressant efficacy likely reduced.",
+      "intermediate": "Reduced CYP2D6 activity. Consider dose adjustment for codeine, tramadol, TCAs and SSRIs; monitor closely."
+    },
+    "drugs": [
+      {
+        "name": "Codeine / Tramadol",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-codeine-and-cyp2d6/",
+        "rec": "PM: contraindicated (inefficacy / toxicity risk). UM: contraindicated (ultra-rapid morphine conversion). IM: use with caution; consider alternative."
+      },
+      {
+        "name": "Antidepressants (TCAs / SSRIs / SNRIs)",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-antidepressants-and-cyp2d6-and-cyp2c19/",
+        "rec": "PM: reduce TCA dose or select CYP2D6-independent agent. UM: standard doses may be sub-therapeutic; consider alternative."
+      },
+      {
+        "name": "Tamoxifen",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-tamoxifen-and-cyp2d6/",
+        "rec": "PM: tamoxifen may be ineffective — consider aromatase inhibitor where appropriate."
+      },
+      {
+        "name": "Atomoxetine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-atomoxetine-and-cyp2d6/",
+        "rec": "PM: initiate at 50% standard dose; titrate slowly. UM: standard dose may be sub-therapeutic."
+      }
+    ]
+  },
+  "CYP2C19": {
+    "desc": "Activates clopidogrel (prodrug); metabolises PPIs, antidepressants and voriconazole. Both loss-of-function (PM) and gain-of-function (UM/RM) phenotypes have distinct clinical consequences.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2C19",
+    "high_pheno": [
+      "poor",
+      "ultrarapid"
+    ],
+    "moderate_pheno": [
+      "rapid",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Clopidogrel contraindicated — inadequate antiplatelet activation. Use prasugrel or ticagrelor. PPIs and SSRIs may accumulate.",
+      "ultrarapid": "Voriconazole likely sub-therapeutic. PPI efficacy reduced. Monitor antidepressant levels.",
+      "rapid": "Increased CYP2C19 activity. Consider voriconazole dose increase. Monitor PPI efficacy.",
+      "intermediate": "Mildly reduced CYP2C19 activity. Monitor clopidogrel response; consider alternative antiplatelet."
+    },
+    "drugs": [
+      {
+        "name": "Clopidogrel",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-clopidogrel-and-cyp2c19/",
+        "rec": "PM/IM: use alternative antiplatelet (prasugrel or ticagrelor). UM/RM: standard dose; enhanced response expected."
+      },
+      {
+        "name": "Antidepressants (SSRIs / TCAs)",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-antidepressants-and-cyp2d6-and-cyp2c19/",
+        "rec": "PM: reduce dose or select alternative. UM: standard or higher dose; monitor for sub-therapeutic levels."
+      },
+      {
+        "name": "Voriconazole",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-voriconazole-and-cyp2c19/",
+        "rec": "PM: reduce dose substantially (elevated exposure, toxicity risk). UM/RM: TDM required; standard doses may be sub-therapeutic."
+      },
+      {
+        "name": "Proton pump inhibitors (PPIs)",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-proton-pump-inhibitors-and-cyp2c19/",
+        "rec": "PM: consider dose reduction (increased AUC). UM: may require higher dose for adequate acid suppression."
+      }
+    ]
+  },
+  "CYP2C9": {
+    "desc": "Metabolises the S-enantiomer of warfarin, NSAIDs and phenytoin. Poor metabolisers require significantly reduced doses of narrow-therapeutic-index drugs.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2C9",
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Warfarin sensitivity: significantly reduced starting dose required. NSAID and phenytoin toxicity risk elevated.",
+      "intermediate": "Moderate warfarin sensitivity. Consider dose reduction for NSAIDs and phenytoin; TDM recommended."
+    },
+    "drugs": [
+      {
+        "name": "Warfarin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-warfarin-and-cyp2c9-and-vkorc1/",
+        "rec": "PM: initiate at ≤25% of standard dose and titrate to INR. IM: reduce starting dose; use CPIC dosing calculator."
+      },
+      {
+        "name": "NSAIDs",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-nonsteroidal-anti-inflammatory-drugs-and-cyp2c9/",
+        "rec": "PM: use lowest effective dose or select alternative. Increased GI and renal toxicity risk."
+      },
+      {
+        "name": "Phenytoin / Fosphenytoin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-phenytoin-and-cyp2c9-and-hla-b/",
+        "rec": "PM/IM: reduce maintenance dose by 25–50%; TDM essential to avoid toxicity."
+      }
+    ]
+  },
+  "DPYD": {
+    "desc": "Rate-limiting enzyme in 5-FU and capecitabine catabolism. Even heterozygous loss-of-function variants confer significant toxicity risk — CPIC recommends pre-emptive genotyping. WGS detects the full variant spectrum including reduced-function alleles *5 (c.1627A>G) and *9A (c.85T>C) that are not covered by standard pharmacogenomics arrays.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate",
+      "decreased"
+    ],
+    "landing_notes": {
+      "poor": "Fluoropyrimidines (5-FU/capecitabine) are contraindicated — life-threatening toxicity risk.",
+      "intermediate": "Fluoropyrimidine dose reduction (≥50%) required before initiating therapy. Consult CPIC/DPWG guidelines.",
+      "decreased": "Reduced DPYD function. Fluoropyrimidine dose adjustment or avoidance required.",
+      "_diplotype": "Non-reference DPYD variant detected. Fluoropyrimidine (5-FU/capecitabine) dose adjustment or avoidance may be required — consult CPIC guidelines before prescribing."
+    },
+    "drugs": [
+      {
+        "name": "5-Fluorouracil (5-FU) / Capecitabine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-fluoropyrimidines-and-dpyd/",
+        "rec": "PM: contraindicated. IM/Decreased function: ≥50% dose reduction with therapeutic drug monitoring. Normal: standard dosing."
+      }
+    ]
+  },
+  "TPMT": {
+    "desc": "Inactivates thiopurines (azathioprine, 6-mercaptopurine, thioguanine). Deficient patients accumulate toxic thioguanine nucleotides causing severe, potentially fatal myelosuppression.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/TPMT",
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Thiopurines contraindicated at standard doses — life-threatening myelosuppression. Use alternative or dramatically reduce dose with TDM.",
+      "intermediate": "Reduce thiopurine starting dose by 30–70% and titrate based on toxicity and response."
+    },
+    "drugs": [
+      {
+        "name": "Azathioprine / 6-Mercaptopurine / Thioguanine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-thiopurines-and-tpmt-and-nudt15/",
+        "rec": "PM: avoid or use ≤10% of standard dose with TDM. IM: reduce starting dose 30–70%; monitor CBC."
+      }
+    ]
+  },
+  "NUDT15": {
+    "desc": "Hydrolyses thioguanine nucleotide metabolites. Loss-of-function variants cause severe thiopurine-induced myelosuppression; particularly common in East Asian and Hispanic populations.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Thiopurines contraindicated at standard doses — severe myelosuppression risk. Consider non-thiopurine immunosuppressant.",
+      "intermediate": "Reduce thiopurine starting dose; monitor CBC closely for myelosuppression."
+    },
+    "drugs": [
+      {
+        "name": "Azathioprine / 6-Mercaptopurine / Thioguanine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-thiopurines-and-tpmt-and-nudt15/",
+        "rec": "PM: avoid or markedly reduce dose with TDM. IM: reduce starting dose; CBC monitoring mandatory."
+      }
+    ]
+  },
+  "SLCO1B1": {
+    "desc": "Hepatic uptake transporter (OATP1B1) for statins. Decreased function variants reduce hepatic statin clearance, increasing plasma exposure and myopathy/rhabdomyolysis risk.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "poor",
+      "decreased"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "High statin-associated myopathy risk. Use ≤20 mg/day simvastatin or switch to rosuvastatin/pravastatin.",
+      "decreased": "Increased statin myopathy risk. Avoid high-dose simvastatin; consider lower-risk statin.",
+      "intermediate": "Moderately increased statin exposure. Prefer rosuvastatin or pravastatin over simvastatin."
+    },
+    "drugs": [
+      {
+        "name": "Simvastatin / Statins",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-simvastatin-and-slco1b1/",
+        "rec": "Poor/Decreased function: avoid simvastatin >20 mg/day; use rosuvastatin or pravastatin. IM: simvastatin ≤40 mg/day."
+      }
+    ]
+  },
+  "UGT1A1": {
+    "desc": "Glucuronidates irinotecan's active metabolite (SN-38) and bilirubin. Reduced activity (*28/*28, Gilbert's syndrome) substantially increases irinotecan toxicity risk. Note: promoter alleles *60 (rs45530432) and *80 (rs887829) compound the phenotype of *28 but are not uniformly represented across tool allele databases — individual tool outputs may differ.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate",
+      "decreased"
+    ],
+    "landing_notes": {
+      "poor": "High irinotecan toxicity risk (*28/*28 — Gilbert's). Reduce irinotecan starting dose by at least one dose level.",
+      "intermediate": "Mildly elevated irinotecan exposure. Standard starting dose with close toxicity monitoring.",
+      "decreased": "Reduced UGT1A1 function — monitor for irinotecan and atazanavir toxicity."
+    },
+    "drugs": [
+      {
+        "name": "Irinotecan",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-irinotecan-and-ugt1a1/",
+        "rec": "PM (*28/*28): reduce starting dose by ≥1 dose level; titrate by toxicity. IM: standard dose with close monitoring."
+      },
+      {
+        "name": "Atazanavir",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-atazanavir-and-ugt1a1/",
+        "rec": "PM: increased unconjugated bilirubin and jaundice risk — consider alternative antiretroviral."
+      }
+    ]
+  },
+  "CYP2B6": {
+    "desc": "Primary metaboliser of efavirenz and several other antiretrovirals. Poor metabolisers have ~4–5-fold elevated efavirenz plasma concentrations causing CNS toxicity.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2B6",
+    "high_pheno": [
+      "poor"
+    ],
+    "moderate_pheno": [
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "Efavirenz plasma levels ~4–5X elevated. Reduce efavirenz to 400 mg/day or switch to alternative ART regimen.",
+      "intermediate": "Moderately elevated efavirenz exposure. Monitor for CNS side effects; consider dose adjustment."
+    },
+    "drugs": [
+      {
+        "name": "Efavirenz",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-efavirenz-and-cyp2b6/",
+        "rec": "PM: reduce dose to 400 mg/day or switch to alternative ART. IM: standard dose with CNS toxicity monitoring."
+      }
+    ]
+  },
+  "CYP3A5": {
+    "desc": "Major metaboliser of tacrolimus and other calcineurin inhibitors. Expressers (*1 carriers) require higher tacrolimus doses; non-expressers (*3/*3) achieve target levels at lower doses.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP3A5",
+    "high_pheno": [],
+    "moderate_pheno": [
+      "poor",
+      "non-expresser",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "CYP3A5 non-expresser (*3/*3): tacrolimus dose requirements typical for non-expressers. Use standard weight-based dosing with TDM.",
+      "intermediate": "Intermediate CYP3A5 expression. TDM-guided tacrolimus dosing essential."
+    },
+    "drugs": [
+      {
+        "name": "Tacrolimus",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-tacrolimus-and-cyp3a5/",
+        "rec": "Non-expresser (*3/*3): standard dose + TDM. Expresser (*1 carrier): initiate at 1.5–2X standard dose to achieve target trough."
+      }
+    ]
+  },
+  "VKORC1": {
+    "desc": "Warfarin target enzyme. rs9923231 (−1639G>A) in the VKORC1 promoter reduces enzyme expression, substantially increasing warfarin sensitivity and bleeding risk.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "VKORC1 rs9923231 detected — increased warfarin sensitivity. Initiate warfarin at a reduced dose. A/A homozygotes require the greatest reduction (~3 mg/day). Use CPIC warfarin dosing calculator."
+    },
+    "drugs": [
+      {
+        "name": "Warfarin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-warfarin-and-cyp2c9-and-vkorc1/",
+        "rec": "A/A homozygote: initiate at ~3 mg/day and titrate to INR. A/G heterozygote: intermediate sensitivity; reduce starting dose. Use CPIC calculator incorporating CYP2C9 + VKORC1 + CYP4F2."
+      }
+    ]
+  },
+  "G6PD": {
+    "desc": "X-linked enzyme protecting erythrocytes from oxidative damage. Deficiency causes acute drug-induced haemolytic anaemia with rasburicase, primaquine and other oxidant agents.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "deficient",
+      "hemizygous",
+      "homozygous"
+    ],
+    "moderate_pheno": [
+      "variable",
+      "intermediate",
+      "heterozygous"
+    ],
+    "landing_notes": {
+      "deficient": "G6PD deficiency: rasburicase is contraindicated (severe haemolytic anaemia risk). Avoid primaquine, dapsone and high-dose aspirin.",
+      "variable": "Partial G6PD activity. Avoid high-risk oxidant drugs; rasburicase requires careful risk-benefit assessment.",
+      "intermediate": "Intermediate G6PD activity. Monitor for haemolytic events with oxidant drug exposure."
+    },
+    "drugs": [
+      {
+        "name": "Rasburicase",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-rasburicase-and-g6pd/",
+        "rec": "Deficient: contraindicated — risk of severe, potentially fatal haemolytic anaemia. Variable: use with extreme caution, monitoring haemoglobin."
+      }
+    ]
+  },
+  "NAT2": {
+    "desc": "N-acetyltransferase 2 metabolises isoniazid and hydralazine. Slow acetylators accumulate isoniazid, increasing peripheral neuropathy and hepatotoxicity risk.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [
+      "slow",
+      "poor",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "slow": "NAT2 slow acetylator: isoniazid accumulates — supplement with pyridoxine (vitamin B6) 25–50 mg/day and monitor for peripheral neuropathy.",
+      "poor": "NAT2 slow acetylator phenotype. Isoniazid dose adjustment or pyridoxine supplementation may be required.",
+      "intermediate": "Intermediate NAT2 activity. Monitor isoniazid tolerability."
+    },
+    "drugs": [
+      {
+        "name": "Isoniazid",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-isoniazid-and-nat2/",
+        "rec": "Slow acetylator: supplement with pyridoxine 25–50 mg/day; monitor for neuropathy and hepatotoxicity. Consider dose adjustment if standard dose not tolerated."
+      }
+    ]
+  },
+  "RYR1": {
+    "desc": "Skeletal muscle calcium release channel. Pathogenic variants confer susceptibility to malignant hyperthermia (MH) — a life-threatening reaction to volatile anaesthetics and succinylcholine.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "susceptible",
+      "pathogenic"
+    ],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "Non-reference RYR1 variant detected. Evaluate for malignant hyperthermia susceptibility — avoid volatile anaesthetics and succinylcholine if susceptible.",
+      "susceptible": "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available."
+    },
+    "drugs": [
+      {
+        "name": "Volatile anaesthetic agents",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+        "rec": "MH-susceptible: contraindicated. Use total intravenous anaesthesia (TIVA) only; dantrolene must be immediately available."
+      },
+      {
+        "name": "Succinylcholine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+        "rec": "MH-susceptible: contraindicated. Use non-depolarising neuromuscular blockers (e.g. rocuronium with sugammadex reversal)."
+      }
+    ]
+  },
+  "CACNA1S": {
+    "desc": "Skeletal muscle L-type calcium channel subunit. Pathogenic variants (e.g. *2 Arg174Trp, *3 Arg1086His) confer malignant hyperthermia susceptibility (MHS) — a life-threatening pharmacogenomic reaction to volatile anaesthetics and succinylcholine. Partner gene to RYR1 under the same CPIC guideline.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "susceptible",
+      "pathogenic",
+      "mhs"
+    ],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "Non-reference CACNA1S variant detected. Evaluate for malignant hyperthermia susceptibility — avoid volatile anaesthetics and succinylcholine if susceptible.",
+      "susceptible": "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available.",
+      "mhs": "Malignant hyperthermia susceptibility: avoid all volatile anaesthetics and succinylcholine. Use TIVA. Ensure dantrolene is immediately available."
+    },
+    "drugs": [
+      {
+        "name": "Volatile anaesthetic agents",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+        "rec": "MH-susceptible: contraindicated. Use total intravenous anaesthesia (TIVA) only; dantrolene must be immediately available."
+      },
+      {
+        "name": "Succinylcholine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-volatile-anesthetic-agents-and-succinylcholine-and-ryr1-and-cacna1s/",
+        "rec": "MH-susceptible: contraindicated. Use non-depolarising neuromuscular blockers (e.g. rocuronium with sugammadex reversal)."
+      }
+    ],
+    "min_tools": 1
+  },
+  "MT-RNR1": {
+    "desc": "Mitochondrial 12S ribosomal RNA gene. Variants m.1555A>G (~1/500 Europeans) and m.1494C>T confer ribosomal hypersensitivity to aminoglycosides — even a single standard dose can cause permanent bilateral sensorineural hearing loss. Maternally inherited; affects all maternal-lineage family members.",
+    "pharmvar_url": null,
+    "high_pheno": [
+      "ototoxicity risk",
+      "carrier"
+    ],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "CPIC Level A MT-RNR1 variant detected. Avoid aminoglycosides unless no safe alternatives exist.",
+      "aminoglycoside-ototoxicity risk": "Aminoglycoside-ototoxicity risk: avoid gentamicin, tobramycin, amikacin, streptomycin and neomycin unless essential. Counsel patient on irreversible hearing-loss risk. Inform maternal-lineage family members."
+    },
+    "drugs": [
+      {
+        "name": "Aminoglycosides (gentamicin, tobramycin, amikacin, streptomycin, neomycin)",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-aminoglycosides-and-mt-rnr1/",
+        "rec": "m.1555A>G or m.1494C>T carrier: avoid aminoglycosides if alternatives exist. If unavoidable, use lowest effective dose with audiological monitoring. Inform maternal relatives."
+      }
+    ],
+    "min_tools": 1
+  },
+  "CYP4F2": {
+    "desc": "Metabolises vitamin K1; V433M (*3 allele) reduces vitamin K catabolism, modestly increasing warfarin sensitivity. Incorporated in CPIC warfarin dosing algorithm.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "CYP4F2 *3 variant detected — minor contribution to warfarin sensitivity. Use CPIC warfarin dosing calculator incorporating CYP2C9 + VKORC1 + CYP4F2 genotype."
+    },
+    "drugs": [
+      {
+        "name": "Warfarin",
+        "level": "B",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-warfarin-and-cyp2c9-and-vkorc1/",
+        "rec": "*3 carriers may require slightly higher warfarin doses. Incorporate into multi-gene CPIC dosing algorithm alongside CYP2C9 and VKORC1."
+      }
+    ]
+  },
+  "ABCG2": {
+    "desc": "Efflux transporter (BCRP) reducing intestinal and hepatic uptake of rosuvastatin and other statins. The *2 variant (rs2231142, c.421C>A, p.Gln141Lys) decreases transporter function, increasing statin plasma exposure.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/ABCG2",
+    "high_pheno": [],
+    "moderate_pheno": [
+      "decreased",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "_diplotype": "ABCG2 rs2231142 (c.421C>A) detected — decreased rosuvastatin transport. Consider lower rosuvastatin starting dose (≤10 mg/day) per CPIC guidelines.",
+      "decreased": "ABCG2 decreased function — reduced rosuvastatin efflux increases plasma exposure. Use lower starting dose."
+    },
+    "drugs": [
+      {
+        "name": "Rosuvastatin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-statins/",
+        "rec": "ABCG2 decreased function (*2/*2 or *2/ref): initiate rosuvastatin at ≤10 mg/day. Consider alternative statin if high-intensity therapy required."
+      }
+    ]
+  },
+  "HLA-A": {
+    "desc": "Major histocompatibility complex class I gene. HLA-A*31:01 is associated with carbamazepine-induced severe cutaneous adverse reactions (SCAR) including DRESS, SJS, and TEN across all ancestries.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "min_tools": 1,
+    "risk_alleles": {
+      "A*31:01": "carbamazepine/oxcarbazepine: increased DRESS/SJS/TEN risk across all ancestries"
+    },
+    "no_risk_note": "No CPIC Level A high-risk HLA-A alleles (A*31:01) detected.",
+    "landing_notes": {
+      "_diplotype": "HLA-A*31:01 detected — carbamazepine and oxcarbazepine associated with severe cutaneous adverse reactions (DRESS, SJS, TEN) across all ancestries. Avoid if clinically feasible."
+    },
+    "drugs": [
+      {
+        "name": "Carbamazepine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-carbamazepine-and-hla-b/",
+        "rec": "HLA-A*31:01 positive: avoid carbamazepine — significantly increased risk of DRESS, SJS, TEN in all ancestries. Use alternative anticonvulsant."
+      },
+      {
+        "name": "Oxcarbazepine",
+        "level": "B",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-oxcarbazepine-and-hla-b-and-hla-a/",
+        "rec": "HLA-A*31:01 positive: consider alternatives to oxcarbazepine; increased SCAR risk."
+      }
+    ]
+  },
+  "HLA-B": {
+    "desc": "Major histocompatibility complex class I gene. Multiple HLA-B alleles are associated with severe drug hypersensitivity: HLA-B*57:01 (abacavir), HLA-B*58:01 (allopurinol), HLA-B*15:02 (carbamazepine/phenytoin in Asian ancestry), HLA-B*13:01 (dapsone-induced DRESS/HSS, prevalent in Asian populations), HLA-B*57:03 (flucloxacillin-induced DILI, prevalent in European populations).",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "min_tools": 1,
+    "risk_alleles": {
+      "B*57:01": "abacavir: contraindicated — high hypersensitivity risk",
+      "B*15:02": "carbamazepine / phenytoin: avoid — high SJS/TEN risk (esp. Asian ancestry)",
+      "B*58:01": "allopurinol: avoid — high SJS/TEN risk",
+      "B*13:01": "dapsone: avoid — high risk of DRESS/HSS (esp. Asian ancestry)",
+      "B*57:03": "flucloxacillin: use with caution — increased DILI risk (esp. European ancestry)"
+    },
+    "no_risk_note": "No high-risk HLA-B alleles (B*57:01, B*15:02, B*58:01 [CPIC Level A]; B*13:01, B*57:03 [CPIC Level B]) detected.",
+    "landing_notes": {
+      "_diplotype": "High-risk HLA-B allele detected — see detail page for drug-specific recommendations."
+    },
+    "drugs": [
+      {
+        "name": "Abacavir",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-abacavir-and-hla-b/",
+        "rec": "HLA-B*57:01 positive: abacavir contraindicated — high risk of severe, potentially life-threatening hypersensitivity reaction. Use alternative ART regimen."
+      },
+      {
+        "name": "Allopurinol",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-allopurinol-and-hla-b/",
+        "rec": "HLA-B*58:01 positive: avoid allopurinol — high risk of Stevens-Johnson syndrome / toxic epidermal necrolysis. Use alternative urate-lowering therapy."
+      },
+      {
+        "name": "Carbamazepine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-carbamazepine-and-hla-b/",
+        "rec": "HLA-B*15:02 positive: avoid carbamazepine — high SJS/TEN risk especially in Han Chinese and Southeast Asian ancestry. Use alternative anticonvulsant."
+      },
+      {
+        "name": "Phenytoin / Fosphenytoin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-phenytoin-and-cyp2c9-and-hla-b/",
+        "rec": "HLA-B*15:02 positive: increased SJS risk. Avoid or use with extreme caution; consider alternative anticonvulsant."
+      },
+      {
+        "name": "Dapsone",
+        "level": "B",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-dapsone-and-hla-b/",
+        "rec": "HLA-B*13:01 positive: dapsone associated with high risk of DRESS (drug reaction with eosinophilia and systemic symptoms) and HSS (hypersensitivity syndrome), particularly in Asian populations. Consider alternative antimicrobial (e.g., trimethoprim-sulfamethoxazole, atovaquone)."
+      },
+      {
+        "name": "Flucloxacillin",
+        "level": "B",
+        "url": "https://www.pharmgkb.org/chemical/PA10001/clinicalAnnotation",
+        "rec": "HLA-B*57:03 positive: flucloxacillin associated with increased risk of drug-induced liver injury (DILI), predominantly reported in individuals of European ancestry. Use with caution and monitor liver function; consider an alternative narrow-spectrum beta-lactam if available."
+      }
+    ]
+  },
+  "CYP1A1": {
+    "desc": "CYP1A1 metabolises polycyclic aromatic hydrocarbons and some drugs. No CPIC Level A/B guideline exists; informational star-allele calling only.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP1A1",
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  },
+  "CYP1A2": {
+    "desc": "CYP1A2 is the primary enzyme metabolising fluvoxamine and accounts for ~13% of total hepatic CYP activity. Ultra-rapid metabolisers may require higher fluvoxamine doses; poor metabolisers are at risk of toxicity.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP1A2",
+    "high_pheno": [],
+    "moderate_pheno": [
+      "poor",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "CYP1A2 poor metaboliser: fluvoxamine plasma levels may be markedly elevated — start at lowest effective dose and titrate carefully.",
+      "intermediate": "CYP1A2 intermediate metaboliser: consider dose reduction for narrow-therapeutic-index CYP1A2 substrates.",
+      "ultra-rapid": "CYP1A2 ultra-rapid metaboliser: standard fluvoxamine doses may be subtherapeutic."
+    },
+    "drugs": [
+      {
+        "name": "Fluvoxamine",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-fluvoxamine-and-cyp1a2/",
+        "rec": "Poor metaboliser: initiate at lowest available dose; titrate with close monitoring. Ultra-rapid: may need higher doses or alternative SSRI."
+      }
+    ]
+  },
+  "CYP2A6": {
+    "desc": "CYP2A6 is the principal enzyme catalysing nicotine C-oxidation to cotinine. Poor and intermediate metabolisers smoke fewer cigarettes but may have lower quit rates with standard nicotine replacement therapy.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2A6",
+    "high_pheno": [],
+    "moderate_pheno": [
+      "poor",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "CYP2A6 poor metaboliser: nicotine clearance is reduced — may smoke fewer cigarettes per day. Standard NRT patch may be sufficient; monitor for over-replacement.",
+      "intermediate": "CYP2A6 intermediate metaboliser: slightly reduced nicotine metabolism. Standard cessation therapy is appropriate."
+    },
+    "drugs": [
+      {
+        "name": "Nicotine / Tobacco cessation",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-nicotine-and-cyp2a6/",
+        "rec": "Poor metaboliser: nicotine elimination is slow. Patch-based NRT is preferred over short-acting forms. Dose reduction may be needed to prevent adverse effects."
+      }
+    ]
+  },
+  "CYP2C8": {
+    "desc": "CYP2C8 metabolises amodiaquine, pioglitazone, paclitaxel and other drugs. Poor metabolisers are at increased risk of amodiaquine-induced agranulocytosis.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2C8",
+    "high_pheno": [],
+    "moderate_pheno": [
+      "poor",
+      "intermediate"
+    ],
+    "landing_notes": {
+      "poor": "CYP2C8 poor metaboliser: avoid amodiaquine — increased risk of agranulocytosis. Use alternative antimalarial.",
+      "intermediate": "CYP2C8 intermediate metaboliser: monitor for amodiaquine toxicity."
+    },
+    "drugs": [
+      {
+        "name": "Amodiaquine",
+        "level": "B",
+        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-amodiaquine-and-cyp2c8/",
+        "rec": "Poor metaboliser: avoid amodiaquine due to increased agranulocytosis risk. Use alternative antimalarial (e.g. artemisinin-based combination therapy)."
+      }
+    ]
+  },
+  "CYP2E1": {
+    "desc": "CYP2E1 metabolises ethanol, paracetamol (acetaminophen), and industrial solvents. No CPIC guideline with actionable recommendations currently exists.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP2E1",
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  },
+  "CYP3A4": {
+    "desc": "CYP3A4 is the most abundant hepatic CYP enzyme, metabolising ~50% of drugs. The *22 allele (rs35599367) reduces CYP3A4 expression and is relevant to tacrolimus dosing. No standalone high-evidence CPIC guideline for CYP3A4 genotyping alone.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/CYP3A4",
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "CYP3A4 *22 allele detected — reduced CYP3A4 expression. May contribute to altered tacrolimus and other CYP3A4 substrate metabolism. Interpret alongside CYP3A5 genotype."
+    },
+    "drugs": [
+      {
+        "name": "Tacrolimus (with CYP3A5)",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-tacrolimus-and-cyp3a5/",
+        "rec": "CYP3A4 *22 in a CYP3A5 non-expresser: combined poor CYP3A metaboliser — consider lower tacrolimus starting dose and target lower initial trough concentrations."
+      }
+    ]
+  },
+  "GSTM1": {
+    "desc": "GSTM1 (glutathione S-transferase mu 1) is commonly deleted (*0/*0 null genotype), reducing glutathione conjugation capacity. The null genotype is present in ~50% of Europeans and ~35% of Asians. No CPIC Level A/B guideline with dose-adjustment recommendations currently exists.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  },
+  "GSTT1": {
+    "desc": "GSTT1 (glutathione S-transferase theta 1) null genotype (*0/*0) is present in ~15–20% of Europeans. No CPIC Level A/B guideline with dose-adjustment recommendations currently exists.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  },
+  "IFNL3": {
+    "desc": "IFNL3 (IL28B) encodes interferon lambda-3. The rs12979860 C/C genotype strongly predicts favourable response to pegylated interferon alfa + ribavirin therapy for chronic hepatitis C (HCV). Relevant primarily for genotype 1 and 4 HCV where interferon-based therapy is still considered.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {
+      "_diplotype": "Non-reference IFNL3 genotype detected — reduced likelihood of sustained virological response (SVR) with pegylated interferon alfa + ribavirin for HCV."
+    },
+    "drugs": [
+      {
+        "name": "Peginterferon alfa-2a",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-peg-interferon-alpha-based-regimens-and-ifnl3/",
+        "rec": "Non-CC genotype (CT or TT at rs12979860): significantly reduced SVR rate with peg-IFN + RBV. Prefer direct-acting antiviral (DAA) regimens where available."
+      },
+      {
+        "name": "Peginterferon alfa-2b + Ribavirin",
+        "level": "A",
+        "url": "https://cpicpgx.org/guidelines/guideline-for-peg-interferon-alpha-based-regimens-and-ifnl3/",
+        "rec": "Non-CC genotype: lower SVR probability. DAA therapy is strongly preferred. If interferon-based therapy must be used, counsel patient on reduced efficacy."
+      }
+    ]
+  },
+  "NAT1": {
+    "desc": "NAT1 (N-acetyltransferase 1) acetyltransferase with activity toward aromatic and heterocyclic amines. No CPIC Level A/B guideline with actionable dose recommendations currently exists.",
+    "pharmvar_url": null,
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  },
+  "POR": {
+    "desc": "POR (cytochrome P450 oxidoreductase) is the essential electron donor for all microsomal CYP enzymes. POR *28 (A503V) is the most common variant and modestly alters the activity of multiple CYPs. No standalone CPIC guideline exists; interpret POR variants in context of co-metabolising CYP genotypes.",
+    "pharmvar_url": "https://www.pharmvar.org/gene/POR",
+    "high_pheno": [],
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
+  }
+}

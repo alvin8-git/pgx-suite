@@ -147,6 +147,7 @@ COPY docker/pgx-hla.sh            /opt/pgx/pgx-hla.sh
 COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
+COPY docker/cpic.json             /opt/pgx/cpic.json
 COPY docker/Snakefile             /opt/pgx/Snakefile
 # Pipeline version stamp for the provenance block (override with
 # --build-arg PGX_VERSION=$(git rev-parse --short HEAD)).
