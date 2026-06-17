@@ -5,6 +5,40 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-06-17 — Snakemake migration, clinical-safety hardening, report redesign
+
+**Orchestration migrated to Snakemake.** The hand-rolled bash orchestrators
+(`pgx-run.sh`, `pgx-all-genes.sh`) are removed; the pipeline is now a wildcard `{gene}`
+DAG in `docker/Snakefile`, scheduled by `--cores`. `run_pgx_suite.sh` and the image
+entry point invoke Snakemake. Proven byte-for-byte equivalent to the old pipeline across
+all 31 genes on HG002 (verdict + per-tool diplotype + status identical).
+
+**Single source of truth.** Gene region, per-tool support, SV flags, and Stargazer
+control now live in `docker/genes.tsv`, read by both the Snakefile and `pgx-compare.py`
+(guarded by `test_genes_config.py`). The duplicated bash/Python matrices are gone.
+
+**Clinical-safety fixes (`pgx-compare.py` / `pgx-report.py`):**
+- Coverage gate — genes below `--min-depth` (default 10×) report **NO_CALL** instead of a
+  confident wild-type call manufactured from zero reads.
+- Single verdict authority — the gene verdict (`concordant`/`majority`/`discordant`/
+  `no_call`) is computed once into `detail.json`; the HTML report and batch summary read it
+  rather than recompute, so a 2-vs-2 tie surfaces as **DISCORDANT**, not a silent winner.
+- Real exit codes — each caller writes a `logs/<tool>.status` sentinel; a crashed caller is
+  marked `failed`, not the misleading `not_run`.
+
+**Report redesign (from /design-review):** print-safe severity colour (survives PDF export),
+non-colour status glyphs (greyscale / colour-blind legible), WCAG AAA badge contrast,
+responsive layout + table-scroll wrappers, the gene grid split into ⚠ Needs review /
+Normal — concordant groups, and an at-a-glance headline summary strip.
+
+**Tests added:** `docker/test_parsers.py`, `test_verdict.py`, `test_coverage_gate.py`,
+`test_genes_config.py`.
+
+**Docs:** README rewritten for the Snakemake era; reference docs moved under `docs/`;
+getting-started tutorial + add-a-gene how-to added.
+
+---
+
 ## 2026-03-13 — Post-validation pipeline improvements + Docker rebuild
 
 ### Summary

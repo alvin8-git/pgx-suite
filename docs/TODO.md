@@ -1,5 +1,25 @@
 # PGx Suite — TODO
 
+## Current state — 2026-06-17
+
+The orchestrator is now a **Snakemake** DAG (`docker/Snakefile`); the bash orchestrators
+`pgx-run.sh` / `pgx-all-genes.sh` have been **removed** (see [`CHANGES.md`](CHANGES.md)).
+Completed since the phase plan below:
+
+- [x] Snakemake migration — 31-gene HG002 equivalence proven; bash orchestrators decommissioned
+- [x] Single-source gene config (`docker/genes.tsv`) — read by the Snakefile and `pgx-compare.py`
+- [x] NO_CALL coverage gate + single verdict authority (concordant / majority / discordant / no_call)
+- [x] Real per-caller exit codes (`logs/<tool>.status`) — `failed` vs `not_run` distinguished
+- [x] Report redesign — print-safe colour, WCAG AAA contrast, responsive, severity grouping, summary strip
+- [x] Unit tests — `test_parsers.py`, `test_verdict.py`, `test_coverage_gate.py`, `test_genes_config.py`
+- [ ] CRAM auto-extraction rule in the Snakefile (`depth_bam` config hook in place; needs a CRAM sample to validate)
+- [ ] In-container tests for the 3 `vcf_check` parsers (CACNA1S / G6PD / UGT1A1 — need bcftools)
+
+The phase history below is retained for provenance; references to `pgx-run.sh` /
+`pgx-all-genes.sh` describe the now-superseded bash pipeline.
+
+---
+
 ## Phase 1: Docker Container & Smoke Tests ✅ COMPLETE
 
 - [x] Design document (`docs/plans/2026-03-06-pgx-docker-design.md`)
@@ -16,7 +36,7 @@
 
 ---
 
-## Phase 2: `pgx-run.sh` Orchestrator (awaiting test BAM file)
+## Phase 2: `pgx-run.sh` Orchestrator ✅ COMPLETE (superseded by Snakemake — see Current state)
 
 ### 2a. Input validation script
 

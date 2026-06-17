@@ -1,5 +1,11 @@
 # PGx Star Allele Callers — Tool Reference
 
+> **Pipeline context:** these callers run as non-fatal rules in a **Snakemake** DAG
+> (`docker/Snakefile`); gene/tool support is defined once in `docker/genes.tsv`, and
+> `pgx-compare.py` reconciles all callers into a single per-gene verdict with a NO_CALL
+> coverage gate. This is the per-tool reference — see the [README](../README.md) for
+> how the pipeline runs.
+
 This document provides a concise reference for the six pharmacogenomics (PGx)
 callers bundled in the **pgx-suite** Docker container. Four tools handle star allele
 genotyping across the pharmacogenome; one (OptiType) performs HLA class I typing for

@@ -1,5 +1,10 @@
 # PGx Pipeline Documentation
 
+> **Reference doc** — per-gene clinical detail (alleles, phenotypes, CPIC drugs). For how
+> the pipeline runs (Snakemake DAG, single-source `docker/genes.tsv`, and the verdict /
+> NO_CALL coverage gate), see the [README](../README.md); for per-tool detail see
+> [`ToolsDocumentation.md`](ToolsDocumentation.md).
+
 This pipeline performs star-allele calling and diplotype assignment across 31 pharmacogenomically relevant genes using four complementary tools: PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, and StellarPGx 1.2.7, with OptiType for HLA typing and mutserve for mitochondrial variants. All analyses are performed against the GRCh38 reference genome. Results are aggregated into a unified HTML report with concordance scoring across tools.
 
 ---

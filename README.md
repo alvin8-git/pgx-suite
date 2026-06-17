@@ -43,7 +43,7 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 | [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
 | [mutserve](https://github.com/seppinho/mutserve) | 2.0.0 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
 
-See [`ToolsDocumentation.md`](ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations.
+See [`ToolsDocumentation.md`](docs/ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations.
 
 ---
 
@@ -316,7 +316,7 @@ this feeds the HTML per-gene detail pages.
 
 ## Gene Coverage
 
-**31 genes** supported across **six tools**. Covers **19/19 CPIC Level A genes**. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](ToolsDocumentation.md).
+**31 genes** supported across **six tools**. Covers **19/19 CPIC Level A genes**. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
 
 | Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve | CPIC Level | SV? |
 |------|:-----:|:---------:|:----:|:----------:|:--------:|:--------:|:----------:|:---:|
@@ -506,23 +506,33 @@ pgx-suite/
 │   ├── database/                       # Star allele databases
 │   └── resources/                      # Reference sequences, panel data
 ├── TestData/                           # Test BAM files
-├── docs/plans/                         # Design and implementation documents
-├── CHANGES.md                          # Changelog
-├── ToolsDocumentation.md               # Detailed tool reference
+├── docs/
+│   ├── tutorial-getting-started.md     # Zero-to-first-report walkthrough
+│   ├── howto-add-a-gene.md             # Add / change gene support via genes.tsv
+│   ├── ToolsDocumentation.md           # Per-tool reference (6 callers)
+│   ├── PGxDocumentation.md             # Per-gene clinical reference
+│   ├── CHANGES.md                      # Changelog
+│   ├── TODO.md                         # Roadmap
+│   ├── assets/                         # README hero image
+│   └── plans/                          # Design + review documents
 ├── README.md                           # This file
-└── TODO.md                             # Roadmap
+└── TTSHvalidation.md                   # Axiom-array validation report
 ```
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [`ToolsDocumentation.md`](ToolsDocumentation.md) | Full reference for all 6 callers: algorithms, gene lists, SV handling, output formats, limitations |
-| [`CHANGES.md`](CHANGES.md) | Reverse-chronological changelog |
-| [`TODO.md`](TODO.md) | Roadmap and open tasks |
-| [`docker/README.md`](docker/README.md) | Container-specific notes and examples |
+| Document | Quadrant | Description |
+|----------|----------|-------------|
+| [`docs/tutorial-getting-started.md`](docs/tutorial-getting-started.md) | Tutorial | Build the image and produce your first HG002 report, step by step |
+| [`docs/howto-add-a-gene.md`](docs/howto-add-a-gene.md) | How-to | Add or change gene / tool support via the single-source `genes.tsv` |
+| [`docs/ToolsDocumentation.md`](docs/ToolsDocumentation.md) | Reference | All 6 callers: algorithms, gene lists, SV handling, output formats, limitations |
+| [`docs/PGxDocumentation.md`](docs/PGxDocumentation.md) | Reference | Per-gene clinical reference (alleles, phenotypes, CPIC drugs) |
+| [`TTSHvalidation.md`](TTSHvalidation.md) | Explanation | Concordance vs the Axiom array (13 samples × 2 platforms) |
+| [`docs/CHANGES.md`](docs/CHANGES.md) | — | Reverse-chronological changelog |
+| [`docs/TODO.md`](docs/TODO.md) | — | Roadmap and open tasks |
+| [`docker/README.md`](docker/README.md) | — | Container-specific build notes |
 
 ---
 
