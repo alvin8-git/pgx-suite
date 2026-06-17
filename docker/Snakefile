@@ -1,30 +1,36 @@
-# docker/Snakefile — bash → Snakemake migration (Stage 2: all standard genes).
+# docker/Snakefile — bash → Snakemake migration (Stage 3: all genes + report).
 #
-# Wildcard {gene} pipeline. Each rule wraps the SAME command pgx-run.sh runs and
-# writes the SAME per-gene layout pgx-all-genes.sh uses (OUT/genes/<gene>/...),
-# so pgx-compare.py is unchanged and results must match the bash oracle.
+# Wildcard {gene} pipeline covering EVERY gene, routed by genes.tsv support flags:
+#   - standard star-allele genes : bcftools + pypgx/stargazer/aldy/stellarpgx
+#   - HLA-A / HLA-B              : OptiType (pgx-hla.sh)
+#   - MT-RNR1                    : mutserve (pgx-mt.sh)
+#   - GSTT1 (alt contig)        : pypgx (SV, no VCF) + stellarpgx
+# Then BAM QC (pgx-bamstats.sh) and the HTML report (pgx-report.py).
 #
-# NON-FATAL CALLERS (key design, mirrors pgx-run.sh): a caller failing must not
-# abort the gene or the batch. Each caller rule's declared output is a sentinel
-# status file (OUT/genes/<gene>/logs/<tool>.status) holding the real exit code;
-# the rule ALWAYS succeeds. The compare rule depends on the sentinels, reads them
-# to pass --failed-tools (so a crashed caller is "failed", not "not_run"), and
-# globs whatever real outputs exist — exactly like pgx-run.sh's runner+aggregate.
+# Each rule wraps the SAME command pgx-run.sh / pgx-all-genes.sh runs and writes
+# the SAME per-gene layout (OUT/genes/<gene>/...), so pgx-compare.py / pgx-report.py
+# are unchanged and results match the bash oracle.
 #
-# Conditional behaviour is driven by genes.tsv (single source of truth).
-# OUT OF SCOPE here (Stage 3): HLA (OptiType), MT-RNR1 (mutserve), alt-contig
-# GSTT1, CRAM pre-extraction, BAM QC, and the HTML report.
+# NON-FATAL CALLERS (mirrors pgx-run.sh): each caller rule's output is a status
+# sentinel holding the real exit code; the rule always succeeds, so one caller
+# failing never aborts the gene or the batch. compare reads the sentinels to pass
+# --failed-tools and globs whatever real outputs exist.
+#
+# NOTE: CRAM inputs need pre-extraction to a region BAM (pgx_cram_regions.bed);
+# pass --config depth_bam=<extracted.bam> bam=<orig.cram>. Auto-extraction is a
+# follow-up; with a BAM input, depth_bam defaults to bam.
 #
 # Run (inside the container):
 #   snakemake -s /opt/pgx/Snakefile --cores 4 \
 #       --config bam=/pgx/data/<sample>.bam outdir=/pgx/results
-#   # optional: genes="CYP2D6 CYP2C19"   (default: all standard genes)
+#   # optional: genes="CYP2D6 HLA-A MT-RNR1 GSTT1"   (default: all genes)
 
 import csv
 import os
 import subprocess
 
 BAM       = config["bam"]
+DEPTH_BAM = config.get("depth_bam", BAM)   # for CRAM: the extracted region BAM
 REF       = config.get("ref", "/pgx/ref/hg38.fa")
 OUT       = config.get("outdir", "/pgx/results")
 MINDEP    = config.get("min_depth", 10)
@@ -40,17 +46,12 @@ def control(gene):      return GCFG[gene]["stargazer_control"]
 def pypgx_sv(gene):     return _flag(gene, "pypgx_sv")
 def stargazer_sv(gene): return _flag(gene, "stargazer_sv")
 def supports(gene, t):  return _flag(gene, t)
-def needs_vcf(gene):    return supports(gene, "pypgx") or supports(gene, "stargazer")
+def is_alt(gene):       return region(gene) == "ALT_CONTIG"
+def needs_vcf(gene):    return (supports(gene, "pypgx") or supports(gene, "stargazer")) and not is_alt(gene)
 
-def _is_standard(gene):
-    r = GCFG[gene]
-    if r["region"] == "ALT_CONTIG":                   return False  # GSTT1 → Stage 3
-    if r["optitype"] == "1" or r["mutserve"] == "1":  return False  # HLA / MT → Stage 3
-    if gene == "CYPOR":                               return False  # alias of POR
-    return any(r[t] == "1" for t in ("pypgx", "stargazer", "aldy", "stellarpgx"))
-
-STANDARD = sorted(g for g in GCFG if _is_standard(g))
-TARGET = config["genes"].split() if config.get("genes") else STANDARD
+# Every gene except the CYPOR alias (POR is run).
+ALLGENES = sorted(g for g in GCFG if g != "CYPOR")
+TARGET = config["genes"].split() if config.get("genes") else ALLGENES
 
 SAMPLE = config.get("sample") or subprocess.run(
     "samtools view -H %s | grep -m1 '^@RG' | grep -oP 'SM:\\K[^\\t]+'" % BAM,
@@ -63,7 +64,7 @@ EXT      = os.path.splitext(BAM)[1].lstrip(".")
 IDX_EXT  = "bai" if EXT == "bam" else "crai"
 
 wildcard_constraints:
-    gene=r"[A-Z0-9]+",
+    gene=r"[A-Z0-9-]+",   # hyphen for HLA-A / HLA-B / MT-RNR1
 
 def G(gene, *parts):
     return os.path.join(OUT, "genes", gene, *parts)
@@ -74,11 +75,11 @@ def STAT(gene, tool):
 
 rule all:
     input:
-        [G(g, f"{g}_{SAMPLE}_detail.json") for g in TARGET],
+        os.path.join(OUT, f"{SAMPLE}_pgx_report.html"),
         os.path.join(OUT, "all_genes_summary.tsv"),
 
 
-# ── Phase 1: BAM-reading callers (non-fatal; output = status sentinel) ────────
+# ── Standard star-allele callers (non-fatal; output = status sentinel) ────────
 rule bcftools:
     output:
         STAT("{gene}", "bcftools"),
@@ -120,7 +121,30 @@ rule stellarpgx:
         "echo $rc > {output}"
 
 
-# ── SV preprocessing (hard deps — these are not callers; failure is a real error)
+# ── Special callers (HLA / MT) — non-fatal ───────────────────────────────────
+rule optitype:
+    output:
+        STAT("{gene}", "optitype"),
+    params:
+        outdir=lambda w: G(w.gene),
+    shell:
+        "mkdir -p $(dirname {output}); rc=0; "
+        "pgx-hla.sh {wildcards.gene} {BAM} {SAMPLE} {params.outdir} || rc=$?; "
+        "echo $rc > {output}"
+
+
+rule mutserve:
+    output:
+        STAT("{gene}", "mutserve"),
+    params:
+        outdir=lambda w: G(w.gene),
+    shell:
+        "mkdir -p $(dirname {output}); rc=0; "
+        "pgx-mt.sh {BAM} {SAMPLE} {params.outdir} --ref {REF} || rc=$?; "
+        "echo $rc > {output}"
+
+
+# ── SV preprocessing (hard deps — not callers; failure is a real error) ──────
 rule pypgx_depth:
     output:
         G("{gene}", "depth-of-coverage.zip"),
@@ -145,9 +169,11 @@ rule stargazer_gdf:
         "-o {output} -a grc38 -d wgs"
 
 
-# ── Phase 2: VCF-dependent callers (non-fatal) ───────────────────────────────
+# ── VCF-dependent callers (non-fatal) ────────────────────────────────────────
 def pypgx_inputs(w):
-    ins = {"bcftools": STAT(w.gene, "bcftools")}
+    ins = {}
+    if needs_vcf(w.gene):
+        ins["bcftools"] = STAT(w.gene, "bcftools")
     if pypgx_sv(w.gene):
         ins["depth"] = G(w.gene, "depth-of-coverage.zip")
         ins["ctrl"]  = G(w.gene, "control-stats-VDR.zip")
@@ -160,7 +186,7 @@ rule pypgx_pipeline:
         STAT("{gene}", "pypgx"),
     params:
         outdir=lambda w: G(w.gene, "pypgx"),
-        vcf=lambda w: G(w.gene, f"{w.gene}.vcf.gz"),
+        variants=lambda w: (f"--variants {G(w.gene, f'{w.gene}.vcf.gz')}" if needs_vcf(w.gene) else ""),
         sv=lambda w: (
             f"--depth-of-coverage {G(w.gene,'depth-of-coverage.zip')} "
             f"--control-statistics {G(w.gene,'control-stats-VDR.zip')}"
@@ -168,7 +194,7 @@ rule pypgx_pipeline:
     shell:
         "mkdir -p $(dirname {output}); rc=0; "
         "pypgx run-ngs-pipeline {wildcards.gene} {params.outdir} --assembly GRCh38 "
-        "--force --variants {params.vcf} {params.sv} || rc=$?; echo $rc > {output}"
+        "--force {params.variants} {params.sv} || rc=$?; echo $rc > {output}"
 
 
 def stargazer_inputs(w):
@@ -200,10 +226,9 @@ rule stargazer_genotype:
 def compare_inputs(w):
     g = w.gene
     ins = {}
-    if supports(g, "pypgx"):      ins["pypgx"]      = STAT(g, "pypgx")
-    if supports(g, "stargazer"):  ins["stargazer"]  = STAT(g, "stargazer")
-    if supports(g, "aldy"):       ins["aldy"]       = STAT(g, "aldy")
-    if supports(g, "stellarpgx"): ins["stellarpgx"] = STAT(g, "stellarpgx")
+    for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve"):
+        if supports(g, tool):
+            ins[tool] = STAT(g, tool)
     if needs_vcf(g) or _flag(g, "vcf_check"):
         ins["bcftools"] = STAT(g, "bcftools")
     return ins
@@ -215,32 +240,52 @@ rule compare:
         G("{gene}", "{gene}_" + SAMPLE + "_detail.json"),
     params:
         region=lambda w: region(w.gene),
+        is_alt=lambda w: is_alt(w.gene),
         outdir=lambda w: G(w.gene),
         logdir=lambda w: G(w.gene, "logs"),
     run:
-        # Build --failed-tools from the per-tool status sentinels (rc != 0),
-        # mirroring pgx-run.sh's aggregate step.
-        names = {"pypgx": "PyPGx", "stargazer": "Stargazer",
-                 "aldy": "Aldy", "stellarpgx": "StellarPGx"}
+        names = {"pypgx": "PyPGx", "stargazer": "Stargazer", "aldy": "Aldy",
+                 "stellarpgx": "StellarPGx", "optitype": "OptiType", "mutserve": "mutserve"}
         failed = []
         for key, name in names.items():
             sf = os.path.join(params.logdir, f"{key}.status")
             if os.path.exists(sf) and open(sf).read().strip() not in ("0", ""):
                 failed.append(name)
-        depth = subprocess.run(
-            f"samtools coverage -r {params.region} --reference {REF} {BAM} "
-            f"| awk 'NR==2 {{print $7}}'",
-            shell=True, capture_output=True, text=True).stdout.strip()
         args = (f"--gene {wildcards.gene} --sample {SAMPLE} "
                 f"--output-dir {params.outdir} --min-depth {MINDEP}")
-        if depth:
-            args += f" --region-depth {depth}"
+        if not params.is_alt:   # alt-contig genes (GSTT1) have no measurable region depth
+            depth = subprocess.run(
+                f"samtools coverage -r {params.region} --reference {REF} {BAM} "
+                f"| awk 'NR==2 {{print $7}}'",
+                shell=True, capture_output=True, text=True).stdout.strip()
+            if depth:
+                args += f" --region-depth {depth}"
         if failed:
             args += " --failed-tools " + ",".join(failed)
         shell(f"python3 /opt/pgx/pgx-compare.py {args}")
 
 
-# ── Aggregate: verdict-driven summary (replaces the pgx-all-genes.sh awk loop) ─
+# ── BAM QC + HTML report ─────────────────────────────────────────────────────
+rule bamstats:
+    output:
+        os.path.join(OUT, "bam_stats.json"),
+    shell:
+        # pgx-bamstats.sh <orig_bam> <sample> <log_dir> <ref> <depth_bam>
+        "pgx-bamstats.sh {BAM} {SAMPLE} {OUT} {REF} {DEPTH_BAM}"
+
+
+rule report:
+    input:
+        details=[G(g, f"{g}_{SAMPLE}_detail.json") for g in TARGET],
+        bamstats=os.path.join(OUT, "bam_stats.json"),
+    output:
+        os.path.join(OUT, f"{SAMPLE}_pgx_report.html"),
+    shell:
+        "pgx-report.py --sample {SAMPLE} --output {OUT} "
+        "--genes-dir {OUT}/genes --bam {BAM} --bam-stats {input.bamstats}"
+
+
+# ── Verdict-driven summary (replaces the pgx-all-genes.sh awk loop) ───────────
 rule all_genes_summary:
     input:
         [G(g, f"{g}_{SAMPLE}_detail.json") for g in TARGET],
