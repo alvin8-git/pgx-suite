@@ -39,16 +39,23 @@ echo "[2/4] Stargazer"
 run_test "stargazer --version"   stargazer --version
 run_test "stargazer wrapper exists" test -x /usr/local/bin/stargazer
 
-# Functional test: VCF-only mode (no BAM/GDF needed; bundled 70-sample VCF)
-# Note: -c and -g (CNV analysis) require grc38-aligned depth data; VCF-only mode
-# works with the hg19-aligned example VCF since variant coordinates are remapped.
-run_test "stargazer CYP2D6 VCF-only (grc38)" \
-    bash -c "cd /opt/stargazer/example && stargazer \
-        -o /tmp/stargazer_test_out \
-        -d wgs \
-        -t cyp2d6 \
-        -a grc38 \
-        -i getrm-cyp2d6-vdr.joint.filtered.vcf"
+# Functional test: VCF-only mode. The example/ dir is excluded from the lean
+# GRCh38-only image (.dockerignore: stargazer-grc38-2.0.3/example/), so this
+# SKIPs unless that data is mounted in. The Stargazer binary itself is covered
+# by --version above and by the real per-sample runs in pgx-run.sh.
+_STARGAZER_EX="/opt/stargazer/example/getrm-cyp2d6-vdr.joint.filtered.vcf"
+if [[ -f "$_STARGAZER_EX" ]]; then
+    run_test "stargazer CYP2D6 VCF-only (grc38)" \
+        bash -c "cd /opt/stargazer/example && stargazer \
+            -o /tmp/stargazer_test_out \
+            -d wgs \
+            -t cyp2d6 \
+            -a grc38 \
+            -i getrm-cyp2d6-vdr.joint.filtered.vcf"
+else
+    echo "  [SKIP] stargazer VCF-only — example data not in lean image"
+    echo "         (stargazer-grc38-2.0.3/example/ excluded by .dockerignore)"
+fi
 echo ""
 
 # ── Aldy ──────────────────────────────────────────────────────────────────
