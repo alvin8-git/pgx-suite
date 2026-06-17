@@ -924,7 +924,8 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
                   genes_rel_prefix: str = "",
                   gene_fragments: dict | None = None,
                   lab_info: dict | None = None,
-                  provenance: dict | None = None):
+                  provenance: dict | None = None,
+                  axiom: list | None = None):
     """Build <sample>_pgx_report.html landing page with embedded gene detail panels."""
 
     gene_cards_html = ""
@@ -1107,6 +1108,36 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             f'{cells}</div>'
         )
 
+    # Orthogonal validation panel — optional. Rendered only when an Axiom (or
+    # other array) concordance table was passed in. Sample-specific external truth.
+    axiom_html = ""
+    if axiom:
+        _glyph = {"MATCH": ("&#10003;", "Concordant", "#1a7f37"),
+                  "PARTIAL": ("&#9680;", "Partial", "#9a6700"),
+                  "MISMATCH": ("&#9888;", "Review", "#cf222e")}
+        body = ""
+        for r in axiom:
+            g, lbl, col = _glyph.get(r.get("Match", "").upper(),
+                                     ("&bull;", r.get("Match", "?"), "#57606a"))
+            body += (
+                f'<tr><td style="font-weight:600">{escape(r.get("Gene",""))}</td>'
+                f'<td>{escape(r.get("Axiom",""))}</td>'
+                f'<td>{escape(r.get("Consensus",""))}</td>'
+                f'<td style="color:{col};white-space:nowrap">{g} {lbl}</td></tr>'
+            )
+        axiom_html = (
+            '<div class="container" style="margin-top:1.5rem">'
+            '<h2 style="margin-bottom:0.3rem">Orthogonal Validation &mdash; Axiom Array</h2>'
+            '<p style="font-size:0.85rem;color:#57606a;margin-top:0">Pipeline diplotypes vs the '
+            'Thermo Fisher Axiom microarray (orthogonal truth). &#9680; Partial = key allele matches '
+            'but resolution/nomenclature differs; &#9888; Review = array panel or nomenclature limitation, '
+            'not necessarily a pipeline error.</p>'
+            '<table class="axiom-table" style="width:100%;border-collapse:collapse;font-size:0.9rem">'
+            '<thead><tr style="text-align:left;border-bottom:2px solid #d0d7de">'
+            '<th>Gene</th><th>Axiom</th><th>Pipeline consensus</th><th>Agreement</th></tr></thead>'
+            f'<tbody>{body}</tbody></table></div>'
+        )
+
     # Build embedded gene panels HTML
     gene_panels_html = ""
     if gene_fragments:
@@ -1226,6 +1257,8 @@ function pgxShowMain() {
 
 </div>
 </div>
+
+{axiom_html}
 
 <!-- Gene detail panels (embedded, shown/hidden by JS) -->
 {gene_panels_html}
@@ -1815,6 +1848,7 @@ def main():
     ap.add_argument("--authorized-by",    default="",                  help="Authorizing pathologist or clinical geneticist")
     ap.add_argument("--report-status",    default="RESEARCH USE ONLY", help="Report status: FINAL, PRELIMINARY, or RESEARCH USE ONLY (default)")
     ap.add_argument("--provenance",       default="",                  help="Path to provenance.json (tool versions/reference/timestamp; rendered in the report footer)")
+    ap.add_argument("--axiom",            default="",                  help="Path to an orthogonal-validation TSV (cols: Gene, Axiom, Consensus, Match); renders an Axiom-array concordance panel")
     args = ap.parse_args()
 
     sample  = args.sample
@@ -1929,10 +1963,15 @@ def main():
                 prov = json.load(fh)
         except (OSError, json.JSONDecodeError) as e:
             print(f"  warning: could not read provenance {args.provenance}: {e}")
+    axiom_rows = None
+    if args.axiom and os.path.isfile(args.axiom):
+        import csv
+        with open(args.axiom, newline="") as fh:
+            axiom_rows = list(csv.DictReader(fh, delimiter="\t"))
     build_landing(sample, bam_path, genes_data, bs, out_dir,
                   genes_rel_prefix="Genes",
                   gene_fragments=gene_fragments,
-                  lab_info=lab_info, provenance=prov)
+                  lab_info=lab_info, provenance=prov, axiom=axiom_rows)
     print("Done.")
 
 
