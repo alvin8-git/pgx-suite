@@ -51,6 +51,11 @@ RUN pip install --no-cache-dir aldy==4.8.3
 COPY pypgx/ /opt/pypgx/
 RUN pip install --no-cache-dir /opt/pypgx/
 
+# Snakemake — workflow orchestrator (replaces the bash phase/parallelism logic in
+# pgx-run.sh / pgx-all-genes.sh). Added last to preserve build-cache on the heavy
+# layers above.
+RUN pip install --no-cache-dir snakemake
+
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 # Lean image: no compiler, no -dev headers. Build tools saved ~300–350 MB.
@@ -144,6 +149,7 @@ COPY docker/pgx-hla.sh            /opt/pgx/pgx-hla.sh
 COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
+COPY docker/Snakefile             /opt/pgx/Snakefile
 RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
              /opt/pgx/pgx-mt.sh \

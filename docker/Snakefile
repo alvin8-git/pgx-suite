@@ -1,0 +1,158 @@
+# docker/Snakefile — Stage 1 of the bash → Snakemake migration.
+#
+# Single gene (default CYP2D6), single sample. Each rule wraps the SAME command
+# pgx-run.sh runs and writes the SAME output layout, so pgx-compare.py is
+# unchanged and the result must match the bash oracle. Snakemake replaces only
+# the manual phase/parallelism/wait logic with a declarative DAG.
+#
+# Run (inside the container):
+#   snakemake -s /opt/pgx/Snakefile --cores 4 \
+#       --config bam=/pgx/data/<sample>.bam gene=CYP2D6 outdir=/pgx/results
+#
+# DAG (CYP2D6, an SV gene):
+#     bcftools ─┐
+#     pypgx_depth ─┐                 ┌─ pypgx_pipeline ─┐
+#     pypgx_control ┘  (+vcf) ───────┤                  │
+#     stargazer_gdf ─── (+vcf) ──────┴─ stargazer_geno ─┤
+#     aldy ──────────────────────────────────────────── ┤─ compare ─ detail.json
+#     stellarpgx ─────────────────────────────────────── ┘
+
+import csv
+import os
+import subprocess
+
+GENE      = config["gene"].upper()
+BAM       = config["bam"]
+REF       = config.get("ref", "/pgx/ref/hg38.fa")
+OUT       = config.get("outdir", "/pgx/results")
+MINDEP    = config.get("min_depth", 10)
+GENES_TSV = config.get("genes_tsv", "/opt/pgx/genes.tsv")
+
+# ── Gene config from the single source of truth ──────────────────────────────
+with open(GENES_TSV) as _fh:
+    _ROW = {r["gene"]: r for r in csv.DictReader(_fh, delimiter="\t")}[GENE]
+REGION       = _ROW["region"]
+GLOWER       = GENE.lower()
+STELLAR_GENE = "cypor" if GLOWER == "por" else GLOWER
+
+# ── Sample name from BAM @RG SM (matches pgx-run.sh) ─────────────────────────
+SAMPLE = config.get("sample") or subprocess.run(
+    "samtools view -H %s | grep -m1 '^@RG' | grep -oP 'SM:\\K[^\\t]+'" % BAM,
+    shell=True, capture_output=True, text=True,
+).stdout.strip() or os.path.splitext(os.path.basename(BAM))[0]
+
+VCF      = f"{OUT}/{GENE}.vcf.gz"
+DEPTHZIP = f"{OUT}/depth-of-coverage.zip"
+CTRLZIP  = f"{OUT}/control-stats-VDR.zip"
+GDF      = f"{OUT}/stargazer_gdf/{GLOWER}.gdf"
+BAM_DIR  = os.path.dirname(BAM)
+BAM_BASE = os.path.splitext(os.path.basename(BAM))[0]   # strips .bam/.cram
+EXT      = os.path.splitext(BAM)[1].lstrip(".")          # bam | cram
+IDX_EXT  = "bai" if EXT == "bam" else "crai"
+
+
+rule all:
+    input:
+        f"{OUT}/{GENE}_{SAMPLE}_detail.json",
+
+
+# ── Phase 1: BAM-reading tasks (Snakemake schedules these in parallel) ───────
+rule bcftools:
+    output:
+        vcf=VCF,
+        tbi=VCF + ".tbi",
+    shell:
+        "bcftools mpileup -r {REGION} -f {REF} -a AD,DP --max-depth 500 -o - {BAM} "
+        "| bcftools call -m -v --output-type z -o {output.vcf} "
+        "&& tabix -p vcf {output.vcf}"
+
+
+rule pypgx_depth:
+    output:
+        DEPTHZIP,
+    shell:
+        "rm -f {output}; pypgx prepare-depth-of-coverage {output} {BAM} --assembly GRCh38"
+
+
+rule pypgx_control:
+    output:
+        CTRLZIP,
+    shell:
+        "rm -f {output}; pypgx compute-control-statistics VDR {output} {BAM} --assembly GRCh38"
+
+
+rule stargazer_gdf:
+    # GDF must live OUTSIDE OUT/stargazer because stargazer rmtree's its output dir.
+    output:
+        GDF,
+    params:
+        gdfdir=f"{OUT}/stargazer_gdf",
+    shell:
+        "stargazer -G {GLOWER}.gdf -t {GLOWER} -c vdr -B {BAM} "
+        "-o {params.gdfdir} -a grc38 -d wgs"
+
+
+rule aldy:
+    output:
+        f"{OUT}/aldy/{GENE}.aldy",
+    shell:
+        "aldy genotype -g {GENE} -p illumina {BAM} -o {output}"
+
+
+rule stellarpgx:
+    output:
+        directory(f"{OUT}/stellarpgx/{GLOWER}"),
+    params:
+        out=f"{OUT}/stellarpgx",
+        work=f"{OUT}/stellarpgx/.work",
+        in_bam=lambda w: f"{BAM_DIR}/{BAM_BASE}*{{{EXT},{IDX_EXT}}}",
+    shell:
+        "nextflow run /pgx/stellarpgx/main.nf "
+        "--gene {STELLAR_GENE} --in_bam '{params.in_bam}' --ref_file {REF} "
+        "--out_dir {params.out} "
+        "--res_init /pgx/stellarpgx/resources "
+        "--db_init /pgx/stellarpgx/database "
+        "--caller_init /pgx/stellarpgx/scripts "
+        "-work-dir {params.work}"
+
+
+# ── Phase 2: VCF-dependent tasks ─────────────────────────────────────────────
+rule pypgx_pipeline:
+    input:
+        vcf=VCF,
+        depth=DEPTHZIP,
+        ctrl=CTRLZIP,
+    output:
+        f"{OUT}/pypgx/results.zip",
+    shell:
+        "pypgx run-ngs-pipeline {GENE} {OUT}/pypgx --assembly GRCh38 --force "
+        "--variants {input.vcf} --depth-of-coverage {input.depth} "
+        "--control-statistics {input.ctrl}"
+
+
+rule stargazer_genotype:
+    input:
+        vcf=VCF,
+        gdf=GDF,
+    output:
+        f"{OUT}/stargazer/genotype-calls.tsv",
+    shell:
+        "stargazer -t {GLOWER} -d wgs -a grc38 -i {input.vcf} "
+        "-o {OUT}/stargazer -c vdr -g {input.gdf}"
+
+
+# ── Phase 3: reconcile (single verdict authority) ────────────────────────────
+rule compare:
+    input:
+        pypgx=f"{OUT}/pypgx/results.zip",
+        stargazer=f"{OUT}/stargazer/genotype-calls.tsv",
+        aldy=f"{OUT}/aldy/{GENE}.aldy",
+        stellarpgx=f"{OUT}/stellarpgx/{GLOWER}",
+        vcf=VCF,
+    output:
+        f"{OUT}/{GENE}_{SAMPLE}_detail.json",
+    shell:
+        "DEPTH=$(samtools coverage -r {REGION} --reference {REF} {BAM} "
+        "| awk 'NR==2 {{print $7}}'); "
+        "python3 /opt/pgx/pgx-compare.py --gene {GENE} --sample {SAMPLE} "
+        "--output-dir {OUT} --min-depth {MINDEP} --region-depth $DEPTH"
