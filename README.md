@@ -1,5 +1,12 @@
 # PGx Suite
 
+[![tests](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml/badge.svg)](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml)
+![reference](https://img.shields.io/badge/reference-GRCh38%2Fhg38-1f6feb)
+![genes](https://img.shields.io/badge/genes-31%20(19%20CPIC%20Level%20A)-2ea043)
+![callers](https://img.shields.io/badge/callers-6-8957e5)
+![orchestrator](https://img.shields.io/badge/orchestrator-Snakemake-039475)
+![license](https://img.shields.io/badge/license-non--commercial%20academic-d29922)
+
 A Docker container that bundles six pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, **OptiType**, and **mutserve** — pre-configured for **GRCh38 (hg38)**. One command runs every applicable caller over a WGS BAM/CRAM and reconciles them into a single self-contained HTML clinical report. Covers **all 19 CPIC Level A genes** across 31 genes total.
 
 ![PGx Suite — multi-caller pharmacogenomics report](docs/assets/hg002_report_collage.png)
