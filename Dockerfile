@@ -140,8 +140,6 @@ RUN printf '#!/usr/bin/env bash\nexec /opt/venv/bin/python3 /opt/stargazer/starg
 # ── 8. Helper scripts ────────────────────────────────────────────────────────
 RUN mkdir -p /opt/pgx
 COPY docker/test.sh           /opt/pgx/test.sh
-COPY docker/pgx-run.sh        /opt/pgx/pgx-run.sh
-COPY docker/pgx-all-genes.sh  /opt/pgx/pgx-all-genes.sh
 COPY docker/pgx-compare.py    /opt/pgx/pgx-compare.py
 COPY docker/pgx-bamstats.sh   /opt/pgx/pgx-bamstats.sh
 COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
@@ -150,11 +148,9 @@ COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/Snakefile             /opt/pgx/Snakefile
-RUN chmod +x /opt/pgx/test.sh /opt/pgx/pgx-run.sh /opt/pgx/pgx-all-genes.sh \
+RUN chmod +x /opt/pgx/test.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
              /opt/pgx/pgx-mt.sh \
-    && ln -s /opt/pgx/pgx-run.sh       /usr/local/bin/pgx-run.sh \
-    && ln -s /opt/pgx/pgx-all-genes.sh /usr/local/bin/pgx-all-genes.sh \
     && ln -s /opt/pgx/pgx-bamstats.sh  /usr/local/bin/pgx-bamstats.sh \
     && ln -s /opt/pgx/pgx-report.py    /usr/local/bin/pgx-report.py \
     && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh \

@@ -203,7 +203,7 @@ ${C_BOLD_CYAN}╔═════════════════════
   ${C_BOLD}Started:${C_RESET}  ${START_TS}"
 
 # ── Run the Docker container ──────────────────────────────────────────────────
-_stage "Launching pipeline (pgx-all-genes.sh inside container)"
+_stage "Launching pipeline (Snakemake inside container)"
 echo -e "  ${C_DIM}Container output follows — gene results stream in as they complete${C_RESET}\n"
 
 docker run \
@@ -216,11 +216,10 @@ docker run \
     -v "${INPUT_DIR_HOST}:/pgx/data:ro" \
     -v "${OUTPUT_HOST}:/pgx/results" \
     "$IMAGE" \
-    pgx-all-genes.sh \
-        "$INPUT_CONTAINER" \
-        --ref    /pgx/ref/hg38.fa \
-        --output /pgx/results \
-        --jobs   "$JOBS"
+    snakemake \
+        -s /opt/pgx/Snakefile \
+        --cores "$JOBS" \
+        --config bam="$INPUT_CONTAINER" outdir=/pgx/results ref=/pgx/ref/hg38.fa
 
 RC=$?
 
