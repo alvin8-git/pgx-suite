@@ -1,6 +1,10 @@
 # PGx Suite
 
-A Docker container that bundles six pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, **OptiType**, and **mutserve** — pre-configured for **GRCh38 (hg38)**. A single command runs all applicable tools for a gene and produces a side-by-side concordance table plus a self-contained HTML clinical report. Covers **all 19 CPIC Level A genes** across 31 genes total.
+A Docker container that bundles six pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, **OptiType**, and **mutserve** — pre-configured for **GRCh38 (hg38)**. One command runs every applicable caller over a WGS BAM/CRAM and reconciles them into a single self-contained HTML clinical report. Covers **all 19 CPIC Level A genes** across 31 genes total.
+
+![PGx Suite — multi-caller pharmacogenomics report](docs/assets/hg002_report_collage.png)
+
+Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven by one source-of-truth gene table (`docker/genes.tsv`). Every caller runs as a **non-fatal rule** — a single tool failing never aborts the gene or the batch — and `pgx-compare.py` is the **single verdict authority**: it applies a coverage floor (genes below `--min-depth` are reported **NO_CALL**, never a wild-type guess), then emits one verdict per gene (`concordant` / `majority` / `discordant`). Validated against the Thermo Fisher Axiom PGx array (TTSH cohort, ~80% concordance) and reproduced byte-for-byte across all 31 genes on GIAB **HG002**.
 
 > **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.
 > This image **must not be published to any public registry** (Docker Hub, GHCR, etc.).
@@ -148,8 +152,8 @@ All 12 checks should report `PASS`:
 ### Host launcher — recommended
 
 **`run_pgx_suite.sh`** is the single-command entry point for new samples. It handles
-all Docker volume mounts automatically, accepts BAM or CRAM, and delegates to
-`pgx-all-genes.sh` inside the container.
+all Docker volume mounts automatically, accepts BAM or CRAM, and runs the
+**Snakemake** pipeline (`/opt/pgx/Snakefile`) inside the container.
 
 ```bash
 # Minimal — output defaults to results/<SAMPLE>/ under the repo root
@@ -186,10 +190,11 @@ and OptiType HLA typing).
 
 ---
 
-### Run all genes (batch, manual docker)
+### Run all genes (Snakemake, manual docker)
 
 The manual `docker run` equivalent of `run_pgx_suite.sh` — useful when you need to
-customise volume mounts or run from inside another script:
+customise volume mounts or run from inside another script. The container's
+orchestrator is Snakemake:
 
 ```bash
 docker run --privileged --rm \
@@ -200,47 +205,49 @@ docker run --privileged --rm \
   -v "/path/to/data:/pgx/data:ro" \
   -v "/path/to/results:/pgx/results" \
   pgx-suite:latest \
-  pgx-all-genes.sh /pgx/data/sample.bam --output /pgx/results
+  snakemake -s /opt/pgx/Snakefile --cores 4 \
+    --config bam=/pgx/data/sample.bam outdir=/pgx/results
 ```
 
-**Supported options:**
+**Config keys** (passed via `--config key=value`):
 
-```
-pgx-all-genes.sh <BAM|CRAM> [--ref PATH] [--output PATH] [--jobs N]
-```
+| Key | Default | Description |
+|-----|---------|-------------|
+| `bam` | (required) | Input BAM/CRAM (indexed) |
+| `outdir` | `/pgx/results` | Root output directory |
+| `ref` | `/pgx/ref/hg38.fa` | GRCh38 reference FASTA |
+| `genes` | all 31 | Space-separated subset, e.g. `genes="CYP2D6 CYP2C19"` |
+| `min_depth` | `10` | Mean-depth floor below which a gene is **NO_CALL** |
+| `depth_bam` | = `bam` | For CRAM: a pre-extracted region BAM for QC depth |
 
-`pgx-all-genes.sh` runs every gene in the 31-gene support matrix in parallel batches,
-collects all results into `log/all_genes_summary.tsv`, and generates a standalone HTML
-report at `<output>/<SAMPLE>_pgx_report.html`.
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--ref PATH` | `/pgx/ref/hg38.fa` | GRCh38 reference FASTA |
-| `--output PATH` | `/pgx/results` | Root output directory |
-| `--jobs N` | `4` | Genes to run concurrently |
+`--cores N` budgets how many genes × tools Snakemake schedules at once. Snakemake
+expands one `{gene}` rule graph over the 31-gene support matrix, writes a verdict
+summary to `<outdir>/all_genes_summary.tsv`, and generates the standalone HTML
+report at `<outdir>/<SAMPLE>_pgx_report.html`.
 
 Output layout:
 
 ```
-<output>/
+<outdir>/
 ├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 31 gene panels embedded)
-├── Genes/
-│   └── <GENE>/                       # per-tool outputs for each gene
-│       ├── <GENE>_<SAMPLE>_comparison.tsv
-│       ├── <GENE>_<SAMPLE>_detail.json
-│       ├── pypgx/results.zip
-│       ├── stargazer/genotype-calls.tsv
-│       ├── aldy/<GENE>.aldy
-│       ├── stellarpgx/<gene>/alleles/*.alleles
-│       ├── optitype/<SAMPLE>_result.tsv   # HLA-A/HLA-B only
-│       └── mt-rnr1/<SAMPLE>_mtrna1_result.json  # MT-RNR1 only
-└── log/
-    ├── all_genes_summary.tsv          # concordance table across all genes and tools
-    ├── bam_stats.json                 # whole-BAM QC metrics (incl. per-gene depth)
-    └── bamstats.log                   # pgx-bamstats.sh stdout/stderr
+├── all_genes_summary.tsv             # verdict-driven concordance summary across all genes
+├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
+└── genes/
+    └── <GENE>/                       # per-tool outputs for each gene
+        ├── <GENE>_<SAMPLE>_comparison.tsv
+        ├── <GENE>_<SAMPLE>_detail.json   # 17 fields/tool + the gene `verdict` block
+        ├── logs/<tool>.status            # per-caller exit code (non-fatal sentinels)
+        ├── pypgx/results.zip
+        ├── stargazer/genotype-calls.tsv
+        ├── aldy/<GENE>.aldy
+        ├── stellarpgx/<gene>/alleles/*.alleles
+        ├── optitype/<SAMPLE>_result.tsv          # HLA-A/HLA-B only
+        └── mt-rnr1/<SAMPLE>_mtrna1_result.json   # MT-RNR1 only
 ```
 
-### Run a single gene
+### Run a single gene (debug)
+
+Pass a `genes=` subset to the same Snakefile:
 
 ```bash
 docker run --privileged --rm \
@@ -251,29 +258,18 @@ docker run --privileged --rm \
   -v "/path/to/data:/pgx/data" \
   -v "/path/to/results:/pgx/results" \
   pgx-suite:latest \
-  pgx-run.sh CYP2D6 /pgx/data/sample.bam
+  snakemake -s /opt/pgx/Snakefile --cores 4 \
+    --config bam=/pgx/data/sample.bam outdir=/pgx/results genes="CYP2D6"
 ```
 
-Or use the convenience wrapper (sets all standard volume mounts):
-
-```bash
-./docker/docker-run.sh pgx-run.sh CYP2D6 /pgx/data/sample.bam
-```
-
-**Supported options:**
-
-```
-pgx-run.sh <GENE> <BAM> [--ref /pgx/ref/hg38.fa] [--output /pgx/results]
-```
-
-`pgx-run.sh` automatically:
-- Validates the BAM/CRAM index, reference FASTA, and gene support
-- Derives the sample name from the filename before the first `.` (e.g. `NA12878.bwa.bam` → `NA12878`)
+The Snakefile (driven by `docker/genes.tsv`) automatically, per gene:
+- Derives the sample name from the BAM `@RG SM` tag (falls back to the filename)
 - Generates a gene-region VCF via `bcftools mpileup | bcftools call | tabix`
 - Runs SV-aware preprocessing (depth-of-coverage + VDR control stats) for PyPGx SV genes
 - Runs GDF depth-profile creation for Stargazer's three paralog genes (CYP2A6, CYP2B6, CYP2D6)
-- Calls all applicable tools sequentially; individual failures are logged without aborting
-- Invokes `pgx-compare.py` to produce the comparison table and TSV
+- Routes HLA-A/HLA-B to OptiType, MT-RNR1 to mutserve, and alt-contig GSTT1 to a no-VCF path
+- Records each caller's real exit code in a `logs/<tool>.status` sentinel (a failed caller is
+  marked `failed`, never silently dropped) and reconciles everything in `pgx-compare.py`
 
 ### Volume mounts reference
 
@@ -389,6 +385,28 @@ Each tool reports different field names for equivalent concepts. The table below
 
 ## Architecture
 
+### Orchestration (Snakemake DAG)
+
+`run_pgx_suite.sh` (host) → `docker run` → `snakemake -s /opt/pgx/Snakefile` (container)
+→ per-gene caller rules → `pgx-compare.py` (verdict) → `pgx-bamstats.sh` + `pgx-report.py` (HTML).
+
+- **Single source of truth** — `docker/genes.tsv` holds every gene's region, per-tool
+  support, SV flags, and Stargazer control. Both the Snakefile and `pgx-compare.py` read it
+  (guarded by `docker/test_genes_config.py`). Adding a gene is one TSV row.
+- **Non-fatal callers** — each caller rule's output is a `logs/<tool>.status` sentinel
+  holding the real exit code, so one tool failing never aborts the DAG. `compare` reads the
+  sentinels and passes `--failed-tools`, so a crash reads as `failed`, not `not_run`.
+- **Coverage gate** — `pgx-compare.py` measures per-gene mean depth and reports **NO_CALL**
+  below `min_depth` rather than emitting a confident wild-type from zero reads.
+- **Single verdict authority** — the gene verdict (`concordant`/`majority`/`discordant`/
+  `no_call`) is computed once and written into `detail.json`; the report and summary *read*
+  it, never recompute, so a 2-vs-2 tie surfaces as `DISCORDANT`, not a silent coin-flip.
+
+The Snakefile replaced the former bash orchestrators (`pgx-run.sh` / `pgx-all-genes.sh`)
+after full-set 31-gene equivalence was proven on HG002.
+
+### Container image
+
 ```
 docker run --privileged pgx-suite:latest
 ┌───────────────────────────────────────────────────────────────┐
@@ -425,6 +443,23 @@ docker run --privileged pgx-suite:latest
 
 ---
 
+## Validation
+
+| Axis | Result |
+|------|--------|
+| Orchestrator equivalence | Snakemake reproduces the legacy bash pipeline byte-for-byte across **all 31 genes** on GIAB HG002 — verdict + per-tool diplotype + status identical. |
+| Orthogonal truth (Axiom array) | TTSH cohort, 13 samples × 2 platforms vs Thermo Fisher Axiom P6/P9: **~80% overall concordance**; >90% on CYP2B6, CYP2C19, CYP2C9, CYP3A4/5, NAT2, NUDT15, SLCO1B1, TPMT. Full report: [`TTSHvalidation.md`](TTSHvalidation.md). |
+| Reference sample | HG002 (NA24385) CYP2D6 → **`*2/*4`**, Activity Score 1.0, Intermediate Metabolizer — 4/4 tools concordant. |
+| Unit tests | `python3 docker/test_parsers.py · test_verdict.py · test_coverage_gate.py · test_genes_config.py` — parsers, verdict logic, the NO_CALL gate, and the single-source matrix. |
+
+**Clinical-report safety properties** (enforced by `pgx-compare.py` + `pgx-report.py`):
+- Genes below the depth floor render **NO_CALL**, never a wild-type guess.
+- Tool disagreement renders **DISCORDANT**, never a silent majority pick.
+- Severity survives PDF/print and greyscale — status is carried by a glyph + word, not hue alone; badge contrast meets WCAG AAA.
+- The landing groups genes into **⚠ Needs review** and **Normal — concordant** with an at-a-glance headline count; the per-gene drill-down carries the full 17-field × tool comparison plus CPIC dosing recommendations.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -436,7 +471,7 @@ docker run --privileged pgx-suite:latest
 | Nextflow hangs on first start | JAR download | Ensure outbound internet access on first `nextflow` run |
 | `beagle.jar` error | Java not in PATH | `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`; verify with `java -version` |
 | Stargazer: `no data for target gene` with GDF | hg19 GDF used in grc38 mode | Regenerate GDF with `-a grc38`, or use VCF-only mode (omit `-c` and `-g`) |
-| bcftools VCF empty for GSTT1 | Alt contig `chr22_KI270879v1_alt` | Expected — `pgx-run.sh` skips bcftools for GSTT1 automatically |
+| bcftools VCF empty for GSTT1 | Alt contig `chr22_KI270879v1_alt` | Expected — the pipeline skips bcftools for GSTT1 automatically |
 
 ---
 
@@ -449,14 +484,18 @@ pgx-suite/
 ├── run_pgx_suite.sh                    # Host launcher — single command for new samples
 ├── nextflow                            # Nextflow binary (pre-downloaded)
 ├── docker/
-│   ├── pgx-all-genes.sh                # Batch orchestrator: all 31 genes in parallel
-│   ├── pgx-run.sh                      # Single-gene orchestration entry point
+│   ├── Snakefile                       # Snakemake orchestrator (all genes, one DAG)
+│   ├── genes.tsv                       # Single source of truth: gene → region, tool support, SV flags
 │   ├── pgx-hla.sh                      # HLA typing via OptiType Apptainer SIF
 │   ├── pgx-mt.sh                       # MT-RNR1 calling via mutserve JAR
-│   ├── pgx-compare.py                  # Result parser → comparison TSV + detail JSON
+│   ├── pgx-compare.py                  # Verdict authority: parsers → comparison TSV + detail JSON
 │   ├── pgx-report.py                   # HTML report generator (standalone single-file)
-│   ├── pgx-bamstats.sh                 # Whole-BAM QC → bam_stats.json (29 genes + chrM)
+│   ├── pgx-bamstats.sh                 # Whole-BAM QC → bam_stats.json (per-gene depth + chrM)
 │   ├── test.sh                         # Smoke tests (no BAM required)
+│   ├── test_parsers.py                 # Fixture tests for the 6 output parsers
+│   ├── test_verdict.py                 # Verdict logic (concordant / majority / discordant / no_call)
+│   ├── test_coverage_gate.py           # NO_CALL coverage-gate unit tests
+│   ├── test_genes_config.py            # Regression guard: genes.tsv == frozen matrix
 │   ├── docker-run.sh                   # Convenience docker run wrapper
 │   └── README.md                       # Container-specific notes
 ├── pypgx/                              # PyPGx source

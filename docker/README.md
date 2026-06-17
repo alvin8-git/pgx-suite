@@ -1,6 +1,6 @@
 # PGx Suite Docker Container
 
-Single container for four pharmacogenomics star allele callers.
+Single container for six pharmacogenomics callers, orchestrated by Snakemake.
 All tools configured for **GRCh38**.
 
 ## License Notice
@@ -18,8 +18,7 @@ This image must NOT be pushed to any public registry.
 ## Build
 
 ```bash
-cd /data/alvin/PGxCallers
-docker build -t pgx-suite:latest .
+docker build -t pgx-suite:latest .   # run from the repo root
 ```
 
 First build takes ~15-20 minutes. Subsequent builds use layer cache.
@@ -42,6 +41,9 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | Stargazer | 2.0.3 | `stargazer` |
 | Aldy | 4.8.3 | `aldy` |
 | StellarPGx | 1.2.7 | `nextflow run /pgx/stellarpgx/main.nf` |
+| OptiType | 1.3.5 | `pgx-hla.sh` (Apptainer SIF, HLA-A/B) |
+| mutserve | 2.0.0 | `pgx-mt.sh` (baked-in JAR, MT-RNR1) |
+| Snakemake | orchestrator | `snakemake -s /opt/pgx/Snakefile` |
 
 ## Volume Mounts (at runtime)
 
@@ -60,10 +62,19 @@ StellarPGx uses Nextflow + Apptainer (Singularity) to run its pipeline steps
 inside `stellarpgx-dev.sif`. Apptainer requires kernel namespace support
 (`SYS_ADMIN` capability) to unpack SIF overlay filesystems.
 
-## Phase 2 (coming — awaiting test BAM)
+## Running the pipeline
 
-`pgx-run.sh <GENE> <BAM>` will run all supported tools for a given gene
-and produce a side-by-side star allele comparison table.
+The orchestrator is Snakemake (`/opt/pgx/Snakefile`), driven by `genes.tsv`:
+
+```bash
+snakemake -s /opt/pgx/Snakefile --cores 4 \
+  --config bam=/pgx/data/sample.bam outdir=/pgx/results
+# single gene (debug): add  genes="CYP2D6"
+```
+
+Each caller runs as a non-fatal rule; `pgx-compare.py` reconciles them into one
+verdict per gene (with a NO_CALL coverage gate) and `pgx-report.py` writes the
+self-contained HTML report. See the top-level [README](../README.md) for full usage.
 
 ## Troubleshooting
 
