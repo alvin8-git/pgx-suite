@@ -871,8 +871,12 @@ def build_gene_cpic_section(gene: str, phenotype: str, diplotype: str,
         "informational": '<span class="badge badge-blue" style="font-size:0.85rem;padding:0.25rem 0.75rem">Informational</span>',
     }.get(tier or "", '<span class="badge badge-grey" style="font-size:0.85rem;padding:0.25rem 0.75rem">Normal / Not flagged</span>')
 
+    # M2: escalate the note's visual weight by tier so a high-consequence warning
+    # (e.g. "contraindicated") no longer looks identical to an informational note.
+    _note_mod = {"high": " cpic-patient-note--high",
+                 "moderate": " cpic-patient-note--moderate"}.get(tier or "", "")
     patient_note_html = (
-        f'<div class="cpic-patient-note">&#128203; {note}</div>' if note else ""
+        f'<div class="cpic-patient-note{_note_mod}">&#128203; {note}</div>' if note else ""
     )
 
     drug_rows = ""
@@ -905,7 +909,7 @@ def build_gene_cpic_section(gene: str, phenotype: str, diplotype: str,
             </div>
         </div>
         {patient_note_html}
-        <div class="cpic-drug-wrap">
+        <div class="cpic-drug-wrap table-scroll">
             <table class="cpic-drug-table">
                 <thead><tr>
                     <th>Drug / Drug class</th>
@@ -1007,17 +1011,17 @@ SHARED_CSS = """
     --border: #dde3ec;
     --text: #1e2a3a;
     --muted: #64748b;
-    --green: #166534;
+    --green: #14532d;   /* darkened to clear WCAG AAA (>=7:1) on --green-bg */
     --green-bg: #dcfce7;
-    --amber: #92400e;
+    --amber: #78350f;   /* AAA on --amber-bg */
     --amber-bg: #fef3c7;
-    --orange: #9a3412;
+    --orange: #7c2d12;  /* AAA on --orange-bg */
     --orange-bg: #ffedd5;
-    --red: #991b1b;
+    --red: #7f1d1d;     /* AAA on --red-bg */
     --red-bg: #fee2e2;
     --blue: #1e3a5f;
     --blue-bg: #dbeafe;
-    --grey: #475569;
+    --grey: #334155;    /* AAA on --grey-bg */
     --grey-bg: #f1f5f9;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1097,7 +1101,7 @@ th {
     letter-spacing: 0.06em;
 }
 thead tr th { border-bottom: 2px solid #2b6cb0; }
-td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; font-variant-numeric: tabular-nums; }
 tr:nth-child(even) td { background: #f8fafc; }
 tr:hover td { background: #eef2f7; }
 tr:last-child td { border-bottom: none; }
@@ -1136,6 +1140,23 @@ footer {
     th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .gene-card { border: 1px solid #ccc; break-inside: avoid; }
     .report-status-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* C1: preserve severity colour in print/PDF. Without this the archived report
+       drops all status backgrounds (a discordant/NO_CALL prints like a normal
+       call, and white-text pheno pills become invisible on white). */
+    .badge, .gene-card, .cpic-level-badge, .gene-pheno-pill, .cpic-patient-note,
+    .status-final, .status-prelim {
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+}
+
+/* M1: responsive reflow — previously the ONLY @media block was print. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 768px) {
+    .container { padding: 1rem 0.75rem; }
+    header { padding: 0.75rem 1rem; flex-wrap: wrap; }
+    .qc-bar { flex-wrap: wrap; }
+    .gene-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .table-scroll table, .table-scroll .cpic-drug-table { min-width: 560px; }
 }
 /* ── CAP/CLIA compliance elements ─────────────────────────────────── */
 .report-status-banner {
@@ -1211,7 +1232,7 @@ LANDING_EXTRA_CSS = """
     margin: 0.2rem 0;
     flex-shrink: 0;
 }
-.qc-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 500; }
+.qc-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 500; }
 .qc-value { font-size: 1.05rem; font-weight: 700; color: var(--primary); margin-top: 0.1rem; font-variant-numeric: tabular-nums; }
 .qc-unit  { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
 .gene-grid {
@@ -1237,6 +1258,7 @@ LANDING_EXTRA_CSS = """
 .card-red    { border-left-color: #e53e3e; }
 .card-no-data{ border-left-color: #a0aec0; }
 .gene-name   { font-size: 1rem; font-weight: 700; }
+.gene-status { font-size: 0.72rem; font-weight: 700; margin-top: 0.15rem; color: var(--text); }
 .gene-diplo  { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gene-pheno-pill {
     display: inline-block;
@@ -1397,7 +1419,18 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
 
     gene_cards_html = ""
     gene_depth_map = (bs or {}).get("gene_depth", {})
-    for gd in genes_data:
+    # M4: float criticals (discordant / no-call) to the top-left so they are scanned
+    # first. C2: a non-colour status token (glyph + word) so severity survives
+    # greyscale, colour-blindness, and print where backgrounds may drop.
+    _SEV_RANK = {"card-red": 0, "card-no-data": 1, "card-orange": 2, "card-amber": 3, "card-green": 4}
+    _STATUS_TOKEN = {
+        "card-green":   "✓ Concordant",
+        "card-amber":   "≈ Majority",
+        "card-orange":  "≈ Partial",
+        "card-red":     "✗ Discordant",
+        "card-no-data": "▢ No call",
+    }
+    for gd in sorted(genes_data, key=lambda g: (_SEV_RANK.get(g["card_class"], 5), g["gene"])):
         gene = gd["gene"]
         dip  = gd["consensus_diplotype"]
         pheno = gd["consensus_phenotype"]
@@ -1452,6 +1485,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         gene_cards_html += f"""
             <a href="{card_href}" {card_onclick} class="gene-card {css_cls}">
                 <div class="gene-name">{gene}</div>
+                <div class="gene-status">{_STATUS_TOKEN.get(card_class, "")}</div>
                 <div class="gene-diplo" title="{dip}">{dip if dip != '-' else '—'}</div>
                 <div>
                     <span class="gene-pheno-pill" style="background:{pill_color}">{pheno_short}</span>
@@ -1774,10 +1808,12 @@ DETAIL_EXTRA_CSS = """
 .cpic-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
 .cpic-desc { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; max-width: 720px; line-height: 1.5; }
 .cpic-patient-note { background: #ebf8ff; border-left: 4px solid #3182ce; border-radius: 4px; padding: 0.6rem 0.9rem; font-size: 0.83rem; color: #2a4365; margin-bottom: 1rem; line-height: 1.5; }
+.cpic-patient-note--high     { background: #fff5f5; border-left-color: #c53030; color: #742a2a; }
+.cpic-patient-note--moderate { background: #fffaf0; border-left-color: #dd6b20; color: #7b341e; }
 .cpic-drug-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1rem; }
 .cpic-drug-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
 .cpic-drug-table th { background: var(--primary); color: white; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-.cpic-drug-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cpic-drug-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; font-variant-numeric: tabular-nums; }
 .cpic-drug-table tr:last-child td { border-bottom: none; }
 .cpic-level-badge { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; }
 .cpic-level-a { background: #c6f6d5; color: #276749; }
@@ -1964,7 +2000,7 @@ def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None 
     <div class="variant-section" id="{id_prefix}variant-evidence">
         <h2>Supporting Variant Evidence</h2>
         <div class="var-meta">{summary}{legend}</div>
-        <div class="var-table-wrap">
+        <div class="var-table-wrap table-scroll">
         <table class="var-table">
             <thead><tr>
                 <th>Position (GRCh38)</th>
@@ -2127,7 +2163,7 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
 
     <div class="section" id="{id_prefix}tool-results">
         <h2>Tool Results &#8212; {gene}</h2>
-        <div class="detail-table-wrap">
+        <div class="detail-table-wrap table-scroll">
             <table class="detail-table">
                 <thead>
                     <tr>
