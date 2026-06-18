@@ -39,3 +39,5 @@ jobs:
         run: python3 docker/test_vcf_check.py
       - name: Cyrius CYP2D6 integration
         run: python3 docker/test_cyrius.py
+      - name: PharmCAT integration
+        run: python3 docker/test_pharmcat.py

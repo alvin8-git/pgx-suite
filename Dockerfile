@@ -152,6 +152,8 @@ COPY docker/cpic.json             /opt/pgx/cpic.json
 COPY docker/reconcile.py          /opt/pgx/reconcile.py
 COPY docker/allele_synonyms.json  /opt/pgx/allele_synonyms.json
 COPY docker/vcf_check_variants.json /opt/pgx/vcf_check_variants.json
+COPY docker/pharmcat_positions.vcf.bgz     /opt/pgx/pharmcat_positions.vcf.bgz
+COPY docker/pharmcat_positions.vcf.bgz.csi /opt/pgx/pharmcat_positions.vcf.bgz.csi
 COPY docker/Snakefile             /opt/pgx/Snakefile
 # Cyrius (vendored, PolyForm Strict 1.0.0 — use only, do NOT redistribute the image)
 COPY Cyrius/                      /opt/cyrius/

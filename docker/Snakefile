@@ -274,6 +274,30 @@ rule cyrius:
         "--threads {threads} || rc=$?; echo $rc > {output}"
 
 
+# PharmCAT: CPIC reference implementation, run ONCE per sample via its Apptainer
+# SIF (carries its own bcftools >=1.18 + jar + preprocessor + positions). Produces
+# one report.json covering all its CPIC genes; per-gene compare reads its gene out.
+# GT-only positions VCF avoids the AD/DP FORMAT-merge conflict PharmCAT chokes on.
+rule pharmcat:
+    output:
+        os.path.join(OUT, "pharmcat", "pharmcat.status"),
+    threads: 4
+    resources:
+        mem_mb=6000
+    params:
+        pcdir=os.path.join(OUT, "pharmcat"),
+        positions="/opt/pgx/pharmcat_positions.vcf.bgz",
+        sif="/pgx/containers/pharmcat.sif",
+    shell:
+        "mkdir -p {params.pcdir}; rc=0; "
+        "( bcftools mpileup -R {params.positions} -f {REF} --max-depth 500 -Ou {BAM} 2>/dev/null "
+        "| bcftools call -m --output-type z -o {params.pcdir}/pgx.vcf.gz "
+        "&& tabix -f -p vcf {params.pcdir}/pgx.vcf.gz "
+        "&& apptainer exec --bind {params.pcdir}:{params.pcdir} {params.sif} "
+        "pharmcat_pipeline {params.pcdir}/pgx.vcf.gz --missing-to-ref -reporterJson -o {params.pcdir} ) "
+        "|| rc=$?; echo $rc > {output}"
+
+
 # ── Phase 3: reconcile (single verdict authority; always runs) ───────────────
 def compare_inputs(w):
     g = w.gene
@@ -283,6 +307,8 @@ def compare_inputs(w):
             ins[tool] = STAT(g, tool)
     if needs_vcf(g) or _flag(g, "vcf_check"):
         ins["bcftools"] = STAT(g, "bcftools")
+    if _flag(g, "pharmcat"):   # sample-level dependency; PharmCAT runs once
+        ins["pharmcat"] = os.path.join(OUT, "pharmcat", "pharmcat.status")
     return ins
 
 rule compare:

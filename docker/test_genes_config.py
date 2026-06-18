@@ -20,14 +20,14 @@ ORIG_SUPPORT = {
     "CYP2D6": {"pypgx", "stargazer", "aldy", "stellarpgx", "cyrius"},  # C: SV-aware CYP2D6 caller
     "CYP2C19": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2C9": {"pypgx", "stargazer", "aldy", "stellarpgx"},
-    "CYP2B6": {"pypgx", "stargazer", "aldy", "stellarpgx"},
+    "CYP2B6": {"pypgx", "stargazer", "aldy", "stellarpgx", "pharmcat"},  # PharmCAT authority
     "CYP2C8": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP3A4": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP3A5": {"pypgx", "stargazer", "aldy", "stellarpgx"},
-    "CYP4F2": {"pypgx", "stargazer", "aldy", "stellarpgx"},
+    "CYP4F2": {"pypgx", "stargazer", "aldy", "stellarpgx", "pharmcat"},  # PharmCAT authority
     "NUDT15": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "TPMT": {"pypgx", "stargazer", "aldy", "stellarpgx"},
-    "UGT1A1": {"pypgx", "stargazer", "aldy", "stellarpgx", "vcf_check"},
+    "UGT1A1": {"pypgx", "stargazer", "aldy", "stellarpgx", "vcf_check", "pharmcat"},  # PharmCAT authority
     "SLCO1B1": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "DPYD": {"pypgx", "stargazer", "aldy"},
     "NAT1": {"pypgx", "stargazer", "aldy", "stellarpgx"},
@@ -76,7 +76,8 @@ _VDR = {"CYP2D6", "CYP2C19", "CYP2C9", "CYP2B6", "CYP2C8", "CYP3A4", "CYP3A5",
         "IFNL3", "RYR1", "POR"}
 ORIG_CONTROL = {g: ("vdr" if g in _VDR else "-") for g in ORIG_COORDS}
 
-ALL_TOOLS = ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "vcf_check", "cyrius")
+ALL_TOOLS = ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve",
+             "vcf_check", "cyrius", "pharmcat")
 
 
 def _load_compare():

@@ -116,7 +116,7 @@ def load_gene_config(path: str | None = None):
             support[g] = {
                 k: True
                 for k in ("pypgx", "stargazer", "aldy", "stellarpgx",
-                          "optitype", "mutserve", "vcf_check", "cyrius")
+                          "optitype", "mutserve", "vcf_check", "cyrius", "pharmcat")
                 if row.get(k) == "1"
             }
             if row["pypgx_sv"] == "1":
@@ -715,6 +715,54 @@ def parse_cyrius(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: PharmCAT (CPIC reference implementation, sample-level) ───────────
+# PharmCAT runs once per sample (via its Apptainer SIF) and writes one report.json
+# covering all its CPIC genes. It is the authority for the genes where the
+# star-allele callers genuinely disagree (UGT1A1 *28/*80 LD, CYP2B6, CYP4F2). The
+# report lives at OUT/pharmcat/<base>.report.json, two levels up from the per-gene
+# output dir. Structure: genes[<gene>].sourceDiplotypes[0].{label,phenotypes}.
+def parse_pharmcat(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Read this gene's call from the sample-level PharmCAT report.json."""
+    result = CallerResult(tool="PharmCAT")
+    pc_dir = os.path.normpath(os.path.join(output_dir, "..", "..", "pharmcat"))
+    reports = glob.glob(os.path.join(pc_dir, "*.report.json"))
+    if not reports:
+        result.status = "failed"
+        result.diplotype = "no PharmCAT report"
+        return result
+    try:
+        d = json.load(open(reports[0]))
+        genes = d.get("genes", {})
+        node = genes.get(gene)
+        if node is None:  # tolerate source-nested layouts (CPIC/DPWG/...)
+            for src in genes.values():
+                if isinstance(src, dict) and gene in src:
+                    node = src[gene]
+                    break
+        if node is None:
+            result.status = "failed"
+            result.diplotype = f"{gene} not in PharmCAT report"
+            return result
+        sd = node.get("sourceDiplotypes") or []
+        labels = [x.get("label") for x in sd if x.get("label")]
+        if not labels:
+            result.status = "failed"
+            result.diplotype = "PharmCAT no-call"
+            return result
+        result.diplotype = labels[0]
+        result.haplotype1 = labels[0].split("/")[0].strip() if "/" in labels[0] else labels[0]
+        result.haplotype2 = labels[0].split("/")[1].strip() if "/" in labels[0] else "-"
+        phenos = sd[0].get("phenotypes") or []
+        result.phenotype = phenos[0] if phenos else "-"
+        if len(labels) > 1:
+            result.alternative_diplotypes = "; ".join(labels[1:4])
+        result.status = "ok"
+    except Exception as exc:
+        result.status = "failed"
+        result.diplotype = f"parse error: {exc}"
+    return result
+
+
 # ── Parser: CACNA1S VCF-Check (MHS pathogenic alleles *2 and *3) ──────────────
 # Only PyPGx and StellarPGx call CACNA1S; if StellarPGx fails, a single-tool
 # call is the only result. The entire CPIC-relevant allele set for CACNA1S is
@@ -1267,6 +1315,9 @@ _VCF_CHECK_PARSERS: dict = {
 AUTHORITATIVE = {
     "RYR1": "VCF-Check", "CACNA1S": "VCF-Check", "G6PD": "VCF-Check",
     "VKORC1": "VCF-Check", "IFNL3": "VCF-Check", "CYP2D6": "Cyrius",
+    # PharmCAT (CPIC reference impl) is the authority where star-allele callers
+    # genuinely disagree on a CPIC gene: UGT1A1 *28/*80 LD, CYP2B6, CYP4F2.
+    "UGT1A1": "PharmCAT", "CYP2B6": "PharmCAT", "CYP4F2": "PharmCAT",
 }
 
 
@@ -1500,6 +1551,8 @@ def main() -> None:
             results.append(_vcf_fn(args.output_dir, gene, args.sample))
     if support.get("cyrius"):
         results.append(parse_cyrius(args.output_dir, gene, args.sample))
+    if support.get("pharmcat"):
+        results.append(parse_pharmcat(args.output_dir, gene, args.sample))
 
     # Distinguish "tool ran and crashed" from "tool never ran". A crashed caller
     # leaves no output file, so it would otherwise look identical to not_run.
