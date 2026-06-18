@@ -25,6 +25,16 @@ from typing import Any
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import reconcile  # noqa: E402
 
+# VCF-Check variant tables (design D) — curated clinical variant lists kept as
+# data, not code. Currently RYR1 (CPIC malignant-hyperthermia alleles); CACNA1S
+# and G6PD may migrate here later.
+_VCF_CHECK_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), "vcf_check_variants.json")
+try:
+    with open(_VCF_CHECK_DATA, encoding="utf-8") as _vfh:
+        _VCF_CHECK_VARIANTS: dict = json.load(_vfh)
+except FileNotFoundError:
+    _VCF_CHECK_VARIANTS = {}
+
 # Mean read depth (x) below which a gene cannot be called. Without this gate a
 # variant caller that sees no ALT alleles in an uncovered region emits wild-type
 # (*1/*1) — a confident-looking call manufactured from missing data.
@@ -907,6 +917,97 @@ def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: RYR1 VCF-Check (CPIC malignant-hyperthermia alleles) ─────────────
+# RYR1 has NO star-allele system; CPIC defines MH risk by a curated list of
+# pathogenic / likely-pathogenic missense variants. The star-allele callers
+# (PyPGx/Stargazer/Aldy) are the wrong instrument here and routinely miss real
+# MH variants the array reports (validation: P_2000 c.1021G>A missed by all 3).
+# This VCF-Check is the authoritative RYR1 caller; the 93-variant table lives in
+# docker/vcf_check_variants.json (CPIC api.cpicpgx.org + Ensembl-resolved coords),
+# NOT hand-embedded — so it is auditable and updatable. GRCh38 / chr19 / +strand.
+def parse_ryr1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Query RYR1.vcf.gz for CPIC MH-associated variants (data-file driven)."""
+    result = CallerResult(
+        tool="VCF-Check",
+        phasing_method="bcftools mpileup — direct CPIC MH-variant query (unphased)",
+    )
+    entry = _VCF_CHECK_VARIANTS.get("RYR1", {})
+    table = entry.get("variants", [])
+    if not table:
+        result.status = "failed"
+        result.diplotype = "RYR1 variant table missing"
+        return result
+
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    if not os.path.exists(vcf):
+        result.status = "failed"
+        result.diplotype = "VCF not found"
+        return result
+
+    by_pos: dict[int, list] = {}
+    for v in table:
+        by_pos.setdefault(v["pos"], []).append(v)
+    chrom = entry.get("chrom", "chr19")
+    region = f"{chrom}:{min(by_pos)}-{max(by_pos)}"
+    try:
+        proc = subprocess.run(
+            ["bcftools", "view", "-r", region, vcf],
+            capture_output=True, text=True, timeout=60,
+        )
+    except FileNotFoundError:
+        result.status = "failed"
+        result.diplotype = "bcftools not in PATH"
+        return result
+    except subprocess.TimeoutExpired:
+        result.status = "failed"
+        result.diplotype = "bcftools timed out"
+        return result
+
+    found: list[tuple] = []
+    variants_list: list[dict] = []
+    for line in proc.stdout.splitlines():
+        if line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) < 10:
+            continue
+        pos = int(fields[1])
+        if pos not in by_pos:
+            continue
+        ref, alt_str = fields[3], fields[4]
+        alts = alt_str.split(",")
+        fmt = dict(zip(fields[8].split(":"), fields[9].split(":")))
+        gt = fmt.get("GT", "./.").replace("|", "/")
+        dp, ad = fmt.get("DP", "-"), fmt.get("AD", "-")
+        copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
+        if copies == 0:
+            continue
+        for adef in by_pos[pos]:
+            if adef["alt"] not in alts:
+                continue
+            zyg = "hom" if copies >= 2 else "het"
+            found.append((adef["hgvs_c"], zyg, adef.get("status", "")))
+            variants_list.append({
+                "allele": adef["hgvs_c"], "chrom": chrom, "pos": str(pos),
+                "ref": ref, "alt": adef["alt"], "af": ad, "depth": dp,
+                "effect": adef.get("note", ""), "rsid": adef.get("rsid") or "-",
+            })
+
+    result.status = "ok"
+    result.supporting_variants = variants_list
+    if not found:
+        result.diplotype = "*1/*1"
+        result.phenotype = f"No CPIC MH-associated RYR1 variant detected (checked {len(table)} positions)"
+        return result
+
+    parts = [f"{h}({z})" for h, z, _ in found]
+    result.diplotype = "+".join(parts) + " [unphased]"
+    worst = "Pathogenic" if any(s == "Pathogenic" for _, _, s in found) else "Likely Pathogenic"
+    result.phenotype = (f"RYR1 MH-associated variant detected ({worst}) — malignant hyperthermia "
+                        "susceptibility; avoid volatile anaesthetics and succinylcholine")
+    return result
+
+
 # ── Parser: UGT1A1 VCF-Check (promoter + coding SNP supplement) ───────────────
 # Star-allele callers inconsistently report UGT1A1 *60 (rs45530432) and *80
 # (rs887829) — East Asian promoter variants that compound the activity of *28.
@@ -1049,6 +1150,7 @@ _VCF_CHECK_PARSERS: dict = {
     "UGT1A1":  parse_ugt1a1_vcf,
     "CACNA1S": parse_cacna1s_vcf,
     "G6PD":    parse_g6pd_vcf,
+    "RYR1":    parse_ryr1_vcf,
 }
 
 

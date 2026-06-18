@@ -150,6 +150,7 @@ COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/cpic.json             /opt/pgx/cpic.json
 COPY docker/reconcile.py          /opt/pgx/reconcile.py
 COPY docker/allele_synonyms.json  /opt/pgx/allele_synonyms.json
+COPY docker/vcf_check_variants.json /opt/pgx/vcf_check_variants.json
 COPY docker/Snakefile             /opt/pgx/Snakefile
 # Pipeline version stamp for the provenance block (override with
 # --build-arg PGX_VERSION=$(git rev-parse --short HEAD)).

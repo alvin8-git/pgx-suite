@@ -43,7 +43,7 @@ ORIG_SUPPORT = {
     "CYP2A6": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2E1": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "IFNL3": {"pypgx", "stargazer", "aldy"},
-    "RYR1": {"pypgx", "stargazer", "aldy"},
+    "RYR1": {"pypgx", "stargazer", "aldy", "vcf_check"},  # D: CPIC MH-variant VCF-Check added
     "ABCG2": {"aldy"},
     "HLA-A": {"optitype"},
     "HLA-B": {"optitype"},

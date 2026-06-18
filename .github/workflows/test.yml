@@ -35,3 +35,5 @@ jobs:
         run: python3 docker/test_cpic.py
       - name: Variant-tier reconciliation
         run: python3 docker/test_reconcile.py
+      - name: RYR1 VCF-Check variant table
+        run: python3 docker/test_vcf_check.py
