@@ -53,7 +53,30 @@ def main():
     res = comp.parse_ryr1_vcf("/nonexistent", "RYR1", "x")
     assert res.status == "failed" and "VCF not found" in res.diplotype
 
-    print(f"all vcf_check (RYR1) checks passed — {len(variants)} MH variants")
+    # single-SNP genes (path1): VKORC1 / IFNL3 defs + parser registration
+    for g, rs, pos in (("VKORC1", "rs9923231", 31096368), ("IFNL3", "rs12979860", 39248147)):
+        snp = data[g]["snp"]
+        assert data[g]["mode"] == "single_snp"
+        assert snp["rsid"] == rs and snp["pos"] == pos
+        assert snp["report_ref"] and snp["report_alt"] and "phenotypes" in snp
+        assert comp._VCF_CHECK_PARSERS.get(g) is comp.parse_single_snp_vcf
+        r = comp.parse_single_snp_vcf("/nonexistent", g, "x")
+        assert r.status == "failed" and "VCF not found" in r.diplotype
+
+    # VCF-authoritative verdict policy: the VCF-Check call wins over star-allele
+    # callers using incompatible nomenclature.
+    assert all(comp.AUTHORITATIVE[g] == "VCF-Check"
+               for g in ("RYR1", "CACNA1S", "G6PD", "VKORC1", "IFNL3"))
+    CR = comp.CallerResult
+    def _r(tool, dip, st="ok", phe="-"):
+        c = CR(tool=tool); c.status, c.diplotype, c.phenotype = st, dip, phe; return c
+    rs = [_r("PyPGx", "Reference/Reference"), _r("Stargazer", "*1/*1"),
+          _r("Aldy", "*H1/*H1"), _r("VCF-Check", "G/A", phe="Intermediate warfarin sensitivity (G/A)")]
+    v = comp.compute_verdict(rs, no_call=False, gene="VKORC1")
+    assert v["status"] == "concordant" and v["consensus_diplotype"] == "G/A"
+    assert v.get("authority") == "VCF-Check"
+
+    print(f"all vcf_check checks passed — RYR1 {len(variants)} MH variants + VKORC1/IFNL3 single-SNP")
 
 
 if __name__ == "__main__":

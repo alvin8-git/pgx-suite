@@ -64,6 +64,22 @@ def main():
         r = c.parse_cyrius(d, "CYP2D6", "S4")
         assert r.status == "failed" and "no Cyrius output" in r.diplotype
 
+    # Cyrius is authoritative for CYP2D6: a PASS call wins over the star-allele vote
+    assert c.AUTHORITATIVE.get("CYP2D6") == "Cyrius"
+    CR = c.CallerResult
+    def _r(tool, dip, st="ok"):
+        x = CR(tool=tool); x.status, x.diplotype, x.phenotype = st, dip, "-"; return x
+    rs = [_r("PyPGx", "*5/*39"), _r("Stargazer", "*13C/*39"), _r("Aldy", "*1/*76"),
+          _r("Cyrius", "*1/*13")]
+    v = c.compute_verdict(rs, no_call=False, gene="CYP2D6")
+    assert v["status"] == "concordant" and v["consensus_diplotype"] == "*1/*13"
+    assert v.get("authority") == "Cyrius"
+    # when Cyrius declines (no ok call), fall back to the star-allele vote
+    rs2 = [_r("PyPGx", "*1/*2"), _r("Stargazer", "*1/*2"), _r("Aldy", "*1/*2"),
+           _r("Cyrius", "Cyrius no-call (None)", st="failed")]
+    v2 = c.compute_verdict(rs2, no_call=False, gene="CYP2D6")
+    assert v2.get("authority") is None and v2["consensus_diplotype"] == "*1/*2"
+
     print("all Cyrius integration checks passed")
 
 

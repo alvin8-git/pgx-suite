@@ -1180,6 +1180,72 @@ def parse_ugt1a1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
+# ── Parser: single-SNP VCF-Check (VKORC1, IFNL3) ─────────────────────────────
+# These genes' clinical call IS one SNP (VKORC1 rs9923231 / IFNL3 rs12979860);
+# the star-allele callers wrap it in incompatible nomenclature (*H/*S/rsID). Read
+# the SNP genotype straight from the VCF. bcftools call -v emits only variant
+# sites, so absence of the record at a covered locus = reference homozygous.
+# Reported in the clinical sense (report_ref/report_alt) to match the array.
+def parse_single_snp_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    result = CallerResult(
+        tool="VCF-Check",
+        phasing_method="bcftools mpileup — single-SNP genotype",
+    )
+    entry = _VCF_CHECK_VARIANTS.get(gene, {})
+    snp = entry.get("snp")
+    if not snp:
+        result.status = "failed"
+        result.diplotype = f"{gene} SNP def missing"
+        return result
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    if not os.path.exists(vcf):
+        result.status = "failed"
+        result.diplotype = "VCF not found"
+        return result
+    chrom, pos = entry.get("chrom", "chr1"), snp["pos"]
+    try:
+        proc = subprocess.run(
+            ["bcftools", "view", "-r", f"{chrom}:{pos}-{pos}", vcf],
+            capture_output=True, text=True, timeout=30,
+        )
+    except FileNotFoundError:
+        result.status = "failed"
+        result.diplotype = "bcftools not in PATH"
+        return result
+    except subprocess.TimeoutExpired:
+        result.status = "failed"
+        result.diplotype = "bcftools timed out"
+        return result
+
+    rref, ralt = snp["report_ref"], snp["report_alt"]
+    copies, dp = 0, "-"
+    for line in proc.stdout.splitlines():
+        if line.startswith("#"):
+            continue
+        f = line.split("\t")
+        if len(f) < 10 or int(f[1]) != pos or snp["alt"] not in f[4].split(","):
+            continue
+        fmt = dict(zip(f[8].split(":"), f[9].split(":")))
+        gt = fmt.get("GT", "./.").replace("|", "/")
+        dp = fmt.get("DP", "-")
+        copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
+        break
+
+    zyg = "hom" if copies >= 2 else ("het" if copies == 1 else "ref")
+    result.diplotype = {"hom": f"{ralt}/{ralt}", "het": f"{rref}/{ralt}",
+                        "ref": f"{rref}/{rref}"}[zyg]
+    result.haplotype1, result.haplotype2 = result.diplotype.split("/")
+    result.phenotype = snp.get("phenotypes", {}).get(zyg, "-")
+    if copies:
+        result.supporting_variants = [{
+            "allele": snp.get("rsid"), "chrom": chrom, "pos": str(pos),
+            "ref": snp["ref"], "alt": snp["alt"], "af": "-", "depth": dp,
+            "effect": snp.get("note", ""), "rsid": snp.get("rsid", "-"),
+        }]
+    result.status = "ok"
+    return result
+
+
 # ── VCF-Check dispatch table ───────────────────────────────────────────────────
 # Maps gene name → gene-specific VCF parser function.
 # Add new genes here; the main() loop calls the appropriate function via
@@ -1189,6 +1255,18 @@ _VCF_CHECK_PARSERS: dict = {
     "CACNA1S": parse_cacna1s_vcf,
     "G6PD":    parse_g6pd_vcf,
     "RYR1":    parse_ryr1_vcf,
+    "VKORC1":  parse_single_snp_vcf,
+    "IFNL3":   parse_single_snp_vcf,
+}
+
+# Genes resolved by a single authoritative caller rather than a star-allele vote:
+#   VCF-Check for single-SNP / curated-variant-list genes (star-allele callers use
+#   incompatible nomenclature there), and Cyrius for CYP2D6 (purpose-built for the
+#   2D6/2D7 paralog + SV). When the authority produces a call it IS the verdict;
+#   if it declines (no ok result) compute_verdict falls back to the consensus.
+AUTHORITATIVE = {
+    "RYR1": "VCF-Check", "CACNA1S": "VCF-Check", "G6PD": "VCF-Check",
+    "VKORC1": "VCF-Check", "IFNL3": "VCF-Check", "CYP2D6": "Cyrius",
 }
 
 
@@ -1233,6 +1311,19 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
     if no_call:
         return {"consensus_diplotype": "NO_CALL", "consensus_phenotype": "-",
                 "n_agree": 0, "n_called": 0, "status": "no_call", "reconciled": False}
+
+    # Authoritative-caller genes: the designated caller (VCF-Check or Cyrius) is
+    # the verdict when it produced a call; otherwise fall through to the vote.
+    auth_tool = AUTHORITATIVE.get(gene)
+    if auth_tool:
+        a = next((r for r in results if r.tool == auth_tool and r.status == "ok"
+                  and r.diplotype not in ("-", "")), None)
+        if a is not None:
+            n_called = sum(1 for r in results if r.status == "ok" and r.diplotype not in ("-", ""))
+            return {"consensus_diplotype": a.diplotype,
+                    "consensus_phenotype": a.phenotype if a.phenotype not in ("-", "") else "-",
+                    "n_agree": 1, "n_called": n_called, "status": "concordant",
+                    "reconciled": False, "authority": auth_tool}
 
     pairs, phenos = [], []   # pairs: (canonical, raw_normalized)
     for r in results:

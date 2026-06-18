@@ -37,12 +37,12 @@ ORIG_SUPPORT = {
     "GSTT1": {"pypgx", "stellarpgx"},
     "POR": {"pypgx", "stargazer", "stellarpgx"},
     "CYPOR": {"pypgx", "stargazer", "stellarpgx"},
-    "VKORC1": {"pypgx", "stargazer", "aldy"},
+    "VKORC1": {"pypgx", "stargazer", "aldy", "vcf_check"},  # path1: single-SNP VCF-Check (rs9923231)
     "CYP1A1": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP1A2": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2A6": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2E1": {"pypgx", "stargazer", "aldy", "stellarpgx"},
-    "IFNL3": {"pypgx", "stargazer", "aldy"},
+    "IFNL3": {"pypgx", "stargazer", "aldy", "vcf_check"},  # path1: single-SNP VCF-Check (rs12979860)
     "RYR1": {"pypgx", "stargazer", "aldy", "vcf_check"},  # D: CPIC MH-variant VCF-Check added
     "ABCG2": {"aldy"},
     "HLA-A": {"optitype"},

@@ -1,5 +1,5 @@
 {
-  "_provenance": "CPIC RYR1 alleles, clinicalfunctionalstatus='Malignant Hyperthermia associated' (api.cpicpgx.org, 2026-06-18). GRCh38/chr19 SNV+MNV subset: 93 of 94 MH alleles. Coords from CPIC sequence_location where present, else Ensembl variant_recoder on NM_000540.3. Non-substitution alleles (1) excluded (VCF-Check matches substitutions). status = ClinVar-style pathogenicity from CPIC allele table.",
+  "_provenance": "CPIC RYR1 alleles, clinicalfunctionalstatus='Malignant Hyperthermia associated' (api.cpicpgx.org, 2026-06-18). GRCh38/chr19 SNV+MNV subset: 93 of 94 MH alleles. Coords from CPIC sequence_location where present, else Ensembl variant_recoder on NM_000540.3. Non-substitution alleles (1) excluded (VCF-Check matches substitutions). status = ClinVar-style pathogenicity from CPIC allele table. VKORC1/IFNL3 single-SNP defs (rs9923231, rs12979860) from CPIC sequence_location.",
   "RYR1": {
     "chrom": "chr19",
     "region": "chr19:38430690-38590564",
@@ -1027,6 +1027,47 @@
         "coord_source": "CPIC sequence_location",
         "note": "Malignant Hyperthermia associated (CPIC RYR1/CACNA1S guideline)"
       }
-    ]
+    ],
+    "mode": "variant_list"
+  },
+  "VKORC1": {
+    "mode": "single_snp",
+    "chrom": "chr16",
+    "region": "chr16:31087853-31097797",
+    "snp": {
+      "pos": 31096368,
+      "ref": "C",
+      "alt": "T",
+      "rsid": "rs9923231",
+      "hgvs": "-1639G>A",
+      "report_ref": "G",
+      "report_alt": "A",
+      "note": "VKORC1 -1639G>A; A allele = increased warfarin sensitivity (lower dose). Gene on minus strand: genomic C/T = clinical G/A.",
+      "phenotypes": {
+        "ref": "Normal warfarin sensitivity (G/G)",
+        "het": "Intermediate warfarin sensitivity (G/A)",
+        "hom": "Increased warfarin sensitivity \u2014 low-dose (A/A)"
+      }
+    }
+  },
+  "IFNL3": {
+    "mode": "single_snp",
+    "chrom": "chr19",
+    "region": "chr19:39240552-39253525",
+    "snp": {
+      "pos": 39248147,
+      "ref": "C",
+      "alt": "T",
+      "rsid": "rs12979860",
+      "hgvs": "rs12979860 (-1595G>A)",
+      "report_ref": "C",
+      "report_alt": "T",
+      "note": "IFNL3/IL28B rs12979860; CC = favorable response to PEG-IFN/ribavirin (HCV).",
+      "phenotypes": {
+        "ref": "Favorable response genotype (C/C)",
+        "het": "Unfavorable response genotype (C/T)",
+        "hom": "Unfavorable response genotype (T/T)"
+      }
+    }
   }
 }
