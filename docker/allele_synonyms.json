@@ -1,0 +1,17 @@
+{
+  "_provenance": "Curated allele-synonym map for variant-tier reconciliation (design A.1). Each gene maps a CANONICAL token (rsID or primary star allele) to the list of equivalent tokens emitted by different callers (PyPGx star/HGVS, Stargazer S-alleles, Aldy rsID/star). Tokens are matched after lowercasing and stripping copy-number (xN), parentheticals, and sub-allele suffixes. Scoped DELIBERATELY to well-established synonyms only; VKORC1 H-haplotypes and NUDT15 *5/*6 are intentionally EXCLUDED because they are not true synonyms and are handled by array adjudication (A.2). Stargazer S-allele equivalences (*S10=*9A, *S6=*5, *S1=*2A) confirmed by co-occurrence in TTSH validation.",
+  "_reference": ["*1", "reference", "ref", "wt", "wild-type", "wild type", "*ref", "normal", "none"],
+  "DPYD": {
+    "rs1801265": ["*9a", "*s10", "c.85t>c"],
+    "rs1801159": ["*5", "*s6", "c.1627a>g"],
+    "rs3918290": ["*2a", "*s1", "c.1905+1g>a", "ivs14+1g>a"],
+    "rs55886062": ["*13", "c.1679t>g"],
+    "rs67376798": ["c.2846a>t"]
+  },
+  "CYP2C19": {
+    "*2": ["*38"]
+  },
+  "TPMT": {
+    "*1": ["*1s"]
+  }
+}

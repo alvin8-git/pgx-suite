@@ -20,6 +20,11 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
+# Variant-tier reconciliation (A.1). pgx-compare.py is a symlinked entrypoint, so
+# resolve the real dir before importing the sibling module.
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import reconcile  # noqa: E402
+
 # Mean read depth (x) below which a gene cannot be called. Without this gate a
 # variant caller that sees no ALT alleles in an uncovered region emits wild-type
 # (*1/*1) — a confident-looking call manufactured from missing data.
@@ -1067,43 +1072,62 @@ def _normalize_diplotype(d: str) -> str:
     return "/".join(sorted(p.strip() for p in d.split("/")))
 
 
-def compute_verdict(results: list[CallerResult], no_call: bool) -> dict[str, Any]:
+def compute_verdict(results: list[CallerResult], no_call: bool,
+                    gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
 
     Emitted into detail.json so pgx-report.py and the batch summary READ this
     rather than each recomputing concordance (which previously diverged and
     silently resolved 2-vs-2 ties as a winner).
 
+    Agreement is counted on the SYNONYM-COLLAPSED (canonical) diplotype so that
+    e.g. DPYD `*9A` / `*S10` / `c.85T>C (*9A)` count as one call, not three
+    discordant ones (design A.1). The displayed `consensus_diplotype` stays the
+    most common RAW spelling among the agreeing tools (human-readable). For a
+    gene with no synonym entry, canonicalization reduces to the old
+    order-insensitive normalize, so its verdict is unchanged. `reconciled` is
+    True when synonym collapse genuinely raised the agreement count.
+
     status: no_call | no_data | discordant | majority | concordant
     """
     if no_call:
         return {"consensus_diplotype": "NO_CALL", "consensus_phenotype": "-",
-                "n_agree": 0, "n_called": 0, "status": "no_call"}
+                "n_agree": 0, "n_called": 0, "status": "no_call", "reconciled": False}
 
-    dips, phenos = [], []
+    pairs, phenos = [], []   # pairs: (canonical, raw_normalized)
     for r in results:
         if r.status == "ok" and r.diplotype not in ("-", ""):
-            dips.append(_normalize_diplotype(r.diplotype))
+            raw = _normalize_diplotype(r.diplotype)
+            canon = reconcile.canonicalize_diplotype(gene, r.diplotype) if gene else raw
+            pairs.append((canon, raw))
             if r.phenotype not in ("-", ""):
                 phenos.append(r.phenotype)
 
-    n_called = len(dips)
+    n_called = len(pairs)
     if n_called == 0:
         return {"consensus_diplotype": "-", "consensus_phenotype": "-",
-                "n_agree": 0, "n_called": 0, "status": "no_data"}
+                "n_agree": 0, "n_called": 0, "status": "no_data", "reconciled": False}
 
-    counts = Counter(dips).most_common()
-    top_dip, n_agree = counts[0]
+    canon_counts = Counter(c for c, _ in pairs).most_common()
+    top_canon, n_agree = canon_counts[0]
     pheno = Counter(phenos).most_common(1)[0][0] if phenos else "-"
 
-    # Tie: a second diplotype called by as many tools — no safe winner.
-    if len(counts) > 1 and counts[1][1] == n_agree:
-        return {"consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
-                "n_agree": n_agree, "n_called": n_called, "status": "discordant"}
+    # Did synonym collapse genuinely merge tools that the raw count split apart?
+    raw_top_agree = Counter(raw for _, raw in pairs).most_common(1)[0][1]
+    reconciled = bool(gene) and n_agree > raw_top_agree
 
+    # Tie: a second diplotype called by as many tools — no safe winner.
+    if len(canon_counts) > 1 and canon_counts[1][1] == n_agree:
+        return {"consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
+                "n_agree": n_agree, "n_called": n_called, "status": "discordant",
+                "reconciled": False}
+
+    # Display the most common RAW spelling among tools whose canonical == winner.
+    top_dip = Counter(raw for c, raw in pairs if c == top_canon).most_common(1)[0][0]
     status = "concordant" if n_agree == n_called else "majority"
     return {"consensus_diplotype": top_dip, "consensus_phenotype": pheno,
-            "n_agree": n_agree, "n_called": n_called, "status": status}
+            "n_agree": n_agree, "n_called": n_called, "status": status,
+            "reconciled": reconciled}
 
 
 def print_table(
@@ -1119,7 +1143,7 @@ def print_table(
 
     # Coverage gate: a region with too few reads cannot be called at all.
     no_call = region_depth is not None and region_depth < min_depth
-    verdict = compute_verdict(results, no_call)
+    verdict = compute_verdict(results, no_call, gene)
 
     print()
     print("=" * W)

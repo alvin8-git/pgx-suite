@@ -33,3 +33,5 @@ jobs:
         run: python3 docker/test_coverage_gate.py
       - name: CPIC data file + registry
         run: python3 docker/test_cpic.py
+      - name: Variant-tier reconciliation
+        run: python3 docker/test_reconcile.py

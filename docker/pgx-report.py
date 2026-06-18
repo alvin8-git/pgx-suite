@@ -1115,26 +1115,55 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         _glyph = {"MATCH": ("&#10003;", "Concordant", "#1a7f37"),
                   "PARTIAL": ("&#9680;", "Partial", "#9a6700"),
                   "MISMATCH": ("&#9888;", "Review", "#cf222e")}
+        # Adjudication direction takes priority over raw array agreement: an
+        # array false-negative is the array's gap, not a pipeline error, so it
+        # must NOT render as a red "Review". Glyph chosen for colourblind safety
+        # (shape + word, not hue alone).
+        _dir_glyph = {
+            "concordant":          ("&#10003;", "Concordant",          "#1a7f37"),
+            "array_fn":            ("&#9650;",  "NGS — array gap", "#0969da"),
+            "array_authoritative": ("&#9670;",  "Array (single-SNP)",  "#6e7781"),
+            "array_fp_or_ngs_fn":  ("&#9888;",  "Confirm",             "#bf3989"),
+            "ngs_unresolved":      ("&#9888;",  "Review",              "#cf222e"),
+            "review":              ("&#9680;",  "Review",              "#9a6700"),
+        }
+        # Optional second array-software column (e.g. Axiom P6 vs P9). Detected from
+        # the TSV header: if Axiom_P9 is present, render two array columns, else fall
+        # back to the single "Axiom" column (EQ_2017-style TSVs stay valid).
+        two_arrays = any(("Axiom_P9" in r) for r in axiom)
         body = ""
         for r in axiom:
-            g, lbl, col = _glyph.get(r.get("Match", "").upper(),
-                                     ("&bull;", r.get("Match", "?"), "#57606a"))
+            g, lbl, col = _dir_glyph.get((r.get("Direction") or "").lower()) or \
+                _glyph.get(r.get("Match", "").upper(),
+                           ("&bull;", r.get("Match", "?"), "#57606a"))
+            if two_arrays:
+                arr_cells = (f'<td>{escape(r.get("Axiom_P6",""))}</td>'
+                             f'<td>{escape(r.get("Axiom_P9",""))}</td>')
+            else:
+                arr_cells = f'<td>{escape(r.get("Axiom",""))}</td>'
+            reason = escape(r.get("Reason", ""))
+            reason_html = (f'<div style="font-size:0.78rem;color:#57606a">{reason}</div>'
+                           if reason else "")
             body += (
                 f'<tr><td style="font-weight:600">{escape(r.get("Gene",""))}</td>'
-                f'<td>{escape(r.get("Axiom",""))}</td>'
+                f'{arr_cells}'
                 f'<td>{escape(r.get("Consensus",""))}</td>'
-                f'<td style="color:{col};white-space:nowrap">{g} {lbl}</td></tr>'
+                f'<td style="color:{col};min-width:9rem">{g} {lbl}{reason_html}</td></tr>'
             )
+        arr_hdr = ('<th>Axiom P6</th><th>Axiom P9</th>' if two_arrays
+                   else '<th>Axiom</th>')
         axiom_html = (
             '<div class="container" style="margin-top:1.5rem">'
             '<h2 style="margin-bottom:0.3rem">Orthogonal Validation &mdash; Axiom Array</h2>'
-            '<p style="font-size:0.85rem;color:#57606a;margin-top:0">Pipeline diplotypes vs the '
-            'Thermo Fisher Axiom microarray (orthogonal truth). &#9680; Partial = key allele matches '
-            'but resolution/nomenclature differs; &#9888; Review = array panel or nomenclature limitation, '
-            'not necessarily a pipeline error.</p>'
+            '<p style="font-size:0.85rem;color:#57606a;margin-top:0">Pipeline diplotypes adjudicated '
+            'against the Thermo Fisher Axiom microarray (a comparator, not ground truth). '
+            '&#10003; Concordant; &#9650; NGS &mdash; array gap = off-panel variant the array cannot '
+            'score, NGS authoritative; &#9670; Array (single-SNP) = locus the array genotypes directly, '
+            'trust the array; &#9888; Confirm = array and NGS disagree, orthogonal confirmation needed; '
+            '&#9680; Review = nomenclature or panel difference.</p>'
             '<table class="axiom-table" style="width:100%;border-collapse:collapse;font-size:0.9rem">'
             '<thead><tr style="text-align:left;border-bottom:2px solid #d0d7de">'
-            '<th>Gene</th><th>Axiom</th><th>Pipeline consensus</th><th>Agreement</th></tr></thead>'
+            f'<th>Gene</th>{arr_hdr}<th>Pipeline consensus</th><th>Agreement</th></tr></thead>'
             f'<tbody>{body}</tbody></table></div>'
         )
 

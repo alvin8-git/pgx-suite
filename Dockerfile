@@ -148,6 +148,8 @@ COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/cpic.json             /opt/pgx/cpic.json
+COPY docker/reconcile.py          /opt/pgx/reconcile.py
+COPY docker/allele_synonyms.json  /opt/pgx/allele_synonyms.json
 COPY docker/Snakefile             /opt/pgx/Snakefile
 # Pipeline version stamp for the provenance block (override with
 # --build-arg PGX_VERSION=$(git rev-parse --short HEAD)).
