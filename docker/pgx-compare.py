@@ -116,8 +116,8 @@ def load_gene_config(path: str | None = None):
             support[g] = {
                 k: True
                 for k in ("pypgx", "stargazer", "aldy", "stellarpgx",
-                          "optitype", "mutserve", "vcf_check")
-                if row[k] == "1"
+                          "optitype", "mutserve", "vcf_check", "cyrius")
+                if row.get(k) == "1"
             }
             if row["pypgx_sv"] == "1":
                 pypgx_sv.add(g)
@@ -673,6 +673,44 @@ def parse_mutserve(output_dir: str, gene: str, sample: str) -> CallerResult:
             result.allele_score = "No CPIC Level A variants detected"
     except Exception as exc:
         result.status    = "failed"
+        result.diplotype = f"parse error: {exc}"
+    return result
+
+
+# ── Parser: Cyrius (CYP2D6 SV-aware caller) ──────────────────────────────────
+# Cyrius resolves CYP2D6 from the 2D6/2D7 paralog + CNV/hybrids that the
+# star-allele callers struggle with. Output is a TSV: Sample / Genotype / Filter.
+# Genotype is the CYP2D6 diplotype (xN for duplications, hybrids like *68+*4).
+def parse_cyrius(output_dir: str, gene: str, sample: str) -> CallerResult:
+    """Parse Cyrius CYP2D6 output (genes/CYP2D6/cyrius/<prefix>.tsv)."""
+    result = CallerResult(tool="Cyrius")
+    tsvs = glob.glob(os.path.join(output_dir, "cyrius", "*.tsv"))
+    if not tsvs:
+        result.status = "failed"
+        result.diplotype = "no Cyrius output"
+        return result
+    try:
+        with open(tsvs[0]) as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        row = next((r for r in rows if r.get("Sample") == sample), rows[0] if rows else None)
+        if not row:
+            result.status = "failed"
+            result.diplotype = "empty Cyrius output"
+            return result
+        gt = (row.get("Genotype") or "").strip()
+        filt = (row.get("Filter") or "").strip()
+        if not gt or gt.lower() in ("none", "nan"):
+            result.status = "failed"
+            result.diplotype = f"Cyrius no-call ({filt or 'None'})"
+            return result
+        result.diplotype = gt
+        result.haplotype1 = gt.split("/")[0].strip() if "/" in gt else gt
+        result.haplotype2 = gt.split("/")[1].strip() if "/" in gt else "-"
+        if filt and filt.upper() != "PASS":
+            result.alternative_diplotypes = filt
+        result.status = "ok"
+    except Exception as exc:
+        result.status = "failed"
         result.diplotype = f"parse error: {exc}"
     return result
 
@@ -1369,6 +1407,8 @@ def main() -> None:
         _vcf_fn = _VCF_CHECK_PARSERS.get(gene)
         if _vcf_fn:
             results.append(_vcf_fn(args.output_dir, gene, args.sample))
+    if support.get("cyrius"):
+        results.append(parse_cyrius(args.output_dir, gene, args.sample))
 
     # Distinguish "tool ran and crashed" from "tool never ran". A crashed caller
     # leaves no output file, so it would otherwise look identical to not_run.

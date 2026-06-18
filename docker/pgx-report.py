@@ -45,7 +45,7 @@ FIELDS = [
     ("sv_mode",               "SV mode note"),
 ]
 
-TOOLS = ["PyPGx", "Stargazer", "Aldy", "StellarPGx", "OptiType", "mutserve", "VCF-Check"]
+TOOLS = ["PyPGx", "Stargazer", "Aldy", "StellarPGx", "Cyrius", "OptiType", "mutserve", "VCF-Check"]
 
 PHENOTYPE_COLORS = {
     "poor":         "#e53e3e",   # red

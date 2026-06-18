@@ -17,7 +17,7 @@ GENES_TSV = os.path.join(HERE, "genes.tsv")
 
 # ── Frozen ground truth (transcribed from the pre-refactor source) ────────────
 ORIG_SUPPORT = {
-    "CYP2D6": {"pypgx", "stargazer", "aldy", "stellarpgx"},
+    "CYP2D6": {"pypgx", "stargazer", "aldy", "stellarpgx", "cyrius"},  # C: SV-aware CYP2D6 caller
     "CYP2C19": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2C9": {"pypgx", "stargazer", "aldy", "stellarpgx"},
     "CYP2B6": {"pypgx", "stargazer", "aldy", "stellarpgx"},
@@ -76,7 +76,7 @@ _VDR = {"CYP2D6", "CYP2C19", "CYP2C9", "CYP2B6", "CYP2C8", "CYP3A4", "CYP3A5",
         "IFNL3", "RYR1", "POR"}
 ORIG_CONTROL = {g: ("vdr" if g in _VDR else "-") for g in ORIG_COORDS}
 
-ALL_TOOLS = ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "vcf_check")
+ALL_TOOLS = ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "vcf_check", "cyrius")
 
 
 def _load_compare():

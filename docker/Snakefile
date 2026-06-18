@@ -256,11 +256,29 @@ rule stargazer_genotype:
         "-o {params.outdir} {params.mode} || rc=$?; echo $rc > {output}"
 
 
+# Cyrius: SV-aware CYP2D6 caller (resolves 2D6/2D7 paralog + CNV/hybrids the
+# star-allele callers miss). Vendored at /opt/cyrius; non-fatal sentinel.
+rule cyrius:
+    output:
+        STAT("{gene}", "cyrius"),
+    threads: 2
+    resources:
+        mem_mb=4000
+    params:
+        outdir=lambda w: G(w.gene, "cyrius"),
+    shell:
+        "mkdir -p {params.outdir} $(dirname {output}); rc=0; "
+        "echo {BAM} > {params.outdir}/manifest.txt; "
+        "python3 /opt/cyrius/star_caller.py --manifest {params.outdir}/manifest.txt "
+        "--genome 38 --reference {REF} --prefix {SAMPLE} --outDir {params.outdir} "
+        "--threads {threads} || rc=$?; echo $rc > {output}"
+
+
 # ── Phase 3: reconcile (single verdict authority; always runs) ───────────────
 def compare_inputs(w):
     g = w.gene
     ins = {}
-    for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve"):
+    for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "cyrius"):
         if supports(g, tool):
             ins[tool] = STAT(g, tool)
     if needs_vcf(g) or _flag(g, "vcf_check"):
@@ -279,7 +297,8 @@ rule compare:
         logdir=lambda w: G(w.gene, "logs"),
     run:
         names = {"pypgx": "PyPGx", "stargazer": "Stargazer", "aldy": "Aldy",
-                 "stellarpgx": "StellarPGx", "optitype": "OptiType", "mutserve": "mutserve"}
+                 "stellarpgx": "StellarPGx", "optitype": "OptiType", "mutserve": "mutserve",
+                 "cyrius": "Cyrius"}
         failed = []
         for key, name in names.items():
             sf = os.path.join(params.logdir, f"{key}.status")
