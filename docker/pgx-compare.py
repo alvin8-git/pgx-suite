@@ -1468,6 +1468,34 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
             "reconciled": reconciled}
 
 
+def pharmcat_cross_check(output_dir: str, gene: str, sample: str,
+                         verdict: dict[str, Any]) -> dict[str, Any] | None:
+    """Informational PharmCAT call for `gene`, read from the sample-level report.
+
+    PharmCAT runs once per sample and reports ~20 CPIC genes; we surface its call
+    as an independent CPIC-reference cross-check even for genes where it is NOT the
+    verdict authority. This NEVER feeds the verdict — it only annotates agreement.
+
+    Returns None when: PharmCAT is already this gene's authority (then it's the
+    verdict, not a cross-check); the gene is CYP2D6 (PharmCAT does not resolve
+    CYP2D6 structurally — Cyrius does); no report exists; or PharmCAT did not call
+    the gene. `agrees` compares the CPIC *phenotype* (not the raw diplotype string),
+    so tool nomenclature differences don't read as disagreement.
+    """
+    if AUTHORITATIVE.get(gene) == "PharmCAT" or gene == "CYP2D6":
+        return None
+    r = parse_pharmcat(output_dir, gene, sample)
+    if r.status != "ok" or r.diplotype in ("-", ""):
+        return None
+    v_ph = _norm_phenotype(verdict.get("consensus_phenotype", ""))
+    p_ph = _norm_phenotype(r.phenotype)
+    return {
+        "diplotype": r.diplotype,
+        "phenotype": r.phenotype if r.phenotype not in ("-", "") else "-",
+        "agrees": bool(v_ph) and v_ph == p_ph,
+    }
+
+
 def print_table(
     gene: str,
     sample: str,
@@ -1561,6 +1589,10 @@ def print_table(
         # when the gene is NO_CALL (the TSV/headline above are suppressed).
         "tools":   {r.tool: r.to_dict(sample, gene) for r in results},
     }
+    # Informational PharmCAT cross-check (never feeds the verdict above).
+    _xc = pharmcat_cross_check(output_dir, gene, sample, verdict)
+    if _xc:
+        detail["cross_check"] = {"PharmCAT": _xc}
     with open(json_path, "w") as fh:
         json.dump(detail, fh, indent=2)
     print(f"Detail JSON saved to:  {json_path}")

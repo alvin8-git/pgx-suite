@@ -72,6 +72,31 @@ def main():
     assert v["status"] == "concordant" and v["consensus_diplotype"] == "*1/*80"
     assert v.get("authority") == "PharmCAT"
 
+    # ── PharmCAT cross-check (informational; never feeds the verdict) ──────────
+    with tempfile.TemporaryDirectory() as root:
+        _write_report(root, {
+            "CYP2C19": {"sourceDiplotypes": [{"label": "*1/*17", "phenotypes": ["Rapid Metabolizer"]}]},
+        })
+        gd = os.path.join(root, "genes", "CYP2C19"); os.makedirs(gd)
+        # agrees: same normalised phenotype as the verdict
+        xc = c.pharmcat_cross_check(gd, "CYP2C19", "S1", {"consensus_phenotype": "rapid_metabolizer"})
+        assert xc and xc["agrees"] is True and xc["diplotype"] == "*1/*17", xc
+        # differs: verdict phenotype disagrees -> surfaced as a review flag, not an error
+        xc2 = c.pharmcat_cross_check(gd, "CYP2C19", "S1", {"consensus_phenotype": "Normal Metabolizer"})
+        assert xc2 and xc2["agrees"] is False, xc2
+        # authoritative gene -> None (it's the verdict there, not a cross-check)
+        _write_report(root, {"UGT1A1": {"sourceDiplotypes": [{"label": "*1/*1", "phenotypes": ["Normal"]}]}})
+        gdu = os.path.join(root, "genes", "UGT1A1"); os.makedirs(gdu)
+        assert c.pharmcat_cross_check(gdu, "UGT1A1", "S1", {"consensus_phenotype": "Normal"}) is None
+        # CYP2D6 -> None (PharmCAT does not call CYP2D6 structurally; Cyrius does)
+        gdd = os.path.join(root, "genes", "CYP2D6"); os.makedirs(gdd)
+        assert c.pharmcat_cross_check(gdd, "CYP2D6", "S1", {"consensus_phenotype": "x"}) is None
+        # cross-check NEVER changes the verdict: a non-authoritative gene stays as voted
+        rs2 = [_r("PyPGx", "*1/*17", phe="Rapid Metabolizer"),
+               _r("Stargazer", "*1/*17", phe="Rapid Metabolizer")]
+        v2 = c.compute_verdict(rs2, no_call=False, gene="CYP2C19")
+        assert v2.get("authority") != "PharmCAT", v2   # PharmCAT is not CYP2C19's authority
+
     print("all PharmCAT integration checks passed")
 
 

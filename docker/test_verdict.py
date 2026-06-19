@@ -112,6 +112,34 @@ def test_card_concordant_green():
     assert dip == "*1/*4" and cc == "card-green", (dip, cc)
 
 
+# Colour follows the VERDICT STATUS, not the raw tool fraction. Regression guard:
+# an authority/phenotype-resolved gene is often concordant at only 1/N callers
+# (e.g. PharmCAT alone). It must still be GREEN, never red. (Earlier the card
+# coloured by n_agree/n_called, so these read as discordant-red.)
+def test_card_authority_concordant_is_green_at_one_of_four():
+    dip, ph, cc, na, nc = rpt.verdict_card(
+        {"status": "concordant", "consensus_diplotype": "*1/*80+*28",
+         "consensus_phenotype": "Intermediate Metabolizer", "authority": "PharmCAT",
+         "n_agree": 1, "n_called": 4})
+    assert cc == "card-green", (cc, na, nc)          # NOT card-red
+    assert dip == "*1/*80+*28" and na == 1 and nc == 4   # raw n/N still surfaced
+
+
+def test_card_phenotype_tier_concordant_is_green():
+    _, _, cc, _, _ = rpt.verdict_card(
+        {"status": "concordant", "consensus_diplotype": "Reference/c.85T>C (*9A)",
+         "consensus_phenotype": "Normal Metabolizer", "authority": "Phenotype",
+         "phenotype_tier": True, "n_agree": 2, "n_called": 3})
+    assert cc == "card-green", cc
+
+
+def test_card_majority_is_amber():
+    _, _, cc, _, _ = rpt.verdict_card(
+        {"status": "majority", "consensus_diplotype": "*1/*2",
+         "consensus_phenotype": "Normal Metabolizer", "n_agree": 2, "n_called": 3})
+    assert cc == "card-amber", cc
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

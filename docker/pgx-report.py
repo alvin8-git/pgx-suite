@@ -784,6 +784,9 @@ LANDING_EXTRA_CSS = """
 .gene-concord { font-size: 0.7rem; margin-top: 0.4rem; }
 .gene-authority { margin-top: 0.3rem; }
 .gene-authority .badge { font-size: 0.62rem; padding: 0.1rem 0.4rem; }
+.gene-xcheck { margin-top: 0.25rem; }
+.gene-xcheck .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; opacity: 0.92; }
+.xcheck-note { margin: 0.75rem 0 0; padding: 0.5rem 0.75rem; background: #f1f5f9; border-left: 4px solid var(--primary-light); border-radius: 4px; font-size: 0.8rem; color: var(--muted); }
 .gene-depth   { font-size: 0.7rem; margin-top: 0.25rem; color: var(--muted); }
 /* ── Sequencing depth coverage flags ── */
 .depth-ok       { color: #2d7d46; font-weight: 700; }   /* ≥80% at ≥30× */
@@ -1019,6 +1022,17 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         else:
             auth_badge = ""
 
+        # PharmCAT cross-check (informational; never changes the verdict). Green
+        # when its phenotype agrees with the verdict, amber when it differs (review).
+        _xc = (gd.get("cross_check") or {}).get("PharmCAT")
+        if _xc:
+            _xc_cls, _xc_mark = (("badge-green", "✓") if _xc.get("agrees")
+                                 else ("badge-amber", "⚠ differs"))
+            xcheck_badge = (f'<div class="gene-xcheck"><span class="badge {_xc_cls}">'
+                            f'PharmCAT {_xc["diplotype"]} {_xc_mark}</span></div>')
+        else:
+            xcheck_badge = ""
+
         depth_info = gene_depth_map.get(gene, {})
         if depth_info:
             if depth_info.get("note") == "alt_contig":
@@ -1059,6 +1073,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
                     Concordance: <span class="badge {badge_cls}">{badge_text}</span>
                 </div>
                 {auth_badge}
+                {xcheck_badge}
                 {depth_html}
             </a>"""
 
@@ -1820,6 +1835,20 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
 
     sv_note_html = f'<div class="sv-note">&#128202; {sv_note}</div>' if sv_note and sv_note != "-" else ""
 
+    # PharmCAT cross-check (informational; not part of the verdict).
+    _xc = (detail.get("cross_check") or {}).get("PharmCAT")
+    if _xc:
+        _xc_cls = "badge-green" if _xc.get("agrees") else "badge-amber"
+        _xc_word = "agrees with verdict" if _xc.get("agrees") else "differs — review"
+        xcheck_detail_html = (
+            '<div class="xcheck-note">Cross-check &mdash; PharmCAT (CPIC reference, '
+            'informational, not part of the verdict): '
+            f'<span class="badge {_xc_cls}">{_xc["diplotype"]}</span> '
+            f'{_xc.get("phenotype","-")} &middot; {_xc_word}</div>'
+        )
+    else:
+        xcheck_detail_html = ""
+
     # back_onclick is set when back_href signals embedded mode
     if back_href.startswith("javascript:"):
         back_el = f'<a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>'
@@ -1850,6 +1879,7 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
             {depth_detail_html}
         </div>
     </div>
+    {xcheck_detail_html}
 
     <div class="section" id="{id_prefix}tool-results">
         <h2>Tool Results &#8212; {gene}</h2>
@@ -2044,6 +2074,7 @@ def main():
             "all_tool_diplotypes": all_tool_diplotypes,
             "authority": (_v or {}).get("authority"),
             "phenotype_tier": bool((_v or {}).get("phenotype_tier")),
+            "cross_check": detail.get("cross_check", {}),
         })
 
         fragment = _build_gene_inner(
