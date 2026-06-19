@@ -27,7 +27,7 @@ echo "============================================================"
 echo ""
 
 # ── PyPGx ─────────────────────────────────────────────────────────────────
-echo "[1/4] PyPGx"
+echo "[1/8] PyPGx"
 run_test "pypgx --version"             pypgx --version
 run_test "pypgx import"                python3 -c "import pypgx; print('OK')"
 run_test "pypgx run-ngs-pipeline help" pypgx run-ngs-pipeline --help
@@ -35,7 +35,7 @@ run_test "pypgx run-ngs-pipeline help" pypgx run-ngs-pipeline --help
 echo ""
 
 # ── Stargazer ─────────────────────────────────────────────────────────────
-echo "[2/4] Stargazer"
+echo "[2/8] Stargazer"
 run_test "stargazer --version"   stargazer --version
 run_test "stargazer wrapper exists" test -x /usr/local/bin/stargazer
 
@@ -59,7 +59,7 @@ fi
 echo ""
 
 # ── Aldy ──────────────────────────────────────────────────────────────────
-echo "[3/4] Aldy"
+echo "[3/8] Aldy"
 run_test "aldy version"    python3 -c "import aldy; print('aldy', aldy.__version__)"
 run_test "aldy import"     python3 -c "import aldy; print('OK')"
 run_test "aldy built-in test suite (78 tests)" \
@@ -67,7 +67,7 @@ run_test "aldy built-in test suite (78 tests)" \
 echo ""
 
 # ── StellarPGx ────────────────────────────────────────────────────────────
-echo "[4/4] StellarPGx"
+echo "[4/8] StellarPGx"
 run_test "nextflow --version"    nextflow -version
 run_test "apptainer --version"   apptainer --version
 
@@ -81,6 +81,42 @@ else
     echo "         Requires: -v \$(pwd)/StellarPGx:/pgx/stellarpgx"
     echo "                   -v \$(pwd)/StellarPGx/containers:/pgx/containers"
 fi
+echo ""
+
+# ── Cyrius (CYP2D6 authority) ───────────────────────────────────────────────
+echo "[5/8] Cyrius"
+run_test "cyrius star_caller present" test -f /opt/cyrius/star_caller.py
+run_test "cyrius star_caller --help"  python3 /opt/cyrius/star_caller.py --help
+echo ""
+
+# ── PharmCAT (UGT1A1/CYP2B6/CYP4F2 authority) ───────────────────────────────
+echo "[6/8] PharmCAT"
+run_test "pharmcat positions VCF baked" test -f /opt/pgx/pharmcat_positions.vcf.bgz
+if [[ -f "/pgx/containers/pharmcat.sif" ]]; then
+    run_test "pharmcat_pipeline --version (SIF)" \
+        apptainer exec /pgx/containers/pharmcat.sif pharmcat_pipeline --version
+else
+    echo "  [SKIP] pharmcat.sif not mounted — pull it (see README 'Pulling the PharmCAT SIF')"
+fi
+echo ""
+
+# ── HLA / mtDNA callers ─────────────────────────────────────────────────────
+echo "[7/8] OptiType + mutserve"
+run_test "mutserve JAR valid"   java -jar /usr/local/bin/mutserve.jar --version
+if [[ -f "/pgx/containers/optitype.sif" ]]; then
+    run_test "optitype --help (SIF)" \
+        apptainer exec /pgx/containers/optitype.sif OptiTypePipeline.py --help
+else
+    echo "  [SKIP] optitype.sif not mounted — pull it (see README 'Installation')"
+fi
+echo ""
+
+# ── Reconciliation + verdict authority (VCF-Check, synonyms, phenotype tier) ─
+echo "[8/8] Reconciliation & verdict authority"
+run_test "reconcile.py self-test"        python3 /opt/pgx/reconcile.py --selftest
+run_test "allele_synonyms.json loads"    python3 -c "import json; json.load(open('/opt/pgx/allele_synonyms.json'))"
+run_test "vcf_check_variants.json loads"  python3 -c "import json; json.load(open('/opt/pgx/vcf_check_variants.json'))"
+run_test "pgx-compare.py imports"         python3 -c "import importlib.util as u; s=u.spec_from_file_location('c','/opt/pgx/pgx-compare.py'); m=u.module_from_spec(s); s.loader.exec_module(m); assert m.AUTHORITATIVE['CYP2D6']=='Cyrius'"
 echo ""
 
 # ── Summary ───────────────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ All tools are configured for **GRCh38 (hg38)** in this container.
 
 | | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve |
 |---|---|---|---|---|---|---|
-| **Version** | 0.26.0 | 2.0.3 | 4.8.3 | 1.2.7 | 1.3.5 | 2.0.0 |
+| **Version** | 0.26.0 | 2.0.3 | 4.8.3 | 1.2.7 | 1.3.5 | 2.0.3 |
 | **License** | MIT | Non-commercial academic (UW) | Non-commercial academic (IURTC) | MIT | MIT | MIT |
 | **Input** | BAM + VCF | BAM + VCF | BAM | BAM | BAM (MHC reads) | BAM (chrM reads) |
 | **Genes** | 88 | 58 | 39 | 21 | HLA-A, HLA-B, HLA-C | MT-RNR1 (full chrM) |

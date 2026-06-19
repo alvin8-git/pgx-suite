@@ -50,7 +50,7 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 | [Cyrius](https://github.com/Illumina/Cyrius) | vendored | Targeted CYP2D6 caller (SV/CNV/hybrid-aware) | CYP2D6 | PolyForm Strict (use only — do **not** redistribute the image) |
 | [PharmCAT](https://github.com/PharmGKB/PharmCAT) | 3.2.0 | CPIC reference star-allele caller + named-allele matcher | UGT1A1, CYP2B6, CYP4F2 (+ its CPIC set) | MPL-2.0 |
 | [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
-| [mutserve](https://github.com/seppinho/mutserve) | 2.0.0 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
+| [mutserve](https://github.com/seppinho/mutserve) | 2.0.3 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
 
 **VCF-Check** (in-house, no third-party dependency) is the verdict authority for
 single-SNP / variant-list genes — **RYR1, VKORC1, IFNL3, G6PD, CACNA1S** — reading
@@ -479,7 +479,7 @@ docker run --privileged pgx-suite:latest
 │  Java 21 JRE           (Beagle phasing for PyPGx + Stargazer; │
 │                         mutserve.jar for MT-RNR1)             │
 │                                                                │
-│  mutserve 2.0.0        (JAR; chrM allele-fraction calling)    │
+│  mutserve 2.0.3        (JAR; chrM allele-fraction calling)    │
 │                                                                │
 │  Nextflow              (copied from host binary)              │
 │                                                                │

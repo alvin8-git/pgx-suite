@@ -67,6 +67,14 @@ UGT1A1/CYP2B6/CYP4F2 pharmcat=1; RYR1/VKORC1/IFNL3 vcf_check=1).
 **Tests added:** `test_reconcile.py`, `test_vcf_check.py`, `test_cyrius.py`,
 `test_pharmcat.py`; phenotype-tier cases in `test_verdict.py`.
 
+**Bug fix — mutserve was silently broken.** The Dockerfile pulled
+`releases/download/v2.0.0/mutserve.jar`, but v2.0.0 has no release asset, so the build
+baked a 9-byte "Not Found" stub and MT-RNR1 (CPIC Level A) calling failed non-fatally.
+Now downloads the **v2.0.3** `mutserve.zip` and extracts the real `mutserve.jar` (via
+Python stdlib `zipfile`; no new apt dependency), and the build fails loudly if it isn't a
+valid jar. Surfaced by the extended smoke test (`docker/test.sh` now covers all callers:
+Cyrius, PharmCAT, OptiType, mutserve, and the reconciliation/VCF-Check config — 8 sections).
+
 **Deployment note:** the PharmCAT SIF must be pulled with single-threaded mksquashfs
 (`mksquashfs procs = 1`) on an ext4 TMPDIR — apptainer's bundled multithreaded
 mksquashfs corrupts the ~1.8 GB image. See README "Pulling the PharmCAT SIF".

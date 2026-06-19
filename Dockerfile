@@ -113,9 +113,14 @@ RUN curl -sL https://github.com/biod/sambamba/releases/download/v1.0.1/sambamba-
 
 # mutserve v2 — mitochondrial variant caller (SNPs + heteroplasmy) for MT-RNR1
 # Java 21 JRE is already present (step 4 above); no extra runtime needed.
-RUN curl -sL https://github.com/seppinho/mutserve/releases/download/v2.0.0/mutserve.jar \
-        -o /usr/local/bin/mutserve.jar \
-    && java -jar /usr/local/bin/mutserve.jar --version 2>&1 | head -1 || true
+# v2.0.x ships a ZIP (no bare-jar release asset — the old v2.0.0/mutserve.jar URL
+# 404s, leaving a 9-byte "Not Found" stub). Extract mutserve.jar and fail loudly
+# if the download is not a real jar.
+RUN curl -fsSL https://github.com/seppinho/mutserve/releases/download/v2.0.3/mutserve.zip \
+        -o /tmp/mutserve.zip \
+    && python3 -c "import zipfile; zipfile.ZipFile('/tmp/mutserve.zip').extract('mutserve.jar', '/usr/local/bin/')" \
+    && rm -f /tmp/mutserve.zip \
+    && java -jar /usr/local/bin/mutserve.jar --version 2>&1 | head -1
 
 # ── 5. Copy compiled Python environment from builder ─────────────────────────
 # The venv contains pypgx, aldy, pysam, ortools, pandas, numpy, matplotlib, etc.

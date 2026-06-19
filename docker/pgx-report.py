@@ -1296,7 +1296,7 @@ function pgxShowMain() {
                 <span class="badge badge-blue">Cyrius</span>
                 <span class="badge badge-blue">PharmCAT 3.2.0</span>
                 <span class="badge badge-blue">OptiType 1.3.5</span>
-                <span class="badge badge-blue">mutserve 2.0.0</span>
+                <span class="badge badge-blue">mutserve 2.0.3</span>
             </div>
         </div>
     </div>
