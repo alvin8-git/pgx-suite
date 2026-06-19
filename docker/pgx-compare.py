@@ -1341,6 +1341,47 @@ def _normalize_diplotype(d: str) -> str:
     return "/".join(sorted(p.strip() for p in d.split("/")))
 
 
+# ── Clinical phenotype tier ───────────────────────────────────────────────────
+# When star-allele callers print DIFFERENT diplotype strings (tool nomenclature:
+# Stargazer *S-codes, Aldy rsID tokens, or differing haplotype phasing) but the
+# phenotype-emitting callers agree on the CPIC phenotype, the call is clinically
+# concordant — CPIC reports by phenotype / gene-activity-score, not by haplotype
+# string. "Indeterminate"/unknown phenotypes count as ABSTAIN, not dissent (Aldy
+# routinely emits Indeterminate for DPYD even when it called the variants).
+_PHENO_ABSTAIN = {"", "-", "indeterminate", "unknown", "n/a", "na", "no result",
+                  "not available", "no call", "none", "no function"}
+_PHENO_ALIASES = {"extensive": "normal", "rapid metaboliser": "rapid"}
+
+
+def _norm_phenotype(p: str) -> str | None:
+    """Normalise a tool phenotype to a comparable token, or None if it abstains."""
+    s = (p or "").strip().lower().replace("_", " ")
+    s = re.sub(r"\s+", " ", s).strip()
+    if s in _PHENO_ABSTAIN:
+        return None
+    s = re.sub(r"\s*metaboli[sz]er$", "", s).strip()
+    if s in _PHENO_ABSTAIN or not s:
+        return None
+    s = re.sub(r"^(likely|possible|probable)\s+", "", s)
+    s = {"ultra rapid": "ultrarapid"}.get(s, s)
+    return _PHENO_ALIASES.get(s, s)
+
+
+def _phenotype_consensus(results: list[CallerResult]):
+    """If >=2 phenotype-emitting callers agree on a single normalised phenotype
+    (abstainers ignored), return (display_phenotype, n_agree, display_diplotype);
+    else None. Used to rescue a diplotype-STRING discordance/majority that is in
+    fact a single clinical phenotype."""
+    voting = [(r, _norm_phenotype(r.phenotype)) for r in results
+              if r.status == "ok" and r.diplotype not in ("-", "")]
+    voting = [(r, p) for r, p in voting if p is not None]
+    if len(voting) < 2 or len({p for _, p in voting}) != 1:
+        return None
+    pheno_disp = Counter(r.phenotype for r, _ in voting).most_common(1)[0][0]
+    dip_disp = Counter(r.diplotype for r, _ in voting).most_common(1)[0][0]
+    return pheno_disp, len(voting), dip_disp
+
+
 def compute_verdict(results: list[CallerResult], no_call: bool,
                     gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
@@ -1398,8 +1439,16 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
     raw_top_agree = Counter(raw for _, raw in pairs).most_common(1)[0][1]
     reconciled = bool(gene) and n_agree > raw_top_agree
 
-    # Tie: a second diplotype called by as many tools — no safe winner.
+    pheno_rescue = _phenotype_consensus(results)
+
+    # Tie: a second diplotype called by as many tools — no safe winner on the
+    # string. Clinically rescue if the phenotype-emitting callers nonetheless agree.
     if len(canon_counts) > 1 and canon_counts[1][1] == n_agree:
+        if pheno_rescue:
+            p_disp, p_n, d_disp = pheno_rescue
+            return {"consensus_diplotype": d_disp, "consensus_phenotype": p_disp,
+                    "n_agree": p_n, "n_called": n_called, "status": "concordant",
+                    "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
         return {"consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
                 "n_agree": n_agree, "n_called": n_called, "status": "discordant",
                 "reconciled": False}
@@ -1407,6 +1456,13 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
     # Display the most common RAW spelling among tools whose canonical == winner.
     top_dip = Counter(raw for c, raw in pairs if c == top_canon).most_common(1)[0][0]
     status = "concordant" if n_agree == n_called else "majority"
+    # A diplotype-string majority (not unanimous) is clinically concordant when
+    # all phenotype-emitting callers agree on the phenotype.
+    if status == "majority" and pheno_rescue:
+        p_disp, p_n, _ = pheno_rescue
+        return {"consensus_diplotype": top_dip, "consensus_phenotype": p_disp,
+                "n_agree": p_n, "n_called": n_called, "status": "concordant",
+                "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
     return {"consensus_diplotype": top_dip, "consensus_phenotype": pheno,
             "n_agree": n_agree, "n_called": n_called, "status": status,
             "reconciled": reconciled}

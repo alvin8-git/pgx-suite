@@ -35,15 +35,52 @@ def test_concordant_is_order_insensitive():
 
 def test_two_vs_two_tie_is_discordant():
     v = cmp.compute_verdict(
-        [_r("PyPGx", "*1/*4"), _r("Aldy", "*1/*4"),
-         _r("Stargazer", "*1/*2"), _r("StellarPGx", "*1/*2")], no_call=False)
+        [_r("PyPGx", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Aldy", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Stargazer", "*1/*2", pheno="Intermediate Metabolizer"),
+         _r("StellarPGx", "*1/*2", pheno="Intermediate Metabolizer")], no_call=False)
     assert v["status"] == "discordant", v  # the old code silently picked a winner
 
 
 def test_majority_when_clear_plurality():
+    # dissenter has a DIFFERENT phenotype, so this stays a string-majority
     v = cmp.compute_verdict(
-        [_r("PyPGx", "*1/*4"), _r("Aldy", "*1/*4"), _r("Stargazer", "*1/*2")], no_call=False)
+        [_r("PyPGx", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Aldy", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Stargazer", "*1/*2", pheno="Intermediate Metabolizer")], no_call=False)
     assert v["status"] == "majority" and v["n_agree"] == 2 and v["n_called"] == 3, v
+
+
+# ── clinical phenotype tier ───────────────────────────────────────────────────
+def test_phenotype_tier_rescues_string_discordance():
+    # DPYD-style: 3 distinct diplotype STRINGS (Stargazer *S codes, Aldy rsIDs)
+    # but the two phenotype-emitting callers agree; Aldy abstains (Indeterminate).
+    v = cmp.compute_verdict(
+        [_r("PyPGx", "c.85T>C (*9A)/c.496A>G", pheno="Normal Metabolizer"),
+         _r("Stargazer", "*S10/*S20", pheno="normal_metabolizer"),
+         _r("Aldy", "*9A/*rs2297595", pheno="Indeterminate")],
+        no_call=False, gene="DPYD")
+    assert v["status"] == "concordant" and v.get("phenotype_tier") \
+        and v.get("authority") == "Phenotype", v
+
+
+def test_phenotype_tier_not_applied_when_phenotypes_disagree():
+    v = cmp.compute_verdict(
+        [_r("PyPGx", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Aldy", "*1/*5", pheno="Intermediate Metabolizer"),
+         _r("Stargazer", "*1/*6", pheno="Poor Metabolizer")],
+        no_call=False, gene="CYP2C19")
+    assert v["status"] == "discordant", v
+
+
+def test_phenotype_tier_needs_two_agreeing_callers():
+    # only ONE caller emits a usable phenotype; the rest abstain -> no rescue
+    v = cmp.compute_verdict(
+        [_r("PyPGx", "*1/*4", pheno="Normal Metabolizer"),
+         _r("Aldy", "*1/*5", pheno="Indeterminate"),
+         _r("Stargazer", "*1/*6", pheno="Indeterminate")],
+        no_call=False, gene="CYP2C9")
+    assert v["status"] == "discordant", v
 
 
 def test_low_coverage_is_no_call():

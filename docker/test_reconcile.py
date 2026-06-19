@@ -45,17 +45,23 @@ def main():
         c.status, c.diplotype, c.phenotype = "ok", dip, pheno
         return c
 
-    dpyd = [r("Reference/c.85T>C (*9A)"), r("*1/*S10"), r("*1/*9A")]
+    # phenotypes abstain on two callers so this isolates the SYNONYM (string)
+    # mechanism from the separate clinical phenotype tier.
+    dpyd = [r("Reference/c.85T>C (*9A)", "Normal Metabolizer"),
+            r("*1/*S10", "Indeterminate"), r("*1/*9A", "Indeterminate")]
     v = comp.compute_verdict(dpyd, no_call=False, gene="DPYD")
     assert v["status"] == "concordant", f"DPYD should reconcile to concordant, got {v['status']}"
     assert v["n_agree"] == 3 and v["reconciled"] is True
 
-    # without a gene (legacy path) the same three strings stay split
+    # without a gene (legacy path) the synonym collapse does not happen, and with
+    # only one non-abstaining phenotype the phenotype tier cannot rescue it either
     v_legacy = comp.compute_verdict(dpyd, no_call=False, gene=None)
     assert v_legacy["status"] != "concordant", "legacy path must not silently reconcile"
 
-    # a genuinely discordant gene stays discordant after reconciliation
-    disc = [r("*1/*2"), r("*1/*3"), r("*2/*2")]
+    # a genuinely discordant gene (distinct diplotypes AND phenotypes) stays
+    # discordant after both synonym collapse and the phenotype tier
+    disc = [r("*1/*2", "Normal Metabolizer"), r("*1/*3", "Intermediate Metabolizer"),
+            r("*2/*2", "Poor Metabolizer")]
     assert comp.compute_verdict(disc, no_call=False, gene="CYP2D6")["status"] in ("discordant", "majority")
 
     print("all reconcile + verdict-integration checks passed")

@@ -779,6 +779,8 @@ LANDING_EXTRA_CSS = """
     color: white;
 }
 .gene-concord { font-size: 0.7rem; margin-top: 0.4rem; }
+.gene-authority { margin-top: 0.3rem; }
+.gene-authority .badge { font-size: 0.62rem; padding: 0.1rem 0.4rem; }
 .gene-depth   { font-size: 0.7rem; margin-top: 0.25rem; color: var(--muted); }
 /* ── Sequencing depth coverage flags ── */
 .depth-ok       { color: #2d7d46; font-weight: 700; }   /* ≥80% at ≥30× */
@@ -973,6 +975,16 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         badge_cls = badge_cls_map.get(card_class, "badge-grey")
         css_cls    = card_class_map.get(card_class, "")
 
+        # Authority / resolution-tier provenance (why this is concordant despite
+        # differing diplotype strings) — visible for CAP/CLIA review.
+        _auth = gd.get("authority")
+        if gd.get("phenotype_tier"):
+            auth_badge = '<div class="gene-authority"><span class="badge badge-blue">Resolved by phenotype concordance</span></div>'
+        elif _auth and _auth != "-":
+            auth_badge = f'<div class="gene-authority"><span class="badge badge-blue">{_auth} authoritative</span></div>'
+        else:
+            auth_badge = ""
+
         depth_info = gene_depth_map.get(gene, {})
         if depth_info:
             if depth_info.get("note") == "alt_contig":
@@ -1012,6 +1024,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
                 <div class="gene-concord">
                     Concordance: <span class="badge {badge_cls}">{badge_text}</span>
                 </div>
+                {auth_badge}
                 {depth_html}
             </a>"""
 
@@ -1966,6 +1979,8 @@ def main():
             "n_agree": n_agree,
             "n_called": n_called,
             "all_tool_diplotypes": all_tool_diplotypes,
+            "authority": (_v or {}).get("authority"),
+            "phenotype_tier": bool((_v or {}).get("phenotype_tier")),
         })
 
         fragment = _build_gene_inner(
