@@ -1,6 +1,6 @@
 # PGx Suite Docker Container
 
-Single container for six pharmacogenomics callers, orchestrated by Snakemake.
+Single container for nine pharmacogenomics callers, orchestrated by Snakemake.
 All tools configured for **GRCh38**.
 
 ## License Notice
@@ -41,8 +41,11 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | Stargazer | 2.0.3 | `stargazer` |
 | Aldy | 4.8.3 | `aldy` |
 | StellarPGx | 1.2.7 | `nextflow run /pgx/stellarpgx/main.nf` |
-| OptiType | 1.3.5 | `pgx-hla.sh` (Apptainer SIF, HLA-A/B) |
-| mutserve | 2.0.0 | `pgx-mt.sh` (baked-in JAR, MT-RNR1) |
+| Cyrius | vendored | `cyrius` rule → `/opt/cyrius/star_caller.py` (CYP2D6; authority) |
+| PharmCAT | 3.2.0 | `pharmcat` rule → `pharmcat_pipeline` in `pharmcat.sif` (UGT1A1/CYP2B6/CYP4F2; authority) |
+| OptiType | 1.3.5 | `optitype` rule (Apptainer SIF, HLA-A/B) |
+| mutserve | 2.0.0 | `mutserve` rule (baked-in JAR, MT-RNR1) |
+| VCF-Check | in-house | `pgx-compare.py` direct genotype from `vcf_check_variants.json` (RYR1/VKORC1/IFNL3/G6PD/CACNA1S; authority) |
 | Snakemake | orchestrator | `snakemake -s /opt/pgx/Snakefile` |
 
 ## Volume Mounts (at runtime)
@@ -50,7 +53,7 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | Host Path | Container Path | Purpose |
 |-----------|---------------|---------|
 | `./StellarPGx` | `/pgx/stellarpgx` | StellarPGx pipeline scripts, DB, resources |
-| `./StellarPGx/containers` | `/pgx/containers` | `stellarpgx-dev.sif` Singularity image |
+| `./StellarPGx/containers` | `/pgx/containers` | Apptainer SIFs: `stellarpgx-dev.sif`, `optitype.sif`, `pharmcat.sif` |
 | `./pypgx/pypgx-bundle` | `/pgx/bundle` | 1KGP VCFs + CNV data for PyPGx phasing |
 | `/path/to/ref` | `/pgx/ref` | GRCh38 reference FASTA + .fai index |
 | `/path/to/data` | `/pgx/data` | Input BAM/CRAM files |

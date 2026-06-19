@@ -22,7 +22,9 @@ This is the learning path. For the reasoning behind each piece see the
 - A **WGS BAM or CRAM** aligned to that reference, with its `.bai`/`.crai` index.
 - The bundled large data, already in the repo after cloning:
   `StellarPGx/containers/stellarpgx-dev.sif`, `pypgx/pypgx-bundle/`. Pull the OptiType
-  SIF once if you want HLA typing (see the README "Installation" section).
+  SIF once for HLA typing and the PharmCAT SIF once for the UGT1A1/CYP2B6/CYP4F2 authority
+  (both in the README "Installation" section). Both rules are non-fatal, so the pipeline
+  still runs without them — those genes just fall back to the star-allele vote.
 - ~3 GB free disk for the image; the first build takes ~15-25 min.
 
 ## Step 1: Build the image
@@ -33,7 +35,7 @@ docker build -t pgx-suite:latest .
 
 You'll see a multi-stage build: a builder stage compiling the Python venv (pysam,
 pandas, Snakemake, …), then a lean runtime stage. When it finishes you have a
-`pgx-suite:latest` image with all six callers + the Snakemake orchestrator baked in.
+`pgx-suite:latest` image with all nine callers + the Snakemake orchestrator baked in.
 
 Confirm it:
 
@@ -110,9 +112,10 @@ docker run --privileged --rm \
 
 ## What you built
 
-A reproducible, multi-caller PGx report for a whole-genome sample: 31 genes, six
-callers, one verdict each, with a coverage gate that refuses to guess and a report
-a clinician can scan in seconds or drill into for review. Next:
+A reproducible, multi-caller PGx report for a whole-genome sample: 31 genes, nine
+callers, one reconciled verdict each (with an authoritative caller or the phenotype tier
+resolving the genes the star-allele callers disagree on), a coverage gate that refuses to
+guess, and a report a clinician can scan in seconds or drill into for review. Next:
 
 - [How to add or change a gene](howto-add-a-gene.md)
 - [Per-tool reference](ToolsDocumentation.md) · [per-gene clinical reference](PGxDocumentation.md)

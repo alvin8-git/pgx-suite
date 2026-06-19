@@ -1293,10 +1293,10 @@ function pgxShowMain() {
                 <span class="badge badge-blue">Stargazer 2.0.3</span>
                 <span class="badge badge-blue">Aldy 4.8</span>
                 <span class="badge badge-blue">StellarPGx 1.2.7</span>
-                <span class="badge badge-blue">Cyrius 1.1</span>
+                <span class="badge badge-blue">Cyrius</span>
                 <span class="badge badge-blue">PharmCAT 3.2.0</span>
                 <span class="badge badge-blue">OptiType 1.3.5</span>
-                <span class="badge badge-blue">mutserve 2.0.3</span>
+                <span class="badge badge-blue">mutserve 2.0.0</span>
             </div>
         </div>
     </div>

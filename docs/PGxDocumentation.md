@@ -5,11 +5,13 @@
 > NO_CALL coverage gate), see the [README](../README.md); for per-tool detail see
 > [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-This pipeline performs star-allele calling and diplotype assignment across 31 pharmacogenomically relevant genes using four complementary tools: PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, and StellarPGx 1.2.7, with OptiType for HLA typing and mutserve for mitochondrial variants. All analyses are performed against the GRCh38 reference genome. Results are aggregated into a unified HTML report with concordance scoring across tools.
+This pipeline performs star-allele calling and diplotype assignment across 31 pharmacogenomically relevant genes using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes). All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
 
 ---
 
 ## Table of Contents
+
+- [Reconciliation & Verdict Authority](#reconciliation--verdict-authority)
 
 1. [ABCG2](#abcg2)
 2. [CACNA1S](#cacna1s)
@@ -42,6 +44,69 @@ This pipeline performs star-allele calling and diplotype assignment across 31 ph
 29. [TPMT](#tpmt)
 30. [UGT1A1](#ugt1a1)
 31. [VKORC1](#vkorc1)
+
+---
+
+## Reconciliation & Verdict Authority
+
+The pipeline is not a plain majority vote. `pgx-compare.py` is the single verdict
+authority and reconciles the callers in four ordered tiers. The first tier that
+produces a confident call wins; the chosen mechanism is recorded in the per-gene
+`detail.json` `verdict` block and shown as a badge on the report card.
+
+### Tier 1 — Coverage gate
+
+A gene whose region mean depth is below `--min-depth` (default 10×) reports
+**NO_CALL**. This prevents a confident wild-type call manufactured from zero reads.
+
+### Tier 2 — Variant-tier reconciliation (synonym collapse)
+
+The same allele is often written different ways by different callers: DPYD `*9A` =
+`*S10` (Stargazer) = `c.85T>C` (HGVS) = `rs1801265` (Aldy). Before counting agreement,
+`reconcile.py` canonicalises each diplotype against `allele_synonyms.json`, so these
+count as **one** call, not three discordant ones. The map is curated and deliberately
+**excludes** genes where look-alike names are genuinely distinct variants (NUDT15
+`*5`/`*6`; VKORC1 is adjudication-only). Without a synonym entry, canonicalisation
+reduces to an order-insensitive normalise, so unmapped genes are unaffected.
+
+### Tier 3 — Authoritative callers
+
+For genes the star-allele callers mishandle, a designated CPIC-reference method *is*
+the verdict when it produced a call (otherwise the vote falls through to Tier 4 / the
+reconciled star-allele majority):
+
+| Authority | Genes | Rationale |
+|-----------|-------|-----------|
+| **Cyrius** | CYP2D6 | CYP2D6–CYP2D7 hybrids, CNV, `*36+*10` tandems that defeat star-allele callers |
+| **PharmCAT** | UGT1A1, CYP2B6, CYP4F2 | CPIC reference matcher; e.g. UGT1A1 `*28`/`*80` linkage |
+| **VCF-Check** | RYR1, VKORC1, IFNL3, G6PD, CACNA1S | single-SNP / variant-list genes — a star-allele call is the wrong model |
+
+### Tier 4 — Clinical phenotype tier
+
+When callers print **different diplotype strings** (Stargazer `*S` codes, Aldy rsID
+tokens, or different haplotype phasing) but the phenotype-emitting callers **agree on the
+CPIC phenotype**, the call is concordant-by-phenotype (`authority: "Phenotype"`).
+`Indeterminate` / unknown phenotypes count as **abstain**, not dissent. This mirrors how
+CPIC actually reports — by phenotype / gene-activity-score, not haplotype string — and
+resolves cosmetic nomenclature/phasing differences (e.g. DPYD across PyPGx/Stargazer/Aldy)
+without masking genuine clinical disagreement (a true phenotype split stays
+**DISCORDANT**).
+
+### Verdict status values
+
+`concordant` (incl. authority/phenotype-resolved) · `majority` (clear plurality) ·
+`discordant` (no safe winner) · `no_call` (below coverage floor) · `no_data` (nothing
+called). The report colours cards and the headline ticker by this status, not by the raw
+tool fraction — so an authority-resolved gene at 1/4 callers is a confident green, with the
+authority badge explaining why.
+
+### Orthogonal validation (Axiom array)
+
+For validation samples, `build_axiom_concordance.py` adds an Axiom-array adjudication
+panel. The array is treated as a **comparator, not ground truth**: each NGS-vs-array
+disagreement is classified (`array_FN`, `array_FP_or_NGS_FN`, `array_authoritative`,
+`ngs_unresolved`, `concordant`, `review`), because NGS resolves variants the array cannot
+probe and vice-versa.
 
 ---
 

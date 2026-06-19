@@ -21,10 +21,22 @@ gene.
 | `gene` | Gene symbol (uppercase; hyphens allowed, e.g. `HLA-A`) |
 | `region` | `chr:start-end` on GRCh38, or `ALT_CONTIG` for alt-contig genes (GSTT1) |
 | `pypgx` `stargazer` `aldy` `stellarpgx` `optitype` `mutserve` | `1` if that tool calls this gene, else `0` |
-| `vcf_check` | `1` if `pgx-compare.py` runs its direct-VCF allele check for this gene |
+| `vcf_check` | `1` if `pgx-compare.py` runs VCF-Check (direct genotype from the CPIC variant table — RYR1/VKORC1/etc.) |
 | `pypgx_sv` | `1` if PyPGx needs SV preprocessing (depth-of-coverage + VDR control) |
 | `stargazer_sv` | `1` if Stargazer needs a GDF depth profile (paralog CN) |
 | `stargazer_control` | Stargazer control gene (`vdr`), or `-` if none |
+| `cyrius` | `1` to run the Cyrius CYP2D6 SV caller (only CYP2D6 today) |
+| `pharmcat` | `1` if PharmCAT is authoritative for this gene (UGT1A1/CYP2B6/CYP4F2) |
+
+Column order in the file is: `gene region pypgx stargazer aldy stellarpgx optitype
+mutserve vcf_check pypgx_sv stargazer_sv stargazer_control cyrius pharmcat`.
+
+**Authority wiring (only if a CPIC-reference method should *override* the star-allele
+vote).** Setting `cyrius`/`pharmcat`/`vcf_check` to `1` runs the method; to make it the
+**verdict** for that gene, also add the gene to the `AUTHORITATIVE` dict in
+`docker/pgx-compare.py` (`"GENE": "Cyrius" | "PharmCAT" | "VCF-Check"`). For VCF-Check
+genes, add the variant(s) to `docker/vcf_check_variants.json` (guarded by
+`test_vcf_check.py`). See [`PGxDocumentation.md`](PGxDocumentation.md#reconciliation--verdict-authority).
 
 ## Steps
 
@@ -32,11 +44,12 @@ gene.
    Example — a hypothetical SNP-only gene called by all four star-allele callers:
 
    ```
-   MYGENE	chr1:1000000-1010000	1	1	1	1	0	0	0	0	0	vdr
+   MYGENE	chr1:1000000-1010000	1	1	1	1	0	0	0	0	0	vdr	0	0
    ```
 
-   For a gene with a structural-variant component (like CYP2D6), set `pypgx_sv`/
-   `stargazer_sv` to `1`. For HLA, set only `optitype=1` and use the MHC region.
+   (The two trailing `0`s are the `cyrius` and `pharmcat` columns.) For a gene with a
+   structural-variant component (like CYP2D6), set `pypgx_sv`/`stargazer_sv` to `1`. For
+   HLA, set only `optitype=1` and use the MHC region.
 
 2. **Run the config regression test.** This proves the table still parses and that the
    matrix the loaders produce matches what you intended:

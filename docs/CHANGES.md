@@ -5,6 +5,74 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-06-19 — Reconciliation engine: authoritative callers, phenotype tier, verdict-driven report
+
+The pipeline stops being a string-equality ensemble and becomes a reconciliation
+engine that resolves the constituent callers' blind spots. Every clinically
+actionable CPIC gene now reaches a confident verdict on short reads, except the
+two long-read-only complex CYP2D6 cases.
+
+**Variant-tier reconciliation (`docker/reconcile.py`, `allele_synonyms.json`).**
+Caller diplotypes are synonym-collapsed before the agreement count, so the same
+allele written three ways (DPYD `*9A` = `*S10` = `c.85T>C` = `rs1801265`) counts
+as one call, not three discordant ones. The curated synonym map deliberately
+excludes genes where look-alike names are distinct variants (NUDT15 `*5`/`*6`,
+VKORC1). Guarded by `test_reconcile.py`.
+
+**Authoritative-caller verdicts (`AUTHORITATIVE` in `pgx-compare.py`).** Where the
+star-allele callers genuinely cannot agree, a designated CPIC-reference method *is*
+the verdict:
+- **Cyrius** (new, vendored from Illumina; PolyForm Strict — image not redistributable)
+  resolves **CYP2D6** structural variants / CNV / `*36+*10` hybrids that the
+  star-allele callers mis-handle. New Snakefile rule + `parse_cyrius`.
+- **PharmCAT 3.2.0** (new, official `pgkb/pharmcat` Apptainer SIF) is authoritative
+  for **UGT1A1, CYP2B6, CYP4F2**. Sample-level rule: a GT-only positions VCF
+  (`pharmcat_positions.vcf.bgz`, baked) feeds `pharmcat_pipeline`; `parse_pharmcat`
+  reads its `report.json`.
+- **VCF-Check** (in-house) reads the genotype directly from the CPIC variant table
+  (`vcf_check_variants.json`) for **RYR1, VKORC1, IFNL3, G6PD, CACNA1S** —
+  single-SNP / variant-list genes where a star-allele call is the wrong model.
+
+**Clinical phenotype tier (`pgx-compare.py`).** When callers print different
+diplotype *strings* (Stargazer `*S` codes, Aldy rsID tokens, different haplotype
+phasing) but the phenotype-emitting callers agree on the CPIC phenotype, the call
+is concordant-by-phenotype (`authority: "Phenotype"`); `Indeterminate`/unknown
+counts as abstain, not dissent. This matches CPIC (which reports by
+phenotype / gene-activity-score, not haplotype string) and resolved all five DPYD
+nomenclature/phasing artifacts in the TTSH/MGI cohort while correctly leaving a
+genuine NUDT15 3-way disagreement flagged.
+
+**Verdict-driven report (`pgx-report.py`).**
+- Card/grid colour and the summary ticker now follow the **verdict status**, not raw
+  tool fraction — an authority-resolved gene (e.g. PharmCAT at 1/4 callers) is a
+  confident green, not red. Fixes a miscount where authoritative genes inflated the
+  "discordant" total.
+- **Authority badges** on each card (`PharmCAT authoritative`, `VCF-Check
+  authoritative`, `Cyrius authoritative`, `Resolved by phenotype concordance`) with a
+  matching legend, for CAP/CLIA traceability.
+- **Actionability-first grid** — genes group ★ Actionable findings → ⚠ Needs review →
+  ✓ Normal, so an abnormal-but-concordant phenotype leads instead of being buried.
+- Detail page reads the single-source verdict (card and detail concordance counts now
+  match); wide tool-results tables scroll horizontally with a sticky first column;
+  per-gene coverage is a collapsible dropdown; top pane lists all 9 callers.
+
+**Orthogonal validation.** Axiom array adjudication panel added for validation
+samples (`build_axiom_concordance.py`), classifying NGS-vs-array disagreements
+(`array_FN` / `array_FP_or_NGS_FN` / `array_authoritative` / …) rather than treating
+the array as ground truth.
+
+**`genes.tsv`** gained `cyrius` and `pharmcat` columns (CYP2D6 cyrius=1;
+UGT1A1/CYP2B6/CYP4F2 pharmcat=1; RYR1/VKORC1/IFNL3 vcf_check=1).
+
+**Tests added:** `test_reconcile.py`, `test_vcf_check.py`, `test_cyrius.py`,
+`test_pharmcat.py`; phenotype-tier cases in `test_verdict.py`.
+
+**Deployment note:** the PharmCAT SIF must be pulled with single-threaded mksquashfs
+(`mksquashfs procs = 1`) on an ext4 TMPDIR — apptainer's bundled multithreaded
+mksquashfs corrupts the ~1.8 GB image. See README "Pulling the PharmCAT SIF".
+
+---
+
 ## 2026-06-17 — Snakemake migration, clinical-safety hardening, report redesign
 
 **Orchestration migrated to Snakemake.** The hand-rolled bash orchestrators

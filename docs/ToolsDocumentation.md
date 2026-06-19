@@ -35,6 +35,21 @@ All tools are configured for **GRCh38 (hg38)** in this container.
 | **Multi-sample** | Yes | Yes | No | No | No | No (single-sample JAR) |
 | **Recommended coverage** | ≥30× | ≥30× | ≥40× | ≥30× | ≥30× | ≥50× mean chrM (typically 500–5000×) |
 
+The six callers above are **general star-allele / typing callers** that vote into the
+reconciled verdict. Three more methods act as **verdict authorities** — for the genes
+they cover, their call *is* the verdict (see [§7](#7-cyrius), [§8](#8-pharmcat),
+[§9](#9-vcf-check), and the reconciliation model in
+[`PGxDocumentation.md`](PGxDocumentation.md#reconciliation--verdict-authority)):
+
+| | Cyrius | PharmCAT | VCF-Check |
+|---|---|---|---|
+| **Version** | vendored (Illumina) | 3.2.0 | in-house |
+| **License** | PolyForm Strict (no redistribution) | MPL-2.0 | — |
+| **Authoritative for** | CYP2D6 | UGT1A1, CYP2B6, CYP4F2 | RYR1, VKORC1, IFNL3, G6PD, CACNA1S |
+| **Method** | targeted CYP2D6 caller (SV/CNV/`*36+*10` hybrids) | CPIC named-allele matcher | direct genotype lookup against the CPIC variant table |
+| **Runs** | per-gene (CYP2D6) | once per sample (Apptainer SIF) | per-gene (bcftools) |
+| **Input** | BAM | GT-only positions VCF | gene-region VCF |
+
 ---
 
 ## 1. PyPGx
@@ -527,6 +542,125 @@ The `pgx-compare.py` parser emits a single comparison row formatted as:
 - **chrM alignment quality**: Reads from nuclear mitochondrial DNA segments (NUMTs) can
   contaminate chrM pileups. mutserve has internal strand-bias and base-quality filters;
   the raw output includes coverage metrics for manual review.
+
+---
+
+## 7. Cyrius
+
+### Overview
+
+[Cyrius](https://github.com/Illumina/Cyrius) is Illumina's targeted **CYP2D6** caller.
+CYP2D6 sits next to its pseudogene CYP2D7 and is riddled with copy-number variants, gene
+deletions, duplications, and CYP2D6–CYP2D7 fusion (hybrid) alleles such as `*36+*10` and
+`*68`. General star-allele callers routinely mis-handle these; Cyrius is purpose-built for
+them, using depth and paralog-aware read signatures. In pgx-suite it is the **verdict
+authority for CYP2D6** — when Cyrius returns a call, that call *is* the verdict.
+
+### How it is integrated in pgx-suite
+
+- Vendored at `/opt/cyrius` (the `Cyrius/` directory), run by the Snakefile `cyrius` rule:
+  `star_caller.py --genome 38 --reference hg38.fa --manifest <bam-list>`.
+- `parse_cyrius()` in `pgx-compare.py` reads the JSON/TSV output; `AUTHORITATIVE["CYP2D6"]
+  = "Cyrius"`. If Cyrius no-calls (e.g. a genuinely ambiguous complex locus), the verdict
+  falls through to the reconciled star-allele vote.
+
+### Input requirements
+
+- GRCh38 WGS BAM (whole-genome; Cyrius models CYP2D6/2D7 depth genome-wide-normalised).
+- The GRCh38 reference FASTA.
+
+### Genes covered
+
+- **CYP2D6 only.**
+
+### Output
+
+- Diplotype with explicit structural notation (e.g. `*1/*36+*10`, `*2x2/*4`), plus a
+  filter/confidence field. Feeds the report as the `Cyrius authoritative` card badge.
+
+### Limitations
+
+- Single gene. Complex loci that defeat even Cyrius return a no-call (then the suite
+  reconciles the other callers). The two unresolved cohort CYP2D6 cases are long-read-only.
+- **Licensing: PolyForm Strict 1.0.0 — use only.** The image embeds Cyrius source and
+  therefore must not be redistributed.
+
+---
+
+## 8. PharmCAT
+
+### Overview
+
+[PharmCAT](https://github.com/PharmGKB/PharmCAT) (Pharmacogenomics Clinical Annotation Tool)
+is the CPIC/PharmGKB reference implementation: a named-allele matcher plus phenotype and
+guideline annotator. In pgx-suite it is the **verdict authority for UGT1A1, CYP2B6, and
+CYP4F2** — genes where the star-allele callers genuinely disagree (e.g. the UGT1A1
+`*28`/`*80` linkage that drives the irinotecan and atazanavir guidelines).
+
+### How it is integrated in pgx-suite
+
+- Runs **once per sample** (not per gene) inside the official `pgkb/pharmcat` Apptainer SIF
+  at `/pgx/containers/pharmcat.sif`, which carries its own bcftools ≥1.18 + Java 21.
+- The Snakefile `pharmcat` rule builds a **GT-only positions VCF** (`bcftools mpileup -R
+  pharmcat_positions.vcf.bgz | bcftools call`) — GT-only avoids the AD/DP FORMAT-merge
+  conflict PharmCAT chokes on — then runs `pharmcat_pipeline --missing-to-ref -reporterJson`.
+- `parse_pharmcat()` reads `genes.<GENE>.sourceDiplotypes[0]` from the report JSON;
+  `AUTHORITATIVE` maps UGT1A1/CYP2B6/CYP4F2 → PharmCAT.
+
+### Input requirements
+
+- GRCh38 BAM + reference; the baked `pharmcat_positions.vcf.bgz`.
+- The PharmCAT SIF (pull separately — see the README "Pulling the PharmCAT SIF"; it must be
+  built with single-threaded mksquashfs or the ~1.8 GB image corrupts).
+
+### Genes covered
+
+- The suite uses PharmCAT authoritatively for **UGT1A1, CYP2B6, CYP4F2**. PharmCAT itself
+  reports a wider CPIC gene set from the same run; only these three drive the verdict here.
+
+### Output
+
+- One `*.report.json` per sample covering all its genes; per-gene diplotype + phenotype.
+  Feeds the `PharmCAT authoritative` card badge.
+
+### Limitations
+
+- Covers only the CPIC gene set; not a structural-variant caller (CYP2D6 CNV stays with
+  Cyrius). License MPL-2.0 (redistributable, unlike Cyrius/Stargazer/Aldy).
+
+---
+
+## 9. VCF-Check
+
+### Overview
+
+VCF-Check is the suite's **in-house verdict authority for single-SNP / variant-list genes**:
+**RYR1, VKORC1, IFNL3, G6PD, CACNA1S**. For these genes a star-allele diplotype is the wrong
+model — the clinical call is "is this specific CPIC variant present?" (e.g. VKORC1
+`rs9923231`, the malignant-hyperthermia RYR1 variant list). VCF-Check reads the genotype
+directly from the gene-region VCF against the curated CPIC variant table.
+
+### How it is integrated in pgx-suite
+
+- Driven by `docker/vcf_check_variants.json` (per gene: `mode = single_snp | variant_list`,
+  chrom/pos/ref/alt, and the reporting label). The `bcftools` rule produces the gene VCF;
+  `pgx-compare.py` parsers (`parse_single_snp_vcf`, `parse_ryr1_vcf`) read it.
+- `AUTHORITATIVE` maps these genes → VCF-Check. Genes flagged `vcf_check=1` in `genes.tsv`.
+
+### Genes covered
+
+- **RYR1** (CPIC malignant-hyperthermia variant list), **VKORC1** (`rs9923231`, warfarin),
+  **IFNL3** (`rs12979860`), **G6PD**, **CACNA1S**.
+
+### Output
+
+- The reported genotype/zygosity at the CPIC position(s), e.g. VKORC1 `G/A`, IFNL3 `C/T`,
+  RYR1 `Normal` / a named pathogenic variant. Feeds the `VCF-Check authoritative` badge.
+
+### Limitations
+
+- Only as complete as `vcf_check_variants.json`. Adding a variant is a JSON edit
+  (guarded by `test_vcf_check.py`). Depends on the gene VCF, so the coverage gate applies.
 
 ---
 
@@ -1099,8 +1233,12 @@ Some genes in the 29-gene suite are not supported by all five callers. Key cases
 | Stargazer | Non-commercial academic (University of Washington) | **No commercial use; do not push to public registries** |
 | Aldy | Non-commercial academic (IURTC) | **No commercial use; do not push to public registries** |
 | StellarPGx | MIT | Open use |
+| Cyrius | PolyForm Strict 1.0.0 | **Use only — no redistribution.** Vendored source in the image. |
+| PharmCAT | MPL-2.0 | Open use; pulled as the official `pgkb/pharmcat` SIF (not baked) |
 | OptiType | MIT | Open use (SIF image via Bioconda/BioContainers) |
 | mutserve | MIT | Open use (JAR baked into Docker image) |
 
 The `pgx-suite` Docker image must not be uploaded to Docker Hub, GHCR, or any other
-public container registry because it bundles Stargazer and Aldy source code.
+public container registry because it bundles Stargazer, Aldy, **and Cyrius** source code
+(Cyrius is PolyForm Strict — redistribution prohibited; Stargazer/Aldy are non-commercial
+academic).

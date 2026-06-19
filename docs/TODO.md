@@ -1,19 +1,27 @@
 # PGx Suite — TODO
 
-## Current state — 2026-06-17
+## Current state — 2026-06-19
 
-The orchestrator is now a **Snakemake** DAG (`docker/Snakefile`); the bash orchestrators
-`pgx-run.sh` / `pgx-all-genes.sh` have been **removed** (see [`CHANGES.md`](CHANGES.md)).
-Completed since the phase plan below:
+The pipeline is now a **reconciliation engine**, not a string-equality ensemble (see the
+2026-06-19 entry in [`CHANGES.md`](CHANGES.md)). Completed since the Snakemake migration:
+
+- [x] Variant-tier reconciliation (`reconcile.py` + `allele_synonyms.json`) — synonym collapse before the agreement count
+- [x] Authoritative callers — **Cyrius** (CYP2D6 SV/CNV), **PharmCAT** 3.2.0 (UGT1A1/CYP2B6/CYP4F2), **VCF-Check** (RYR1/VKORC1/IFNL3/G6PD/CACNA1S)
+- [x] Clinical phenotype tier — concordant-by-phenotype when callers agree on CPIC phenotype despite differing diplotype strings
+- [x] Verdict-driven report — authority badges, actionability-first grid, ticker fixed to follow verdict status, collapsible per-gene coverage, all 9 callers in the top pane
+- [x] Axiom-array adjudication panel for validation samples (`build_axiom_concordance.py`)
+- [x] Unit tests — `test_reconcile.py`, `test_vcf_check.py`, `test_cyrius.py`, `test_pharmcat.py` (+ phenotype-tier cases in `test_verdict.py`); resolves the earlier "in-container vcf_check tests" TODO
+- [x] TTSH/MGI cohort (20 samples) re-verdicted: every clinically actionable CPIC gene resolved except 2 long-read-only complex CYP2D6 cases
+
+Carried over from 2026-06-17:
 
 - [x] Snakemake migration — 31-gene HG002 equivalence proven; bash orchestrators decommissioned
-- [x] Single-source gene config (`docker/genes.tsv`) — read by the Snakefile and `pgx-compare.py`
-- [x] NO_CALL coverage gate + single verdict authority (concordant / majority / discordant / no_call)
-- [x] Real per-caller exit codes (`logs/<tool>.status`) — `failed` vs `not_run` distinguished
-- [x] Report redesign — print-safe colour, WCAG AAA contrast, responsive, severity grouping, summary strip
-- [x] Unit tests — `test_parsers.py`, `test_verdict.py`, `test_coverage_gate.py`, `test_genes_config.py`
+- [x] Single-source gene config (`docker/genes.tsv`) — now also `cyrius` / `pharmcat` columns
+- [x] NO_CALL coverage gate + single verdict authority
+- [x] Real per-caller exit codes (`logs/<tool>.status`)
 - [ ] CRAM auto-extraction rule in the Snakefile (`depth_bam` config hook in place; needs a CRAM sample to validate)
-- [ ] In-container tests for the 3 `vcf_check` parsers (CACNA1S / G6PD / UGT1A1 — need bcftools)
+- [ ] Resolve the 2 long-read-only complex CYP2D6 cases (P_2000, EQ_2017) — out of reach for short reads + Cyrius
+- [ ] `pharmcat.sif` build automation on deployment hosts (single-threaded mksquashfs; documented in README)
 
 The phase history below is retained for provenance; references to `pgx-run.sh` /
 `pgx-all-genes.sh` describe the now-superseded bash pipeline.
@@ -208,7 +216,7 @@ These are flagged red in the HTML report. Root causes:
 
 ## Phase 7: CPIC Level A Gap Closure — CACNA1S and MT-RNR1 ✅ COMPLETE
 
-Pipeline now covers **19/19 CPIC Level A genes** across **31 genes total** with **6 callers**.
+Pipeline now covers **19/19 CPIC Level A genes** across **31 genes total** with **9 callers** (incl. the Cyrius / PharmCAT / VCF-Check verdict authorities).
 
 ---
 
