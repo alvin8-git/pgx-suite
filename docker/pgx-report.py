@@ -488,7 +488,10 @@ def verdict_card(verdict: dict) -> tuple[str, str, str, int, int]:
         return ("DISCORDANT", "-", "card-red", n_agree, n_called)
     if st == "no_data":
         return ("-", "-", "card-no-data", 0, 0)
-    card_class, _ = concordance_color(n_agree, n_called)
+    # Colour by the VERDICT, not the raw tool fraction: an authority/phenotype
+    # resolved call (e.g. PharmCAT at 1/4 tools) is a confident green, not red.
+    # The raw "n/N tools" detail is still shown in the per-card concordance badge.
+    card_class = "card-green" if st == "concordant" else "card-amber"
     return (verdict.get("consensus_diplotype", "-"),
             verdict.get("consensus_phenotype", "-"), card_class, n_agree, n_called)
 
@@ -816,6 +819,16 @@ LANDING_EXTRA_CSS = """
     margin-bottom: 1.25rem;
     align-items: center;
 }
+.depth-details > summary { cursor: pointer; font-size: 1.15rem; font-weight: 600; color: var(--primary); list-style: none; }
+.depth-details > summary::-webkit-details-marker { display: none; }
+.depth-details > summary::before { content: "▸ "; color: var(--muted); }
+.depth-details[open] > summary::before { content: "▾ "; }
+.depth-hint { font-size: 0.78rem; font-weight: 400; color: var(--muted); }
+.legend-authority { font-size: 0.78rem; margin: -0.5rem 0 1.25rem; }
+.legend-auth-title { color: var(--muted); font-weight: 600; margin-bottom: 0.4rem; }
+.legend-auth-row { display: flex; align-items: baseline; gap: 0.5rem; margin: 0.25rem 0; }
+.legend-auth-row .badge { flex: 0 0 auto; }
+.legend-auth-row > span:last-child { color: var(--muted); }
 .legend-item { display: flex; align-items: center; gap: 0.4rem; }
 .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
 """
@@ -911,15 +924,17 @@ def gene_depth_table(bs: dict) -> str:
             <td>{p30_cell}</td>
         </tr>"""
     return f"""
-    <div class="section">
-        <h2>Per-gene Sequencing Depth</h2>
+    <details class="section depth-details">
+        <summary>Per-gene sequencing depth <span class="depth-hint">(click to expand)</span></summary>
+        <div class="table-scroll" style="margin-top:0.75rem">
         <table>
             <thead><tr>
                 <th>Gene</th><th>Mean depth</th><th>≥20X</th><th>≥30X</th>
             </tr></thead>
             <tbody>{rows}</tbody>
         </table>
-    </div>"""
+        </div>
+    </details>"""
 
 
 def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
@@ -943,9 +958,28 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         "card-red":     "✗ Discordant",
         "card-no-data": "▢ No call",
     }
-    _sorted_genes = sorted(genes_data, key=lambda g: (_SEV_RANK.get(g["card_class"], 5), g["gene"]))
-    _n_flagged = sum(1 for g in _sorted_genes if g["card_class"] != "card-green")
-    _normal_divider_done = False
+    # Actionability-first ordering: lead with abnormal/actionable phenotypes
+    # (reusing the clinical-findings tier) regardless of concordance, so a
+    # concordant poor-metaboliser is not buried below a benign majority call.
+    # Groups: ★ Actionable findings -> ⚠ Needs review -> ✓ Normal.
+    _NEEDS_REVIEW = ("card-red", "card-no-data")
+    _TIER_RANK = {"high": 0, "moderate": 1, "informational": 2}
+    for g in genes_data:
+        g["_tier"] = _get_tier(g["gene"], _pheno_cat(g["consensus_phenotype"]),
+                               g["consensus_diplotype"], g.get("all_tool_diplotypes"))
+
+    def _grp(g):
+        if g["_tier"]:                              return 0   # actionable finding
+        if g["card_class"] in _NEEDS_REVIEW:        return 1   # no confident verdict
+        return 2                                               # normal
+
+    _sorted_genes = sorted(genes_data, key=lambda g: (
+        _grp(g), _TIER_RANK.get(g["_tier"], 9), _SEV_RANK.get(g["card_class"], 5), g["gene"]))
+    _grp_counts = Counter(_grp(g) for g in genes_data)
+    _GRP_LABEL = {0: ("★ Actionable findings", "grid-divider-flagged"),
+                  1: ("⚠ Needs review",        "grid-divider-flagged"),
+                  2: ("✓ Normal",              "grid-divider-normal")}
+    _prev_grp = None
     for _i, gd in enumerate(_sorted_genes):
         gene = gd["gene"]
         dip  = gd["consensus_diplotype"]
@@ -1008,11 +1042,11 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             else:
                 card_href = f"{sample}.{gene}.pgx.html"
 
-        if _i == 0 and _n_flagged:
-            gene_cards_html += f'<div class="grid-divider grid-divider-flagged">⚠ Needs review ({_n_flagged})</div>'
-        if card_class == "card-green" and not _normal_divider_done:
-            gene_cards_html += f'<div class="grid-divider grid-divider-normal">Normal — concordant ({len(_sorted_genes) - _n_flagged})</div>'
-            _normal_divider_done = True
+        _g = _grp(gd)
+        if _g != _prev_grp:
+            _lbl, _cls = _GRP_LABEL[_g]
+            gene_cards_html += f'<div class="grid-divider {_cls}">{_lbl} ({_grp_counts[_g]})</div>'
+            _prev_grp = _g
         gene_cards_html += f"""
             <a href="{card_href}" {card_onclick} class="gene-card {css_cls}">
                 <div class="gene-name">{gene}</div>
@@ -1033,14 +1067,14 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
     # At-a-glance headline counts — the 1-second clinician scan before the cards.
     _counts = Counter(gd["card_class"] for gd in genes_data)
     _total = len(genes_data)
-    _flagged = sum(_counts.get(c, 0) for c in ("card-red", "card-no-data", "card-orange", "card-amber"))
+    # need review = genes with no confident verdict (discordant / no-call)
+    _flagged = sum(_counts.get(c, 0) for c in ("card-red", "card-no-data"))
     _flag_html = (f'<span class="summary-flagged">{_flagged} need review</span>'
-                  if _flagged else '<span class="summary-flagged summary-ok">all concordant</span>')
+                  if _flagged else '<span class="summary-flagged summary-ok">all resolved</span>')
     _pills = "".join(
         f'<span class="summary-pill {_cc}"><b>{_counts[_cc]}</b> {_g} {_lbl}</span>'
         for _cc, _g, _lbl in (("card-red", "✗", "Discordant"), ("card-no-data", "▢", "No call"),
-                              ("card-orange", "≈", "2/4"), ("card-amber", "≈", "3/4"),
-                              ("card-green", "✓", "Concordant"))
+                              ("card-amber", "≈", "Majority"), ("card-green", "✓", "Concordant"))
         if _counts.get(_cc, 0)
     )
     summary_strip_html = (f'<div class="summary-strip"><span class="summary-total">'
@@ -1259,7 +1293,10 @@ function pgxShowMain() {
                 <span class="badge badge-blue">Stargazer 2.0.3</span>
                 <span class="badge badge-blue">Aldy 4.8</span>
                 <span class="badge badge-blue">StellarPGx 1.2.7</span>
+                <span class="badge badge-blue">Cyrius 1.1</span>
+                <span class="badge badge-blue">PharmCAT 3.2.0</span>
                 <span class="badge badge-blue">OptiType 1.3.5</span>
+                <span class="badge badge-blue">mutserve 2.0.3</span>
             </div>
         </div>
     </div>
@@ -1273,22 +1310,27 @@ function pgxShowMain() {
     <div class="section">
         <h2>Gene Diplotype Summary</h2>
         <div class="legend-row">
-            <span style="font-weight:600;color:var(--muted)">Concordance:</span>
+            <span style="font-weight:600;color:var(--muted)">Verdict:</span>
             <span class="legend-item">
-                <span class="legend-swatch" style="background:#38a169"></span>4/4 tools agree
+                <span class="legend-swatch" style="background:#38a169"></span>Concordant
             </span>
             <span class="legend-item">
-                <span class="legend-swatch" style="background:#d69e2e"></span>3/4 agree
+                <span class="legend-swatch" style="background:#d69e2e"></span>Majority
             </span>
             <span class="legend-item">
-                <span class="legend-swatch" style="background:#ed8936"></span>2/4 agree
+                <span class="legend-swatch" style="background:#e53e3e"></span>Discordant
             </span>
             <span class="legend-item">
-                <span class="legend-swatch" style="background:#e53e3e"></span>&lt;2/4 agree
+                <span class="legend-swatch" style="background:#a0aec0"></span>No call
             </span>
-            <span class="legend-item">
-                <span class="legend-swatch" style="background:#a0aec0"></span>No data
-            </span>
+            <span class="legend-item" style="color:var(--muted)">— per-card <b>n/N</b> shows how many callers agreed</span>
+        </div>
+        <div class="legend-authority">
+            <div class="legend-auth-title">When star-allele callers can't agree, a CPIC reference method sets the verdict (shown as a badge on the gene card):</div>
+            <div class="legend-auth-row"><span class="badge badge-blue">PharmCAT authoritative</span><span>diplotype set by PharmCAT, the CPIC reference star-allele caller (UGT1A1, CYP2B6, CYP4F2).</span></div>
+            <div class="legend-auth-row"><span class="badge badge-blue">VCF-Check authoritative</span><span>genotype read directly from the CPIC variant table (RYR1, VKORC1, G6PD, CACNA1S, IFNL3).</span></div>
+            <div class="legend-auth-row"><span class="badge badge-blue">Cyrius authoritative</span><span>CYP2D6 structural variant / copy-number resolved by Cyrius.</span></div>
+            <div class="legend-auth-row"><span class="badge badge-blue">Resolved by phenotype concordance</span><span>callers gave different diplotype strings but agree on the CPIC phenotype.</span></div>
         </div>
         <div class="gene-grid">
 {gene_cards_html}
@@ -1339,10 +1381,15 @@ DETAIL_EXTRA_CSS = """
     background: white;
     border: 1px solid var(--border);
     border-radius: 8px;
-    overflow: hidden;
+    overflow-x: auto;              /* horizontal scrollbar when many tool columns */
+    -webkit-overflow-scrolling: touch;
 }
+/* per-column floor so columns stay readable; the table then overflows the wrap
+   (one column per caller — now up to 9) and a scrollbar appears at the bottom */
+.detail-table th, .detail-table td { min-width: 120px; vertical-align: top; }
 .detail-table th:first-child,
 .detail-table td:first-child {
+    position: sticky; left: 0; z-index: 1;   /* keep the field-name column in view */
     background: #f7fafc;
     font-weight: 600;
     color: var(--primary);
@@ -1716,7 +1763,14 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
             diplotypes.append(d)
     n_called = len(diplotypes)
     n_agree = Counter(diplotypes).most_common(1)[0][1] if diplotypes else 0
-    card_class, badge_text = concordance_color(n_agree, n_called)
+    # Prefer the single-source verdict so the detail page matches the landing card
+    # exactly (failed / no-call callers like Cyrius are excluded the same way,
+    # and the colour follows the verdict status, not the raw tool fraction).
+    if _v:
+        n_agree, n_called, card_class = _na, _nc, _cc
+        badge_text = f"{n_agree}/{n_called}" if n_called else "No data"
+    else:
+        card_class, badge_text = concordance_color(n_agree, n_called)
     badge_cls_map = {
         "card-green":   "badge-green",
         "card-amber":   "badge-amber",
@@ -1901,7 +1955,16 @@ def main():
 
     # Load BAM stats
     bs = None
-    bam_stats_path = args.bam_stats or os.path.join(out_dir, "log", "bam_stats.json")
+    bam_stats_path = args.bam_stats
+    if not bam_stats_path:
+        # bamstats rule writes <output>/bam_stats.json; older layouts used log/.
+        for _cand in (os.path.join(out_dir, "bam_stats.json"),
+                      os.path.join(out_dir, "log", "bam_stats.json")):
+            if os.path.isfile(_cand):
+                bam_stats_path = _cand
+                break
+        else:
+            bam_stats_path = os.path.join(out_dir, "bam_stats.json")
     if os.path.isfile(bam_stats_path):
         with open(bam_stats_path) as fh:
             bs = json.load(fh)
