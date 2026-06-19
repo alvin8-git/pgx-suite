@@ -78,6 +78,7 @@ See [`ToolsDocumentation.md`](docs/ToolsDocumentation.md) for a detailed compari
 | `StellarPGx/` | Nextflow pipeline, gene databases, resources |
 | `StellarPGx/containers/stellarpgx-dev.sif` | StellarPGx Apptainer SIF (31 MB) |
 | `StellarPGx/containers/optitype.sif` | OptiType Apptainer SIF (~500 MB; pull separately — see below) |
+| `StellarPGx/containers/pharmcat.sif` | PharmCAT v3.2.0 Apptainer SIF (~1.8 GB; pull separately — see below) |
 | `nextflow` | Nextflow binary (pre-downloaded) |
 
 **Pulling the OptiType SIF** (one-time, requires Docker + outbound internet):
@@ -88,6 +89,24 @@ docker run --privileged --rm \
   pgx-suite:latest \
   apptainer pull --name /pgx/containers/optitype.sif \
     docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1
+```
+
+**Pulling the PharmCAT SIF** (one-time). PharmCAT carries its own bcftools ≥1.18 +
+Java 21 + the CPIC reporter; the suite's pharmcat rule runs `pharmcat_pipeline`
+inside this SIF. **Use a real ext4 `TMPDIR` and force single-threaded mksquashfs**
+— apptainer's bundled multithreaded mksquashfs races and corrupts the squashfs on
+this ~1.8 GB image (SIGSEGV / "Bug in orderer" / "malloc(): corrupted top size").
+`procs=1` serializes it:
+
+```bash
+mkdir -p /data/tmp/apptainer
+docker run --privileged --rm \
+  -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
+  -v "/data/tmp/apptainer:/apptmp" \
+  -e APPTAINER_TMPDIR=/apptmp -e APPTAINER_CACHEDIR=/apptmp -e TMPDIR=/apptmp \
+  pgx-suite:latest bash -lc '
+    sed -i "s/^mksquashfs procs = 0/mksquashfs procs = 1/" /etc/apptainer/apptainer.conf
+    apptainer pull --name /pgx/containers/pharmcat.sif docker://pgkb/pharmcat:latest'
 ```
 
 ---
