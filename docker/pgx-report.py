@@ -1258,6 +1258,68 @@ function pgxShowMain() {
     document.getElementById('main-view').hidden = false;
     window.scrollTo(0, 0);
 }
+// Wide-table horizontal scrolling: drag-to-pan anywhere + a floating bottom
+// scrollbar synced to whichever overflowing table is on screen.
+// Runs on DOMContentLoaded — this <script> lives in <head>, so the body/tables
+// don't exist yet at parse time.
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.table-scroll').forEach(function (el) {
+        var down = false, startX = 0, startLeft = 0, moved = false;
+        el.addEventListener('mousedown', function (e) {
+            if (e.button !== 0 || e.target.closest('a, button, input, select')) return;
+            down = true; moved = false; startX = e.pageX; startLeft = el.scrollLeft;
+            el.classList.add('dragging');
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!down) return;
+            var dx = e.pageX - startX;
+            if (Math.abs(dx) > 3) moved = true;
+            el.scrollLeft = startLeft - dx;
+            if (moved) e.preventDefault();
+        });
+        window.addEventListener('mouseup', function () { down = false; el.classList.remove('dragging'); });
+        el.addEventListener('click', function (e) {
+            if (moved) { e.preventDefault(); e.stopPropagation(); }
+        }, true);
+    });
+
+    var bar = document.createElement('div');
+    bar.className = 'floating-xscroll';
+    var inner = document.createElement('div');
+    bar.appendChild(inner);
+    document.body.appendChild(bar);
+    var active = null, syncing = false;
+
+    function usable(el) {
+        if (el.offsetParent === null) return false;            // hidden gene panel
+        if (el.scrollWidth - el.clientWidth < 4) return false; // no overflow
+        var r = el.getBoundingClientRect();
+        // on screen, but its own bottom scrollbar is below the fold
+        return r.top < window.innerHeight && r.bottom > 60 && r.bottom > window.innerHeight;
+    }
+    function refresh() {
+        var cands = document.querySelectorAll('.table-scroll');
+        active = null;
+        for (var i = 0; i < cands.length; i++) { if (usable(cands[i])) { active = cands[i]; break; } }
+        if (!active) { bar.style.display = 'none'; return; }
+        var r = active.getBoundingClientRect();
+        bar.style.display = 'block';
+        bar.style.left = r.left + 'px';
+        bar.style.width = r.width + 'px';
+        inner.style.width = active.scrollWidth + 'px';
+        syncing = true; bar.scrollLeft = active.scrollLeft; syncing = false;
+    }
+    bar.addEventListener('scroll', function () {
+        if (syncing || !active) return;
+        syncing = true; active.scrollLeft = bar.scrollLeft; syncing = false;
+    });
+    document.addEventListener('scroll', function () {
+        if (active && !syncing) { syncing = true; bar.scrollLeft = active.scrollLeft; syncing = false; }
+        refresh();
+    }, true);  // capture: also fires for inner table scroll (drag/wheel)
+    window.addEventListener('resize', refresh);
+    setTimeout(refresh, 0);
+});
 </script>"""
 
     html = f"""<!DOCTYPE html>
@@ -1399,6 +1461,19 @@ DETAIL_EXTRA_CSS = """
     overflow-x: auto;              /* horizontal scrollbar when many tool columns */
     -webkit-overflow-scrolling: touch;
 }
+/* Wide tables: grab-and-drag to pan horizontally (see wideScroll JS) + a scrollbar
+   that floats at the viewport bottom so you never scroll to the table's end to use it. */
+.detail-table-wrap, .var-table-wrap { cursor: grab; }
+.table-scroll.dragging { cursor: grabbing; user-select: none; }
+.floating-xscroll {
+    position: fixed; bottom: 0; left: 0; height: 15px;
+    overflow-x: auto; overflow-y: hidden;
+    z-index: 50; display: none;
+    background: rgba(247,250,252,0.96);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.08);
+}
+.floating-xscroll > div { height: 1px; }
 /* per-column floor so columns stay readable; the table then overflows the wrap
    (one column per caller — now up to 9) and a scrollbar appears at the bottom */
 .detail-table th, .detail-table td { min-width: 120px; vertical-align: top; }
@@ -1725,6 +1800,20 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
     tools_data = detail.get("tools", {})
     sv_note = detail.get("sv_mode", "")
 
+    # Fill the PharmCAT column for genes where it ran as an informational
+    # cross-check (not the authority). Display-only: a synthesized copy keeps
+    # the cross-check out of the vote math (which uses the verdict, or the
+    # cross-check-free `tools_data` fallback below). ponytail: shallow copy.
+    _ccp = (detail.get("cross_check") or {}).get("PharmCAT")
+    if _ccp and "PharmCAT" not in tools_data:
+        display_tools = dict(tools_data)
+        display_tools["PharmCAT"] = {
+            "diplotype": _ccp.get("diplotype", "-"),
+            "phenotype": _ccp.get("phenotype", "-"),
+        }
+    else:
+        display_tools = tools_data
+
     clusters = harmonize_variants(tools_data)
     var_subtable_html = render_variant_subtable(clusters, id_prefix=id_prefix)
 
@@ -1758,7 +1847,7 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
         elif field_key == "supporting_variants":
             cells = ""
             for tool in TOOLS:
-                vlist = tools_data.get(tool, {}).get("supporting_variants", [])
+                vlist = display_tools.get(tool, {}).get("supporting_variants", [])
                 n = len(vlist) if isinstance(vlist, list) else 0
                 cells += f'<td><span class="var-count-cell">{n} variant{"s" if n != 1 else ""}</span></td>'
             anchor = f'<a href="#{id_prefix}variant-evidence" class="var-anchor-link">&#8595; see table below</a>'
@@ -1766,7 +1855,7 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
         else:
             cells = ""
             for tool in TOOLS:
-                td = tools_data.get(tool, {})
+                td = display_tools.get(tool, {})
                 raw = td.get(field_key, "-")
                 cells += f"<td>{fmt_value(field_key, raw)}</td>"
             rows_html += f"<tr><td>{field_label}</td>{cells}</tr>\n"
