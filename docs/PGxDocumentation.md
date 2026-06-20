@@ -13,37 +13,51 @@ This pipeline performs star-allele calling and diplotype assignment across 37 ge
 
 - [Reconciliation & Verdict Authority](#reconciliation--verdict-authority)
 
+**CPIC Level A genes (19)** — the highest-evidence, prescribing-actionable set; each
+gene's exact level is in its **CPIC Level** subsection below:
+**CACNA1S, CYP2B6, CYP2C9, CYP2C19, CYP2D6, CYP3A5, DPYD, G6PD, HLA-A, HLA-B, IFNL3,
+MT-RNR1, NAT2, NUDT15, RYR1, SLCO1B1, TPMT, UGT1A1, VKORC1**.
+The remaining entries are CPIC Level B (e.g. ABCG2, CYP1A2, CYP2A6, CYP2C8, CYP4F2),
+the CYP3A4 tacrolimus co-marker, the warfarin **CYP2C-CLUSTER** locus, or research-grade
+genes (CYP1A1, CYP2E1, GSTM1/P1/T1, NAT1, POR, SLC15A2, SLC22A2, SLCO2B1, UGT2B15).
+
 1. [ABCG2](#abcg2)
-2. [CACNA1S](#cacna1s)
+2. [CACNA1S](#cacna1s) — **Level A**
 3. [CYP1A1](#cyp1a1)
 4. [CYP1A2](#cyp1a2)
 5. [CYP2A6](#cyp2a6)
-6. [CYP2B6](#cyp2b6)
+6. [CYP2B6](#cyp2b6) — **Level A**
 7. [CYP2C8](#cyp2c8)
-8. [CYP2C9](#cyp2c9)
-9. [CYP2C19](#cyp2c19)
-10. [CYP2D6](#cyp2d6)
-11. [CYP2E1](#cyp2e1)
-12. [CYP3A4](#cyp3a4)
-13. [CYP3A5](#cyp3a5)
-14. [CYP4F2](#cyp4f2)
-15. [DPYD](#dpyd)
-16. [G6PD](#g6pd)
-17. [GSTM1](#gstm1)
-18. [GSTT1](#gstt1)
-19. [HLA-A](#hla-a)
-20. [HLA-B](#hla-b)
-21. [IFNL3](#ifnl3)
-22. [MT-RNR1](#mt-rnr1)
-23. [NAT1](#nat1)
-24. [NAT2](#nat2)
-25. [NUDT15](#nudt15)
-26. [POR](#por)
-27. [RYR1](#ryr1)
-28. [SLCO1B1](#slco1b1)
-29. [TPMT](#tpmt)
-30. [UGT1A1](#ugt1a1)
-31. [VKORC1](#vkorc1)
+8. [CYP2C9](#cyp2c9) — **Level A**
+9. [CYP2C19](#cyp2c19) — **Level A**
+10. [CYP2C-CLUSTER](#cyp2c-cluster) — Level A (warfarin)
+11. [CYP2D6](#cyp2d6) — **Level A**
+12. [CYP2E1](#cyp2e1)
+13. [CYP3A4](#cyp3a4)
+14. [CYP3A5](#cyp3a5) — **Level A**
+15. [CYP4F2](#cyp4f2)
+16. [DPYD](#dpyd) — **Level A**
+17. [G6PD](#g6pd) — **Level A**
+18. [GSTM1](#gstm1)
+19. [GSTP1](#gstp1)
+20. [GSTT1](#gstt1)
+21. [HLA-A](#hla-a) — **Level A**
+22. [HLA-B](#hla-b) — **Level A**
+23. [IFNL3](#ifnl3) — **Level A**
+24. [MT-RNR1](#mt-rnr1) — **Level A**
+25. [NAT1](#nat1)
+26. [NAT2](#nat2) — **Level A**
+27. [NUDT15](#nudt15) — **Level A**
+28. [POR](#por)
+29. [RYR1](#ryr1) — **Level A**
+30. [SLC15A2](#slc15a2)
+31. [SLC22A2](#slc22a2)
+32. [SLCO1B1](#slco1b1) — **Level A**
+33. [SLCO2B1](#slco2b1)
+34. [TPMT](#tpmt) — **Level A**
+35. [UGT1A1](#ugt1a1) — **Level A**
+36. [UGT2B15](#ugt2b15)
+37. [VKORC1](#vkorc1) — **Level A**
 
 ---
 
@@ -488,6 +502,49 @@ CYP2C19*2 poor-metaboliser allele is common across all populations (Europeans ~1
 
 ---
 
+## CYP2C-CLUSTER
+
+### Overview
+
+CYP2C-CLUSTER is not a gene but a single regulatory locus in the CYP2C gene cluster on
+chromosome 10 — the variant **rs12777823** (GRCh38 chr10:94,645,745 G>A), located between
+CYP2C18 and CYP2C19. It is genotyped directly (by VCF-Check) rather than as a star allele,
+because the clinically relevant unit here is one SNP, not a haplotype.
+
+### Pharmacogenomic Significance
+
+rs12777823 is part of the CPIC warfarin dosing guideline. In patients of **African
+ancestry**, carriers of the A allele require a **lower warfarin dose** (reduced clearance),
+an effect that is independent of, and additive to, CYP2C9 and VKORC1 genotype. The
+association is not observed in European or East Asian populations, so the variant is
+reported alongside CYP2C9/VKORC1/CYP4F2 to complete the warfarin panel.
+
+### Key Variants
+
+| Variant | Location (GRCh38) | Effect | Clinical Relevance |
+|---------|-------------------|--------|--------------------|
+| rs12777823 | chr10:94,645,745 G>A | A allele = reduced warfarin clearance (African ancestry) | Lower warfarin dose; CPIC warfarin guideline |
+
+### Population Frequencies
+
+Global minor-allele (A) frequency is ~0.24. The dose-reducing association is established
+specifically in African-ancestry cohorts; the variant is common but its actionable effect
+is ancestry-specific.
+
+### CPIC Level
+
+**CPIC Level A** — Warfarin (African-ancestry dosing). Part of the CPIC warfarin guideline
+together with CYP2C9, VKORC1, and CYP4F2.
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| VCF-Check | **Yes (verdict authority)** — direct genotype from the CPIC variant table |
+| Star-allele callers (PyPGx/Stargazer/Aldy/StellarPGx) | No — intergenic single SNP, not a star-allele gene |
+
+---
+
 ## CYP2D6
 
 ### Overview
@@ -808,6 +865,51 @@ GSTM1 null homozygosity frequency is approximately 47–65% in European populati
 | mutserve | No |
 
 > GSTM1 null genotyping requires copy number variant (CNV) analysis not currently implemented in this pipeline.
+
+---
+
+## GSTP1
+
+### Overview
+
+GSTP1 (glutathione S-transferase pi 1) is a phase II detoxification enzyme that conjugates
+glutathione to a wide range of electrophilic compounds, including the reactive metabolites of
+several chemotherapeutic agents (platinum compounds, cyclophosphamide, anthracyclines). It is
+the predominant GST isoform in many epithelial tissues and tumours.
+
+### Pharmacogenomic Significance
+
+The common missense variant **rs1695 (c.313A>G, p.Ile105Val)** reduces GSTP1 catalytic
+activity and has been studied for associations with chemotherapy response and toxicity
+(notably platinum-based regimens) and with analgesic and oxidative-stress phenotypes. The
+evidence base is observational and not at the level of a CPIC prescribing guideline.
+
+### Key Variants
+
+| Allele | Variant | Effect |
+|--------|---------|--------|
+| *B | rs1695 (Ile105Val) | Reduced conjugation activity |
+| *C | rs1138272 (Ala114Val) | Further altered activity (often in cis with *B) |
+| *A (reference) | — | Normal activity |
+
+### Population Frequencies
+
+The Ile105Val (rs1695) variant is common across populations (allele frequency ~0.3 in
+Europeans, somewhat lower in East Asians).
+
+### CPIC Level
+
+**No CPIC Level A/B guideline.** Research-grade pharmacogene; included here as a
+GeT-RM-validated addition (concordant on NA12878). Reported for completeness, not for
+standalone prescribing action.
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| PyPGx | **Yes** |
+| Aldy | **Yes** |
+| Stargazer / StellarPGx / OptiType / mutserve | No |
 
 ---
 
@@ -1220,6 +1322,63 @@ RYR1 pathogenic MH variants are present across all ethnic populations, with an a
 
 ---
 
+## SLC15A2
+
+### Overview
+
+SLC15A2 encodes PEPT2, a proton-coupled peptide transporter highly expressed in the renal
+proximal tubule, where it reabsorbs di- and tri-peptides and peptide-like drugs
+(aminocephalosporins, some ACE inhibitors, valaciclovir). It influences the renal handling
+and systemic exposure of its substrate drugs.
+
+### Pharmacogenomic Significance
+
+SLC15A2 variation has been studied for associations with the pharmacokinetics of peptide-mimetic
+drugs and with nephrotoxicity risk. Evidence is preliminary and not at CPIC guideline level.
+
+### CPIC Level
+
+**No CPIC Level A/B guideline.** Research-grade transporter; included as a GeT-RM-validated
+addition (concordant on NA12878).
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| PyPGx | **Yes** |
+| Stargazer / Aldy / StellarPGx / OptiType / mutserve | No |
+
+---
+
+## SLC22A2
+
+### Overview
+
+SLC22A2 encodes OCT2 (organic cation transporter 2), the principal basolateral uptake
+transporter for cationic drugs in the renal proximal tubule. It mediates renal uptake of
+**metformin** and of nephrotoxic agents such as **cisplatin**.
+
+### Pharmacogenomic Significance
+
+The variant **rs316019 (c.808G>T, p.Ala270Ser)** alters OCT2 transport and has been
+associated with metformin renal clearance and with cisplatin-induced nephrotoxicity risk.
+Evidence is emerging but has not reached a CPIC prescribing guideline. SLC22A2 is treated as
+a copy-number/SV-capable gene by PyPGx.
+
+### CPIC Level
+
+**No CPIC Level A/B guideline.** Research/emerging transporter pharmacogene; included as a
+GeT-RM-validated addition (concordant on NA12878).
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| PyPGx | **Yes** (SV — depth + control statistics) |
+| Stargazer / Aldy / StellarPGx / OptiType / mutserve | No |
+
+---
+
 ## SLCO1B1
 
 ### Overview
@@ -1258,6 +1417,34 @@ The SLCO1B1*5 (rs4149056) allele frequency is approximately 14–17% in European
 | StellarPGx | Yes |
 | OptiType | No |
 | mutserve | No |
+
+---
+
+## SLCO2B1
+
+### Overview
+
+SLCO2B1 encodes OATP2B1, an organic anion transporter expressed in the intestine and liver
+that mediates uptake of several drugs, including statins, fexofenadine, and montelukast. It
+contributes to oral drug absorption and hepatic uptake.
+
+### Pharmacogenomic Significance
+
+SLCO2B1 variation has been studied for associations with statin and montelukast
+pharmacokinetics. The clinically actionable hepatic statin transporter is **SLCO1B1** (CPIC
+Level A); SLCO2B1 remains research-grade with no CPIC guideline.
+
+### CPIC Level
+
+**No CPIC Level A/B guideline.** Research-grade transporter; included as a GeT-RM-validated
+addition (concordant on NA12878). For statin pharmacogenomics, see **SLCO1B1**.
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| PyPGx | **Yes** |
+| Stargazer / Aldy / StellarPGx / OptiType / mutserve | No |
 
 ---
 
@@ -1340,6 +1527,42 @@ UGT1A1*28 (7-TA repeat) is common in Europeans (~36% allele frequency), Africans
 | StellarPGx | Yes |
 | OptiType | No |
 | mutserve | No |
+
+---
+
+## UGT2B15
+
+### Overview
+
+UGT2B15 (UDP-glucuronosyltransferase family 2 member B15) is a phase II enzyme that
+glucuronidates lipophilic substrates including the benzodiazepines **oxazepam** and
+**lorazepam**, some NSAIDs, and androgens, marking them for elimination.
+
+### Pharmacogenomic Significance
+
+The common variant **rs1902023 (c.253G>T, p.Asp85Tyr; the *2 allele)** alters UGT2B15
+glucuronidation rate and has been associated with oxazepam/lorazepam clearance and with
+androgen metabolism. Evidence is observational and has not reached a CPIC prescribing
+guideline. UGT2B15 is treated as a copy-number/SV-capable gene by PyPGx.
+
+### Key Variants
+
+| Allele | Variant | Effect |
+|--------|---------|--------|
+| *2 | rs1902023 (Asp85Tyr) | Altered glucuronidation rate |
+| *1 (reference) | — | Normal activity |
+
+### CPIC Level
+
+**No CPIC Level A/B guideline.** Research-grade pharmacogene; included as a GeT-RM-validated
+addition (concordant on NA12878).
+
+### Tool Support in pgx-suite
+
+| Tool | Supported |
+|------|-----------|
+| PyPGx | **Yes** (SV — depth + control statistics) |
+| Stargazer / Aldy / StellarPGx / OptiType / mutserve | No |
 
 ---
 
