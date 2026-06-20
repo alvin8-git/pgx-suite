@@ -787,6 +787,8 @@ LANDING_EXTRA_CSS = """
 .gene-xcheck { margin-top: 0.25rem; }
 .gene-xcheck .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; opacity: 0.92; }
 .xcheck-note { margin: 0.75rem 0 0; padding: 0.5rem 0.75rem; background: #f1f5f9; border-left: 4px solid var(--primary-light); border-radius: 4px; font-size: 0.8rem; color: var(--muted); }
+.pipeline-narrative { margin: 0.9rem 0 0; padding: 0.7rem 0.9rem; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; line-height: 1.5; color: var(--text); }
+.pipeline-narrative strong { color: var(--primary); }
 .gene-depth   { font-size: 0.7rem; margin-top: 0.25rem; color: var(--muted); }
 /* ── Sequencing depth coverage flags ── */
 .depth-ok       { color: #2d7d46; font-weight: 700; }   /* ≥80% at ≥30× */
@@ -1789,6 +1791,98 @@ def render_variant_subtable(clusters: list[dict], n_tools_per_gene: dict | None 
     </div>"""
 
 
+def _resolution_badge(verdict: dict) -> str:
+    """Resolution/authority badge for the gene-page header (mirrors the landing card)."""
+    if not verdict:
+        return ""
+    if verdict.get("phenotype_tier"):
+        return '<span class="badge badge-blue">&#9733; Resolved by phenotype concordance</span>'
+    auth = verdict.get("authority")
+    if auth and auth != "-":
+        return f'<span class="badge badge-blue">&#9733; {auth} authoritative</span>'
+    st = verdict.get("status")
+    label = {"concordant": "Consensus", "majority": "Majority", "discordant": "Discordant",
+             "no_call": "No call", "no_data": "No data"}.get(st, st or "")
+    cls = {"concordant": "badge-green", "majority": "badge-amber", "discordant": "badge-red",
+           "no_call": "badge-grey", "no_data": "badge-grey"}.get(st, "badge-grey")
+    return f'<span class="badge {cls}">{label}</span>' if label else ""
+
+
+# Per-authority one-liner: WHY this caller is the CPIC authority for the gene.
+_AUTHORITY_WHY = {
+    "Cyrius": "Cyrius is purpose-built for the CYP2D6/2D7 paralog and the copy-number / "
+              "hybrid structural variants that short-read star-allele callers resolve unreliably",
+    "PharmCAT": "PharmCAT is the CPIC reference implementation and applies CPIC's allele-definition "
+                "and linkage rules (e.g. UGT1A1 *28/*80 LD) that star-allele callers report inconsistently",
+    "VCF-Check": "VCF-Check reads the CPIC variant genotype straight from the VCF, avoiding the "
+                 "incompatible star/haplotype nomenclature other callers apply at this single-SNP / curated-variant locus",
+}
+
+
+def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str, str]:
+    """Return (tool-concordance sentence, CPIC-resolution sentence) for the gene page.
+
+    Built entirely from the verdict block + per-tool calls — no recompute.
+    """
+    v = verdict or {}
+    status = v.get("status")
+    auth = v.get("authority")
+    cons = v.get("consensus_diplotype", "-") or "-"
+    pheno = v.get("consensus_phenotype", "-") or "-"
+
+    called = [(t, i.get("diplotype", "-")) for t, i in tools_data.items()
+              if i.get("status") == "ok" and i.get("diplotype", "-") not in ("-", "")]
+    # ── Tool concordance sentence ────────────────────────────────────────────
+    if not called:
+        conc = "No caller produced a usable call for this gene."
+    else:
+        auth_calls = [(t, d) for t, d in called if t == auth]
+        other = [(t, d) for t, d in called if t != auth]
+        parts = [f"{len(called)} caller{'s' if len(called) != 1 else ''} produced a call."]
+        if auth_calls:
+            parts.append(f"{auth} (authority): {auth_calls[0][1]}.")
+        if other:
+            nd = {normalize_diplotype(d) for _, d in other}
+            agree = "agree" if len(nd) == 1 else "differ"
+            lst = ", ".join(f"{t} {d}" for t, d in other)
+            label = "Star-allele callers" if auth_calls else "Callers"
+            parts.append(f"{label} {agree}: {lst}.")
+        conc = " ".join(parts)
+
+    # ── CPIC resolution sentence ─────────────────────────────────────────────
+    if status == "no_call":
+        res = ("Region depth was below the minimum threshold, so the coverage gate suppressed "
+               "all calls — no diplotype is asserted.")
+    elif status == "no_data" or not called:
+        res = "No caller produced a call, so no verdict could be formed."
+    elif v.get("phenotype_tier"):
+        res = (f"Callers reported differing diplotype strings, but ≥2 phenotype-emitting callers "
+               f"agreed on the CPIC phenotype ({pheno}); the verdict was upgraded to concordant on phenotype.")
+    elif auth and auth != "-":
+        why = _AUTHORITY_WHY.get(auth, f"{auth} is the designated CPIC authority for this gene")
+        star_disc = any(normalize_diplotype(d) != normalize_diplotype(cons)
+                        for t, d in called if t != auth)
+        tail = (" The star-allele callers disagreed among themselves or with the authority, "
+                "so their calls are retained for audit but do not set the verdict."
+                if star_disc else " The other callers were consistent with this call.")
+        res = (f"{gene} is resolved by {auth}, the designated CPIC authority for this gene "
+               f"({why}). Its call {cons} is taken as the verdict.{tail}")
+    elif status == "concordant":
+        na, nc = v.get("n_agree", 0), v.get("n_called", 0)
+        res = (f"All {na} of {nc} callers agree on {cons} (synonymous diplotypes collapsed before "
+               f"counting); no authority override was needed.")
+    elif status == "majority":
+        na, nc = v.get("n_agree", 0), v.get("n_called", 0)
+        res = (f"{na} of {nc} callers agree on {cons} (majority); the remainder differ and there is "
+               f"no single authority caller for this gene, so the majority call is reported.")
+    elif status == "discordant":
+        res = ("Callers disagree and no authority caller or phenotype-level concordance resolved it; "
+               "the gene is flagged for manual review and no consensus diplotype is asserted.")
+    else:
+        res = f"Verdict status: {status}."
+    return conc, res
+
+
 def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | None,
                       back_href: str, id_prefix: str = "") -> str:
     """Return the inner HTML fragment for a gene detail panel (no html/head/body wrapper).
@@ -1938,6 +2032,22 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
     else:
         xcheck_detail_html = ""
 
+    # Header verdict badges (parity with the landing card) + plain-language narrative.
+    _res_badge = _resolution_badge(_v)
+    _pheno_pill = (
+        f'<div style="margin:0.4rem 0"><span class="gene-pheno-pill" '
+        f'style="background:{phenotype_color(consensus_pheno)}">{consensus_pheno}</span></div>'
+        if consensus_pheno else ""
+    )
+    _diplo_headline = consensus_diplo if consensus_diplo else "&#8212;"
+    _conc_sentence, _res_sentence = _pipeline_narrative(gene, _v or {}, tools_data)
+    narrative_html = (
+        '<div class="pipeline-narrative">'
+        f'<div><strong>Tool concordance</strong> &mdash; {_conc_sentence}</div>'
+        f'<div style="margin-top:0.45rem"><strong>CPIC resolution</strong> &mdash; {_res_sentence}</div>'
+        '</div>'
+    )
+
     # back_onclick is set when back_href signals embedded mode
     if back_href.startswith("javascript:"):
         back_el = f'<a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>'
@@ -1960,14 +2070,18 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
             {locus_html}
             <div class="sample-meta" style="margin-top:0.3rem">Sample: {sample} &bull; GRCh38</div>
         </div>
-        <div>
-            <div class="qc-label">Tool concordance</div>
+        <div style="text-align:right">
+            <div class="qc-label">Diplotype</div>
+            <div class="gene-diplo-headline" style="font-size:1.4rem;font-weight:600;margin-top:0.1rem">{_diplo_headline}</div>
+            {_pheno_pill}
             <div style="margin-top:0.4rem">
-                <span class="badge {badge_cls}" style="font-size:0.9rem;padding:0.3rem 0.9rem">{badge_text}</span>
+                <span class="badge {badge_cls}" style="font-size:0.9rem;padding:0.3rem 0.9rem">Concordance {badge_text}</span>
+                {_res_badge}
             </div>
             {depth_detail_html}
         </div>
     </div>
+    {narrative_html}
     {xcheck_detail_html}
 
     <div class="section" id="{id_prefix}tool-results">
