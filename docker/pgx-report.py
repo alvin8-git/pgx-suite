@@ -1315,7 +1315,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (syncing || !active) return;
         syncing = true; active.scrollLeft = bar.scrollLeft; syncing = false;
     });
-    document.addEventListener('scroll', function () {
+    document.addEventListener('scroll', function (e) {
+        // The bar's own scroll is handled by its listener above (bar -> table).
+        // Without this guard the capture phase would fire first and reset
+        // bar.scrollLeft before that listener runs, cancelling the drag.
+        if (e.target === bar) return;
         if (active && !syncing) { syncing = true; bar.scrollLeft = active.scrollLeft; syncing = false; }
         refresh();
     }, true);  // capture: also fires for inner table scroll (drag/wheel)
