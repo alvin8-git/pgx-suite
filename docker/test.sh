@@ -117,6 +117,7 @@ run_test "reconcile.py self-test"        python3 /opt/pgx/reconcile.py --selftes
 run_test "allele_synonyms.json loads"    python3 -c "import json; json.load(open('/opt/pgx/allele_synonyms.json'))"
 run_test "vcf_check_variants.json loads"  python3 -c "import json; json.load(open('/opt/pgx/vcf_check_variants.json'))"
 run_test "pgx-compare.py imports"         python3 -c "import importlib.util as u; s=u.spec_from_file_location('c','/opt/pgx/pgx-compare.py'); m=u.module_from_spec(s); s.loader.exec_module(m); assert m.AUTHORITATIVE['CYP2D6']=='Cyrius'"
+run_test "pgx_altcheck.py self-test"      python3 /opt/pgx/pgx_altcheck.py --selftest
 echo ""
 
 # ── Summary ───────────────────────────────────────────────────────────────

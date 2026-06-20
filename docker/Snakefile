@@ -301,10 +301,21 @@ rule pharmcat:
         "|| rc=$?; echo $rc > {output}"
 
 
+# ── ALT-awareness check (sample-level; gates paralog/SV genes) ───────────────
+# A non-ALT-aware alignment (minimap2, or a no-ALT reference) mis-distributes
+# reads across 2D6/2D7 + ALT contigs -> false CYP2D6 *5 etc. compare reads this
+# verdict and NO_CALLs alt-sensitive genes when it isn't "yes".
+rule altcheck:
+    output:
+        os.path.join(OUT, "alt_aware.json"),
+    shell:
+        "python3 /opt/pgx/pgx_altcheck.py {BAM} > {output}"
+
+
 # ── Phase 3: reconcile (single verdict authority; always runs) ───────────────
 def compare_inputs(w):
     g = w.gene
-    ins = {}
+    ins = {"altcheck": os.path.join(OUT, "alt_aware.json")}
     for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "cyrius"):
         if supports(g, tool):
             ins[tool] = STAT(g, tool)
@@ -344,6 +355,13 @@ rule compare:
                 args += f" --region-depth {depth}"
         if failed:
             args += " --failed-tools " + ",".join(failed)
+        import json as _json
+        alt_aware = "yes"
+        try:
+            alt_aware = _json.load(open(os.path.join(OUT, "alt_aware.json"))).get("alt_aware", "yes")
+        except Exception:
+            pass
+        args += f" --alt-aware {alt_aware}"
         shell(f"python3 /opt/pgx/pgx-compare.py {args}")
 
 

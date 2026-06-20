@@ -1137,6 +1137,23 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
     _status_cls = "status-final" if _rs == "FINAL" else ("status-prelim" if _rs == "PRELIMINARY" else "status-research")
     status_banner_html = f'<div class="report-status-banner {_status_cls}">{report_status}</div>'
 
+    # ALT-awareness QC banner: warn when the BAM isn't ALT-aware. The compare
+    # step NO_CALLs the paralog/SV genes in that case; this explains why.
+    alt_banner_html = ""
+    try:
+        _aa = json.load(open(os.path.join(out_dir, "alt_aware.json")))
+        if _aa.get("alt_aware") != "yes":
+            alt_banner_html = (
+                '<div style="background:#fff5f5;border:1px solid #f56565;color:#9b2c2c;'
+                'padding:0.6rem 0.9rem;border-radius:6px;margin:0.6rem 0;font-size:0.9rem">'
+                '&#9888; <strong>Input BAM is not ALT-aware</strong> '
+                f'({escape(str(_aa.get("reason", "")))}). Paralog / structural-variant genes '
+                '(CYP2D6, CYP2A6/2B6, GSTM1/T1, UGT2B17, …) are reported as NO_CALL &mdash; '
+                're-align with an ALT-aware aligner (bwa-mem + GRCh38 .alt) for these genes.</div>'
+            )
+    except Exception:
+        pass
+
     accession_html = (
         f'<div class="accession-row"><span class="qc-label">Accession:</span>'
         f' <span class="accession-id">{accession_id}</span></div>'
@@ -1345,6 +1362,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </head>
 <body>
 {status_banner_html}
+{alt_banner_html}
 <header onclick="if(window.pgxShowMain)pgxShowMain();return false;" style="cursor:pointer" title="Back to sample summary">
     <div>
         <div class="logo">PGx Suite</div>

@@ -147,6 +147,7 @@ RUN printf '#!/usr/bin/env bash\nexec /opt/venv/bin/python3 /opt/stargazer/starg
 RUN mkdir -p /opt/pgx
 COPY docker/test.sh           /opt/pgx/test.sh
 COPY docker/pgx-compare.py    /opt/pgx/pgx-compare.py
+COPY docker/pgx_altcheck.py   /opt/pgx/pgx_altcheck.py
 COPY docker/pgx-bamstats.sh   /opt/pgx/pgx-bamstats.sh
 COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
 COPY docker/pgx-hla.sh            /opt/pgx/pgx-hla.sh

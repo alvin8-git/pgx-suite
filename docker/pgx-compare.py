@@ -1505,13 +1505,19 @@ def print_table(
     output_dir: str,
     region_depth: float | None = None,
     min_depth: float = DEFAULT_MIN_DEPTH,
+    alt_block: str = "",
 ) -> None:
     W = 72
     SEP = "─" * W
 
-    # Coverage gate: a region with too few reads cannot be called at all.
-    no_call = region_depth is not None and region_depth < min_depth
+    # Gate the call when (a) coverage is too low, or (b) alt_block is set — the
+    # BAM is not ALT-aware and this is a paralog/SV gene whose call would be
+    # unreliable (e.g. minimap2 -> false CYP2D6 *5 deletion).
+    low_cov = region_depth is not None and region_depth < min_depth
+    no_call = low_cov or bool(alt_block)
     verdict = compute_verdict(results, no_call, gene)
+    if alt_block and verdict.get("status") == "no_call":
+        verdict["reason"] = alt_block
 
     print()
     print("=" * W)
@@ -1531,8 +1537,11 @@ def print_table(
 
     st = verdict["status"]
     if st == "no_call":
-        print(f"VERDICT: NO CALL — insufficient coverage "
-              f"({region_depth:.1f}x < {min_depth:.0f}x minimum)")
+        if alt_block:
+            print(f"VERDICT: NO CALL — {alt_block}")
+        else:
+            print(f"VERDICT: NO CALL — insufficient coverage "
+                  f"({region_depth:.1f}x < {min_depth:.0f}x minimum)")
         print("Tool calls above are suppressed and retained for audit only.")
     elif st == "discordant":
         print(f"VERDICT: DISCORDANT — tools disagree "
@@ -1558,12 +1567,10 @@ def print_table(
         for r in results:
             if no_call:
                 # Suppress every tool's diplotype so neither this TSV nor the
-                # batch-summary headline can present a call without coverage.
-                dip, score, pheno, status = (
-                    "NO_CALL", "-",
-                    f"Insufficient coverage ({region_depth:.1f}x<{min_depth:.0f}x)",
-                    "no_call",
-                )
+                # batch-summary headline can present an unreliable call.
+                _reason = (alt_block if alt_block
+                           else f"Insufficient coverage ({region_depth:.1f}x<{min_depth:.0f}x)")
+                dip, score, pheno, status = ("NO_CALL", "-", _reason, "no_call")
             else:
                 dip, score, pheno, status = (
                     r.diplotype, r.activity_score, r.phenotype, r.status)
@@ -1614,6 +1621,9 @@ def main() -> None:
                         help=f"Min mean depth to attempt a call (default {DEFAULT_MIN_DEPTH:g}x)")
     parser.add_argument("--failed-tools", default="",
                         help="Comma-separated tools that ran but failed (marked 'failed', not 'not_run')")
+    parser.add_argument("--alt-aware", default="yes", choices=["yes", "no", "unknown"],
+                        help="Whether the BAM was aligned ALT-aware. 'no'/'unknown' forces "
+                             "NO_CALL for paralog/SV genes (CYP2D6, CYP2A6/2B6, GSTM1/T1, …).")
     args = parser.parse_args()
 
     gene = args.gene.upper()
@@ -1652,8 +1662,18 @@ def main() -> None:
             r.status = "failed"
             r.diplotype = "tool failed (see log)"
 
+    # ALT-awareness gate: paralog/SV genes are unreliable from a non-ALT-aware
+    # alignment (reads mis-distributed across 2D6/2D7 + ALT contigs).
+    alt_sensitive = (bool(support.get("cyrius"))
+                     or gene in PYPGX_SV_GENES or gene in STARGAZER_SV_GENES)
+    alt_block = ""
+    if args.alt_aware in ("no", "unknown") and alt_sensitive:
+        alt_block = ("aligner not ALT-aware — paralog/SV call unreliable; "
+                     "re-align with bwa-mem + GRCh38 .alt")
+
     print_table(gene, args.sample, results, args.output_dir,
-                region_depth=args.region_depth, min_depth=args.min_depth)
+                region_depth=args.region_depth, min_depth=args.min_depth,
+                alt_block=alt_block)
 
 
 if __name__ == "__main__":
