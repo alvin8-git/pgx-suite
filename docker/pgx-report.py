@@ -1450,10 +1450,14 @@ DETAIL_EXTRA_CSS = """
     border-radius: 8px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 2rem;
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr auto;  /* info left, verdict block right edge */
+    align-items: start;
     gap: 2rem;
-    flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+    .gene-header { grid-template-columns: 1fr; }
+    .gene-header > div:last-child { text-align: left !important; }
 }
 .gene-title { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
 .detail-table-wrap {
