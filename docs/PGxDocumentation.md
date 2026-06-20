@@ -5,7 +5,7 @@
 > NO_CALL coverage gate), see the [README](../README.md); for per-tool detail see
 > [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-This pipeline performs star-allele calling and diplotype assignment across 31 pharmacogenomically relevant genes using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes). All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
+This pipeline performs star-allele calling and diplotype assignment across 37 genes/loci using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes). All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
 
 ---
 
@@ -50,9 +50,23 @@ This pipeline performs star-allele calling and diplotype assignment across 31 ph
 ## Reconciliation & Verdict Authority
 
 The pipeline is not a plain majority vote. `pgx-compare.py` is the single verdict
-authority and reconciles the callers in four ordered tiers. The first tier that
-produces a confident call wins; the chosen mechanism is recorded in the per-gene
-`detail.json` `verdict` block and shown as a badge on the report card.
+authority and reconciles the callers in four ordered tiers, after an input
+ALT-awareness gate. The first tier that produces a confident call wins; the chosen
+mechanism is recorded in the per-gene `detail.json` `verdict` block and shown as a
+badge on the report card.
+
+### Tier 0 — Input ALT-awareness gate
+
+Before any caller verdict, `pgx_altcheck.py` decides whether the BAM was aligned
+ALT-aware, reading the file itself: the `@PG` aligner (bwa / bwa-mem2 / DRAGEN vs
+minimap2 / bowtie2), the `@SQ` ALT-contig count, and the fraction of reads mapped to
+`_alt` contigs (verdict written to `alt_aware.json`). A non-ALT-aware alignment
+mis-distributes reads across the CYP2D6–CYP2D7 paralog and the ALT contigs, silently
+producing wrong copy number — e.g. minimap2 calls CYP2D6 as a false `*5/*5` deletion
+where bwa-mem gives `*2/*4`. When the verdict is not `yes`, the paralog/SV genes
+(`cyrius` / `pypgx_sv` / `stargazer_sv` flags — CYP2D6, CYP2A6/2B6, GSTM1/T1,
+UGT2B17, …) report **NO_CALL** with a re-align reason; single-SNP and non-SV genes
+are unaffected. The report shows a QC banner.
 
 ### Tier 1 — Coverage gate
 
@@ -79,7 +93,7 @@ reconciled star-allele majority):
 |-----------|-------|-----------|
 | **Cyrius** | CYP2D6 | CYP2D6–CYP2D7 hybrids, CNV, `*36+*10` tandems that defeat star-allele callers |
 | **PharmCAT** | UGT1A1, CYP2B6, CYP4F2 | CPIC reference matcher; e.g. UGT1A1 `*28`/`*80` linkage |
-| **VCF-Check** | RYR1, VKORC1, IFNL3, G6PD, CACNA1S | single-SNP / variant-list genes — a star-allele call is the wrong model |
+| **VCF-Check** | RYR1, VKORC1, IFNL3, G6PD, CACNA1S, CYP2C-CLUSTER | single-SNP / variant-list genes read from the CPIC variant table (incl. warfarin `rs12777823`) — a star-allele call is the wrong model |
 
 ### Tier 4 — Clinical phenotype tier
 
@@ -1370,4 +1384,4 @@ The VKORC1 -1639A (low-expression, warfarin-sensitive) allele frequency is appro
 
 ---
 
-*Document generated for pgx-suite pipeline — GRCh38 reference — 31 pharmacogenes covering CPIC Level A and selected Level B/research genes. For the most current CPIC guidelines, consult [cpicpgx.org](https://cpicpgx.org).*
+*Document generated for pgx-suite pipeline — GRCh38 reference — 37 genes/loci covering CPIC Level A and selected Level B/research genes. For the most current CPIC guidelines, consult [cpicpgx.org](https://cpicpgx.org).*

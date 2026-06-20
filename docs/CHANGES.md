@@ -5,6 +5,40 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-06-20 — ALT-aware input gate, 6 new genes/loci, report & validation refresh
+
+**ALT-awareness QC gate.** New `docker/pgx_altcheck.py` classifies whether the input
+BAM was aligned ALT-aware from the file itself (`@PG` aligner, `@SQ` ALT-contig count,
+fraction of reads on `_alt` contigs → `alt_aware.json`). A non-ALT-aware alignment
+(minimap2, bowtie2, or a no-ALT reference) mis-distributes CYP2D6/CYP2D7 + ALT-contig
+reads and yields a false CYP2D6 `*5/*5` deletion. A new sample-level `altcheck`
+Snakefile rule feeds `pgx-compare.py --alt-aware`; when the verdict is not `yes`, the
+paralog/SV genes (`cyrius`/`pypgx_sv`/`stargazer_sv`) report **NO_CALL** with a re-align
+reason, single-SNP genes are unaffected, and the report shows a QC banner. Self-test wired
+into `test.sh`. Verified: bwa HG002 → `yes`; simulated minimap2 → CYP2D6 NO_CALL, CYP2C19 OK.
+
+**6 new genes/loci (31 → 37).**
+- **CYP2C-CLUSTER** — warfarin variant `rs12777823` (chr10:94645745 G>A, CPIC, African-ancestry
+  dosing) as a VCF-Check single-SNP locus + authority. Completes the warfarin panel
+  (VKORC1/CYP2C9/CYP4F2).
+- **GSTP1, SLC15A2, SLC22A2, SLCO2B1, UGT2B15** — PyPGx-supported additions, kept only after
+  passing NA12878 GeT-RM validation. UGT2B7 (callers discordant) and UGT2B17 (whole-gene
+  deletion, NO_CALL on short reads) were trialled and dropped.
+
+**Validation.** TTSH cohort re-scored on the verdict engine: 26 platform-sample pairs vs
+Axiom — **73.0%** strict, **85.8%** adjudicated (ILMN ≈ MGI). GIAB HG001/NA12878 vs CDC
+GeT-RM consensus: **19/28** exact-match. Full method: `TTSHvalidation.md`.
+
+**Report UX.** Gene pages gained the consensus-diplotype headline, metaboliser pill,
+resolution/authority badge, and a "what the pipeline did" narrative (tool concordance +
+CPIC resolution). Header is a 2-column grid; clickable top bar returns to the summary;
+floating horizontal scrollbar drag fixed; Orthogonal Validation panel is landing-only.
+
+**Fix.** PharmCAT regression — `apptainer exec --cleanenv` (the image's `JAVA_HOME` was
+leaking into the SIF, silently failing PharmCAT).
+
+---
+
 ## 2026-06-19 — Reconciliation engine: authoritative callers, phenotype tier, verdict-driven report
 
 The pipeline stops being a string-equality ensemble and becomes a reconciliation

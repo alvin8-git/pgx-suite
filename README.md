@@ -2,16 +2,35 @@
 
 [![tests](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml/badge.svg)](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml)
 ![reference](https://img.shields.io/badge/reference-GRCh38%2Fhg38-1f6feb)
-![genes](https://img.shields.io/badge/genes-31%20(19%20CPIC%20Level%20A)-2ea043)
+![genes](https://img.shields.io/badge/genes-37%20(19%20CPIC%20Level%20A)-2ea043)
 ![callers](https://img.shields.io/badge/callers-9-8957e5)
 ![orchestrator](https://img.shields.io/badge/orchestrator-Snakemake-039475)
 ![license](https://img.shields.io/badge/license-non--commercial%20academic-d29922)
 
-A Docker container that bundles nine pharmacogenomics (PGx) callers — **PyPGx**, **Stargazer**, **Aldy**, **StellarPGx**, **Cyrius**, **PharmCAT**, **OptiType**, **mutserve**, and the in-house **VCF-Check** — pre-configured for **GRCh38 (hg38)**. One command runs every applicable caller over a WGS BAM/CRAM and reconciles them into a single self-contained HTML clinical report. Covers **all 19 CPIC Level A genes** across 31 genes total. It is not just an ensemble vote: where the star-allele callers disagree, a designated CPIC-reference method (Cyrius for CYP2D6 structural variants, PharmCAT for UGT1A1/CYP2B6/CYP4F2, VCF-Check for single-variant genes) **is** the verdict.
+**PGx Suite genotypes pharmacogenomic star alleles from one WGS BAM/CRAM and produces a single self-contained HTML clinical report — one command in, one report out.** It runs **nine** PGx callers over **GRCh38**, covering **37 genes/loci (all 19 CPIC Level A)**, and reconciles them into **one verdict per gene** (`concordant` / `majority` / `discordant` / `no_call`).
 
 ![PGx Suite — multi-caller pharmacogenomics report](docs/assets/hg002_report_collage.png)
 
-Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven by one source-of-truth gene table (`docker/genes.tsv`). Every caller runs as a **non-fatal rule** — a single tool failing never aborts the gene or the batch — and `pgx-compare.py` is the **single verdict authority**. It reconciles in tiers: (1) a coverage floor (genes below `--min-depth` report **NO_CALL**, never a wild-type guess); (2) **variant-tier reconciliation** — caller diplotypes are synonym-collapsed so the same allele written three ways counts once; (3) **authoritative callers** — a designated CPIC-reference method *is* the verdict for genes the star-allele callers mishandle (Cyrius → CYP2D6, PharmCAT → UGT1A1/CYP2B6/CYP4F2, VCF-Check → RYR1/VKORC1/IFNL3/G6PD/CACNA1S); (4) a **clinical phenotype tier** — callers that print different diplotype strings but agree on the CPIC phenotype are concordant-by-phenotype. The result is one verdict per gene (`concordant` / `majority` / `discordant` / `no_call`). Validated against the Thermo Fisher Axiom PGx array (TTSH cohort) and reproduced byte-for-byte across all 31 genes on GIAB **HG002**.
+### Why this, not a single caller
+
+No single PGx tool gets every gene right — they disagree on structural variants, copy number, and allele nomenclature. PGx Suite runs the field's best callers together (PyPGx, Stargazer, Aldy, StellarPGx, Cyrius, PharmCAT, OptiType, mutserve, and the in-house VCF-Check) and resolves them with a clinical-grade authority model, not a naive majority vote:
+
+- **A CPIC-reference method *is* the verdict** where star-allele callers fail — **Cyrius** for CYP2D6 (paralog / CNV / hybrids), **PharmCAT** for UGT1A1 / CYP2B6 / CYP4F2, **VCF-Check** for single-variant genes (RYR1, VKORC1, …). An authority, not an outvote.
+- **Synonym-aware reconciliation** — the same allele written three ways (DPYD `*9A` = `c.85T>C` = `rs1801265`) counts once, so callers aren't flagged discordant over nomenclature.
+- **Phenotype tier** — callers that print different diplotype strings but agree on the CPIC phenotype are concordant-by-phenotype.
+- **ALT-aware safety gate** — detects a BAM aligned *without* ALT awareness (e.g. minimap2) and reports paralog/SV genes as **NO_CALL** instead of emitting a false CYP2D6 `*5` deletion. Most PGx tools don't check this; it silently breaks CYP2D6.
+- **Coverage floor** — genes below the depth threshold report **NO_CALL**, never a wild-type guess.
+- **One self-contained report** — per-gene "what the pipeline did" narrative, authority badges, and an orthogonal-validation panel. No server; open it anywhere.
+
+### How accurate it is
+
+- **TTSH clinical cohort** — 13 samples on Illumina + MGI (26 pairs) vs the Thermo Fisher Axiom PGx array: **73.0%** strict verdict-concordance, **85.8%** once array panel-gaps and single-SNP notation are adjudicated (cases where WGS is more sensitive or at parity — not pipeline errors). Illumina and MGI agree.
+- **GIAB HG001 / NA12878** vs CDC **GeT-RM** consensus: **19/28** genes exact-match, 3 partial (nomenclature), 6 mismatch — residuals driven by GeT-RM-only sub-allele systems, not miscalls.
+- Reconciled verdict reproduced across all genes on GIAB **HG002**.
+
+Full method and per-gene breakdown: **[TTSHvalidation.md](TTSHvalidation.md)**.
+
+Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven by one source-of-truth gene table (`docker/genes.tsv`); every caller runs as a **non-fatal rule** (one tool failing never aborts the gene or the batch) and `pgx-compare.py` is the single verdict authority. See [Architecture](#architecture) for the full reconciliation tiers.
 
 > **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.
 > This image **must not be published to any public registry** (Docker Hub, GHCR, etc.).
@@ -20,6 +39,8 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 
 ## Table of Contents
 
+- [Why this, not a single caller](#why-this-not-a-single-caller)
+- [How accurate it is](#how-accurate-it-is)
 - [Bundled Tools](#bundled-tools)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -278,7 +299,7 @@ docker run --privileged --rm \
 | `depth_bam` | = `bam` | For CRAM: a pre-extracted region BAM for QC depth |
 
 `--cores N` budgets how many genes × tools Snakemake schedules at once. Snakemake
-expands one `{gene}` rule graph over the 31-gene support matrix, writes a verdict
+expands one `{gene}` rule graph over the 37-gene support matrix, writes a verdict
 summary to `<outdir>/all_genes_summary.tsv`, and generates the standalone HTML
 report at `<outdir>/<SAMPLE>_pgx_report.html`.
 
@@ -286,7 +307,7 @@ Output layout:
 
 ```
 <outdir>/
-├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 31 gene panels embedded)
+├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 37 gene panels embedded)
 ├── all_genes_summary.tsv             # verdict-driven concordance summary across all genes
 ├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
 ├── pharmcat/                         # PharmCAT runs ONCE per sample (not per gene)
@@ -393,7 +414,7 @@ downstream.
 
 ## Gene Coverage
 
-**31 genes** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix shows all nine callers. **✓** = the caller produces a call for that gene; **★** = that caller is the **verdict authority** for the gene (its call *is* the verdict, overriding the reconciled star-allele vote — see the table below the matrix). For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
+**37 genes/loci** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix shows all nine callers. **✓** = the caller produces a call for that gene; **★** = that caller is the **verdict authority** for the gene (its call *is* the verdict, overriding the reconciled star-allele vote — see the table below the matrix). For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
 
 | Gene | PyPGx | Stargazer | Aldy | StellarPGx | Cyrius | PharmCAT | OptiType | mutserve | VCF-Check | CPIC Level | SV? |
 |------|:-----:|:---------:|:----:|:----------:|:------:|:--------:|:--------:|:--------:|:---------:|:----------:|:---:|
@@ -406,6 +427,7 @@ downstream.
 | CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | |
 | CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
 | CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| CYP2C-CLUSTER§ | — | — | — | — | — | — | — | — | ★ | **A** | |
 | CYP2D6 | ✓ | ✓ | ✓ | ✓ | ★ | — | — | — | — | **A** | ✓ paralog + tandem |
 | CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — | ✓ CN |
 | CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | A† | |
@@ -415,6 +437,7 @@ downstream.
 | G6PD | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | ✓ CN |
 | GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — | ✓ deletion |
 | GSTT1 | ✓‡ | — | — | ✓ | — | — | — | — | — | — | ✓ deletion |
+| GSTP1 | ✓ | — | ✓ | — | — | — | — | — | — | — | |
 | HLA-A | — | — | — | — | — | — | ✓ | — | — | **A** | |
 | HLA-B | — | — | — | — | — | — | ✓ | — | — | **A** | |
 | IFNL3 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
@@ -424,13 +447,18 @@ downstream.
 | NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
 | POR | ✓ | ✓ | — | ✓ | — | — | — | — | — | — | |
 | RYR1 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
+| SLC15A2 | ✓ | — | — | — | — | — | — | — | — | — | |
+| SLC22A2 | ✓ | — | — | — | — | — | — | — | — | — | ✓ CN |
 | SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| SLCO2B1 | ✓ | — | — | — | — | — | — | — | — | — | |
 | TPMT | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
 | UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | ★ | — | — | — | **A** | |
+| UGT2B15 | ✓ | — | — | — | — | — | — | — | — | — | ✓ CN |
 | VKORC1 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
 
 † CYP3A4 appears in the tacrolimus guideline alongside CYP3A5; no standalone CPIC Level A guideline for CYP3A4 genotyping alone.
 ‡ GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
+§ CYP2C-CLUSTER is the warfarin variant **rs12777823** (CPIC, African-ancestry dosing), genotyped directly by VCF-Check — not a star-allele gene. GSTP1, SLC15A2, SLC22A2, SLCO2B1, UGT2B15 are PyPGx-supported additions validated against GeT-RM on NA12878 (research-grade; no CPIC Level A guideline).
 
 > **PharmCAT** also runs once per sample across its broader CPIC gene set and is shown as an *informational cross-check* (call + agree/differ) on the report card and in the Tool Results table for many non-authority genes (e.g. CYP2C19, CYP2C9); the ★ marks only the three genes where it **is** the verdict.
 
@@ -440,7 +468,7 @@ downstream.
 |-----------|-------|-----|
 | **Cyrius** | CYP2D6 | SV / CNV / `*36+*10` hybrid resolution the star-allele callers mishandle |
 | **PharmCAT** | UGT1A1, CYP2B6, CYP4F2 | CPIC reference star-allele caller; e.g. UGT1A1 `*28`/`*80` LD |
-| **VCF-Check** | RYR1, VKORC1, IFNL3, G6PD, CACNA1S | single-SNP / variant-list genes (CPIC variant table), not star alleles |
+| **VCF-Check** | RYR1, VKORC1, IFNL3, G6PD, CACNA1S, CYP2C-CLUSTER | single-SNP / variant-list genes read from the CPIC variant table (incl. warfarin rs12777823), not star alleles |
 | **Phenotype** | any gene | callers print different diplotype strings but agree on the CPIC phenotype |
 
 All other genes use the reconciled (synonym-collapsed) multi-caller verdict.
@@ -500,6 +528,12 @@ The five non-star-allele callers emit a smaller, caller-specific set. All are no
   sentinels and passes `--failed-tools`, so a crash reads as `failed`, not `not_run`.
 - **Coverage gate** — `pgx-compare.py` measures per-gene mean depth and reports **NO_CALL**
   below `min_depth` rather than emitting a confident wild-type from zero reads.
+- **ALT-aware input gate** — `pgx_altcheck.py` reads the BAM header (`@PG` aligner, `@SQ`
+  ALT-contig count) plus the fraction of reads on `_alt` contigs to decide whether the
+  alignment was ALT-aware (writes `alt_aware.json`). A non-ALT-aware BAM (minimap2, or a
+  no-ALT reference) mis-places reads across the 2D6/2D7 paralog + ALT contigs, so the
+  paralog/SV genes (CYP2D6, CYP2A6/2B6, GSTM1/T1, UGT2B17, …) report **NO_CALL** with a
+  re-align reason instead of a false `*5` deletion; the report carries a QC banner.
 - **Single verdict authority, reconciled in tiers** — the gene verdict
   (`concordant`/`majority`/`discordant`/`no_call`) is computed once into `detail.json`; the
   report and summary *read* it, never recompute. `compute_verdict()` applies, in order:
@@ -514,7 +548,8 @@ The five non-star-allele callers emit a smaller, caller-specific set. All are no
 - **Extra rules** — `cyrius` (Illumina `star_caller.py`), `pharmcat` (sample-level: a
   GT-only positions VCF → `pharmcat_pipeline` inside the PharmCAT SIF), and the `bcftools`
   VCF-Check path feed those authoritative verdicts. PharmCAT runs once per sample; the rest
-  are per-gene.
+  are per-gene. A sample-level `altcheck` rule writes `alt_aware.json`, which `compare`
+  consumes to gate the paralog/SV genes.
 
 The Snakefile replaced the former bash orchestrators (`pgx-run.sh` / `pgx-all-genes.sh`)
 after full-set 31-gene equivalence was proven on HG002.
@@ -565,15 +600,18 @@ docker run --privileged pgx-suite:latest
 | Axis | Result |
 |------|--------|
 | Orchestrator equivalence | Snakemake reproduces the legacy bash pipeline byte-for-byte across **all 31 genes** on GIAB HG002 — verdict + per-tool diplotype + status identical. |
-| Orthogonal truth (Axiom array) | TTSH cohort, 13 samples × 2 platforms vs Thermo Fisher Axiom P6/P9: **~80% overall concordance**; >90% on CYP2B6, CYP2C19, CYP2C9, CYP3A4/5, NAT2, NUDT15, SLCO1B1, TPMT. Full report: [`TTSHvalidation.md`](TTSHvalidation.md). |
+| Orthogonal truth (Axiom array) | TTSH cohort, 13 samples × 2 platforms (**26 pairs**) vs Thermo Fisher Axiom P6/P9, scored on the verdict engine: **73.0%** strict verdict-concordance, **85.8%** after adjudicating array panel-gaps + single-SNP notation (cases where WGS is more sensitive or at parity, not pipeline errors). >90% on CYP2C19, CYP2C9, CYP3A5, NAT2, NUDT15, SLCO1B1, TPMT, ABCG2, CYP3A4. Illumina ≈ MGI. Full report: [`TTSHvalidation.md`](TTSHvalidation.md). |
+| Orthogonal truth (GeT-RM) | GIAB **HG001 / NA12878** vs CDC GeT-RM consensus (the gold-standard PGx reference cell line): **19/28** genes exact-match, 3 partial, 6 mismatch — residuals are GeT-RM-only sub-allele nomenclature, not miscalls. (HG002–HG007 trios are not GeT-RM-characterized.) |
+| Input QC (ALT-awareness) | `pgx_altcheck.py` flags non-ALT-aware BAMs (minimap2 / no-ALT reference) and NO_CALLs paralog/SV genes — preventing the classic minimap2 false CYP2D6 `*5` deletion. Verified on bwa HG002 (verdict: ALT-aware *yes*, 0.16% reads on ALT contigs). |
 | Reference sample | HG002 (NA24385) CYP2D6 → **`*2/*4`**, Activity Score 1.0, Intermediate Metabolizer — concordant. |
 | Reconciliation cohort | TTSH/MGI cohort (20 samples) re-verdicted through the new engine: the phenotype tier resolved all 5 DPYD nomenclature/phasing artifacts (all NM/IM); a genuine NUDT15 3-way disagreement was correctly left flagged. Every clinically actionable CPIC gene reaches a confident verdict except 2 long-read-only complex CYP2D6 cases. |
-| Unit tests | `python3 docker/test_parsers.py · test_verdict.py · test_coverage_gate.py · test_genes_config.py · test_reconcile.py · test_vcf_check.py · test_cyrius.py · test_pharmcat.py · test_cpic.py` — parsers, verdict + phenotype tier, the NO_CALL gate, the single-source matrix, synonym reconciliation, and the three authoritative callers. |
+| Unit tests | `python3 docker/test_parsers.py · test_verdict.py · test_coverage_gate.py · test_genes_config.py · test_reconcile.py · test_vcf_check.py · test_cyrius.py · test_pharmcat.py · test_cpic.py` plus `pgx_altcheck.py --selftest` — parsers, verdict + phenotype tier, the NO_CALL gate, the single-source matrix, synonym reconciliation, the three authoritative callers, and the ALT-awareness classifier. |
 
 **Clinical-report safety properties** (enforced by `pgx-compare.py` + `pgx-report.py`):
 - Genes below the depth floor render **NO_CALL**, never a wild-type guess.
 - Tool disagreement renders **DISCORDANT**, never a silent majority pick — unless an authoritative caller or the phenotype tier resolves it, in which case the card carries the authority badge that explains why.
 - Card colour and the headline ticker follow the **verdict status**, not raw tool fraction, so an authority-resolved gene (e.g. PharmCAT at 1/4 callers) reads as a confident call, not red.
+- A BAM that wasn't aligned ALT-aware (e.g. minimap2) is detected up front; paralog/SV genes render **NO_CALL** with a re-align banner rather than a false CYP2D6 `*5` deletion.
 - Severity survives PDF/print and greyscale — status is carried by a glyph + word, not hue alone; badge contrast meets WCAG AAA.
 - The landing groups genes **★ Actionable findings → ⚠ Needs review → ✓ Normal** with an at-a-glance headline count; the per-gene drill-down carries the full 17-field × tool comparison plus CPIC dosing recommendations.
 
@@ -591,6 +629,7 @@ docker run --privileged pgx-suite:latest
 | `beagle.jar` error | Java not in PATH | `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`; verify with `java -version` |
 | Stargazer: `no data for target gene` with GDF | hg19 GDF used in grc38 mode | Regenerate GDF with `-a grc38`, or use VCF-only mode (omit `-c` and `-g`) |
 | bcftools VCF empty for GSTT1 | Alt contig `chr22_KI270879v1_alt` | Expected — the pipeline skips bcftools for GSTT1 automatically |
+| CYP2D6 (and other SV genes) all **NO_CALL** + a "not ALT-aware" banner | BAM aligned **without** ALT awareness (minimap2, bowtie2, or a no-ALT reference) | Re-align with `bwa-mem` against a GRCh38 reference that includes the ALT contigs **and** the `.alt` file; then re-run. SNP genes (VKORC1, CYP2C19, …) are unaffected and still reported. |
 
 ---
 

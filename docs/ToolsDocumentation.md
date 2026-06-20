@@ -79,6 +79,11 @@ archives are required to call copy number variation.
 
 ### Genes covered (88 target genes)
 
+> In this suite PyPGx is the sole/primary caller for the GeT-RM-validated additions
+> **GSTP1, SLC15A2, SLC22A2, SLCO2B1, UGT2B15** (enabled in `genes.tsv`, validated against
+> the NA12878 GeT-RM consensus). UGT2B7 and UGT2B17 were trialled but dropped — PyPGx/Aldy
+> were discordant on UGT2B7 and UGT2B17 (a common whole-gene deletion) was NO_CALL on short reads.
+
 **SV genes — require depth-of-coverage + VDR control statistics (13):**
 
 | Gene | SV type |
@@ -635,7 +640,7 @@ CYP4F2** — genes where the star-allele callers genuinely disagree (e.g. the UG
 ### Overview
 
 VCF-Check is the suite's **in-house verdict authority for single-SNP / variant-list genes**:
-**RYR1, VKORC1, IFNL3, G6PD, CACNA1S**. For these genes a star-allele diplotype is the wrong
+**RYR1, VKORC1, IFNL3, G6PD, CACNA1S, CYP2C-CLUSTER**. For these genes a star-allele diplotype is the wrong
 model — the clinical call is "is this specific CPIC variant present?" (e.g. VKORC1
 `rs9923231`, the malignant-hyperthermia RYR1 variant list). VCF-Check reads the genotype
 directly from the gene-region VCF against the curated CPIC variant table.
@@ -650,7 +655,8 @@ directly from the gene-region VCF against the curated CPIC variant table.
 ### Genes covered
 
 - **RYR1** (CPIC malignant-hyperthermia variant list), **VKORC1** (`rs9923231`, warfarin),
-  **IFNL3** (`rs12979860`), **G6PD**, **CACNA1S**.
+  **IFNL3** (`rs12979860`), **G6PD**, **CACNA1S**, **CYP2C-CLUSTER** (`rs12777823`, the CPIC
+  warfarin variant for African-ancestry dosing; intergenic, not a star-allele gene).
 
 ### Output
 
@@ -661,6 +667,22 @@ directly from the gene-region VCF against the curated CPIC variant table.
 
 - Only as complete as `vcf_check_variants.json`. Adding a variant is a JSON edit
   (guarded by `test_vcf_check.py`). Depends on the gene VCF, so the coverage gate applies.
+
+---
+
+## Input QC — ALT-awareness gate
+
+Before any caller runs to verdict, `pgx_altcheck.py` checks whether the BAM was aligned
+ALT-aware (GRCh38). Three signals, all read from the file: the `@PG` aligner
+(bwa / bwa-mem2 / DRAGEN = ALT-aware; minimap2 / bowtie2 = not), the `@SQ` ALT-contig count
+(0 ⇒ aligned to a no-ALT reference ⇒ ALT-aware was impossible), and the fraction of reads
+mapped to `_alt` contigs. The verdict (`yes` / `no` / `unknown`) is written to `alt_aware.json`.
+When it is not `yes`, the paralog/SV genes (`cyrius` / `pypgx_sv` / `stargazer_sv` — CYP2D6,
+CYP2A6/2B6, GSTM1/T1, UGT2B17, …) are reported **NO_CALL** with a re-align reason and the
+report shows a QC banner; single-SNP and non-SV genes are unaffected. This catches the common
+failure where minimap2 mis-distributes CYP2D6/CYP2D7 reads and yields a false `*5/*5` deletion
+(bwa-mem gives `*2/*4`). Self-test: `python3 docker/pgx_altcheck.py --selftest`; ad-hoc on a
+BAM: `pgx_altcheck.py <bam>`.
 
 ---
 
