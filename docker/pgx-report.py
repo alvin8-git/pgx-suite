@@ -1339,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </head>
 <body>
 {status_banner_html}
-<header>
+<header onclick="if(window.pgxShowMain)pgxShowMain();return false;" style="cursor:pointer" title="Back to sample summary">
     <div>
         <div class="logo">PGx Suite</div>
         <div class="subtitle">Pharmacogenomics Star-Allele Report</div>
