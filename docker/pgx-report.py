@@ -1418,10 +1418,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {gene_depth_html}
 
-</div>
-</div>
-
 {axiom_html}
+
+</div>
+</div>
 
 <!-- Gene detail panels (embedded, shown/hidden by JS) -->
 {gene_panels_html}
