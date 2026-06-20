@@ -123,8 +123,10 @@ docker run --privileged --rm \
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<org>/pgx-suite.git
+# The repository is private (bundles non-redistributable caller source) — use SSH:
+git clone git@github.com:alvin8-git/pgx-suite.git
 cd pgx-suite
+git submodule update --init --recursive   # pypgx/ and StellarPGx/ are submodules
 ```
 
 ### 2. Build the Docker image
@@ -145,7 +147,11 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 ./docker/docker-run.sh bash /opt/pgx/test.sh
 ```
 
-All 12 checks should report `PASS`:
+The harness runs **8 sections covering all nine callers** plus the reconciliation
+engine and prints a live `Results: N PASSED | 0 FAILED` total. The fast (no-volume)
+run executes **18 checks**; mounting the StellarPGx / PharmCAT / OptiType SIFs adds
+3 more (the Stargazer VCF-only check stays skipped — its example data is excluded
+from the lean image). Every executed check should report `PASS`:
 
 ```
 ============================================================
@@ -153,28 +159,46 @@ All 12 checks should report `PASS`:
  Reference build: GRCh38
 ============================================================
 
-[1/4] PyPGx
+[1/8] PyPGx
   pypgx --version                                    PASS
   pypgx import                                       PASS
   pypgx run-ngs-pipeline help                        PASS
 
-[2/4] Stargazer
+[2/8] Stargazer
   stargazer --version                                PASS
   stargazer wrapper exists                           PASS
-  stargazer CYP2D6 VCF-only (grc38)                 PASS
+  [SKIP] stargazer VCF-only — example data not in lean image
 
-[3/4] Aldy
-  aldy --version                                     PASS
+[3/8] Aldy
+  aldy version                                       PASS
   aldy import                                        PASS
   aldy built-in test suite (78 tests)                PASS
 
-[4/4] StellarPGx
+[4/8] StellarPGx
   nextflow --version                                 PASS
   apptainer --version                                PASS
-  StellarPGx test pipeline (CYP2D6/hg38)            PASS
+  StellarPGx test pipeline (CYP2D6/hg38)             PASS   # SIF required
+
+[5/8] Cyrius
+  cyrius star_caller present                         PASS
+  cyrius star_caller --help                          PASS
+
+[6/8] PharmCAT
+  pharmcat positions VCF baked                       PASS
+  pharmcat_pipeline --version (SIF)                  PASS   # SIF required
+
+[7/8] OptiType + mutserve
+  mutserve JAR valid                                 PASS
+  optitype --help (SIF)                              PASS   # SIF required
+
+[8/8] Reconciliation & verdict authority
+  reconcile.py self-test                             PASS
+  allele_synonyms.json loads                         PASS
+  vcf_check_variants.json loads                      PASS
+  pgx-compare.py imports                             PASS
 
 ============================================================
- Results: 12 PASSED  |  0 FAILED
+ Results: 21 PASSED  |  0 FAILED
 ============================================================
 ```
 
@@ -265,6 +289,10 @@ Output layout:
 ├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 31 gene panels embedded)
 ├── all_genes_summary.tsv             # verdict-driven concordance summary across all genes
 ├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
+├── pharmcat/                         # PharmCAT runs ONCE per sample (not per gene)
+│   ├── pgx.report.json               #   CPIC report consumed for UGT1A1/CYP2B6/CYP4F2 + cross-checks
+│   ├── pgx.match.json · pgx.phenotype.json
+│   └── pharmcat.status               #   non-fatal exit sentinel
 └── genes/
     └── <GENE>/                       # per-tool outputs for each gene
         ├── <GENE>_<SAMPLE>_comparison.tsv
@@ -274,9 +302,16 @@ Output layout:
         ├── stargazer/genotype-calls.tsv
         ├── aldy/<GENE>.aldy
         ├── stellarpgx/<gene>/alleles/*.alleles
+        ├── cyrius/<SAMPLE>.tsv                    # CYP2D6 only (verdict authority)
         ├── optitype/<SAMPLE>_result.tsv          # HLA-A/HLA-B only
         └── mt-rnr1/<SAMPLE>_mtrna1_result.json   # MT-RNR1 only
 ```
+
+**Where each authority method writes:** **Cyrius** is per-gene (`genes/CYP2D6/cyrius/`).
+**PharmCAT** runs once per sample (top-level `pharmcat/`) — its per-gene calls are read
+back into each gene's `detail.json` (as the verdict for UGT1A1/CYP2B6/CYP4F2, and as an
+informational cross-check for the rest). **VCF-Check** has no output dir of its own — it
+reads the gene's `<GENE>.vcf.gz` directly against `vcf_check_variants.json`.
 
 ### Run a single gene (debug)
 
@@ -328,65 +363,76 @@ The Snakefile (driven by `docker/genes.tsv`) automatically, per gene:
 ========================================================================
 Tool          Diplotype         Activity Score    Phenotype
 ────────────────────────────────────────────────────────────────────────
-PyPGx         *1/*4             1.0               Normal Metabolizer
-Stargazer     *1/*4             1.0               Normal Metabolizer
-Aldy          *2/*4             1.0               Normal Metabolizer
-StellarPGx    *1/*4             -                 -
+PyPGx         *2/*4             1.0               Intermediate Metabolizer
+Stargazer     *2/*4             1.0               Intermediate Metabolizer
+Aldy          *2/*4             1.0               Intermediate Metabolizer
+StellarPGx    *2/*4             -                 -
+Cyrius        *2/*4             -                 -            ◄ authority
 ────────────────────────────────────────────────────────────────────────
-Concordance: 3/4 tools agree on *1/*4
+Verdict: *2/*4 — status: CONCORDANT — authority: Cyrius (CYP2D6 SV/CNV)
 ========================================================================
 
-Full results saved to: /pgx/results/CYP2D6_HG002_comparison.tsv
+Full results saved to: /pgx/results/genes/CYP2D6/CYP2D6_HG002_comparison.tsv
 ```
 
-The TSV (`<GENE>_<SAMPLE>_comparison.tsv`) contains one row per tool with columns:
-`Tool`, `Diplotype`, `ActivityScore`, `Phenotype`, `SVMode`.
+(Illustrative — HG002 CYP2D6 reconciles to `*2/*4`, Intermediate Metabolizer.) The
+verdict line is not a raw tool vote: for CYP2D6 **Cyrius is the authority** and *is*
+the verdict; for most genes the verdict is the synonym-collapsed multi-caller
+reconciliation (see [Gene Coverage → Verdict authority](#gene-coverage)).
 
-A rich `<GENE>_<SAMPLE>_detail.json` is also written with all 17 fields per tool —
-this feeds the HTML per-gene detail pages.
+The TSV (`<GENE>_<SAMPLE>_comparison.tsv`) contains one row per caller with columns:
+`Gene`, `Sample`, `Build`, `Tool`, `Diplotype`, `ActivityScore`, `Phenotype`, `Status`, `SVMode`
+(`Status` = `ok` / `failed` from the non-fatal sentinel).
+
+A rich `<GENE>_<SAMPLE>_detail.json` is also written with all 17 fields per tool plus
+the gene `verdict` block (status + authority + phenotype tier) and any PharmCAT
+`cross_check` — this feeds the HTML per-gene detail pages and is never recomputed
+downstream.
 
 ---
 
 ## Gene Coverage
 
-**31 genes** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix below shows the four star-allele callers plus the HLA/mtDNA callers; the **verdict-authority** methods (Cyrius, PharmCAT, VCF-Check) that override the vote for specific genes are listed under the table. For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
+**31 genes** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix shows all nine callers. **✓** = the caller produces a call for that gene; **★** = that caller is the **verdict authority** for the gene (its call *is* the verdict, overriding the reconciled star-allele vote — see the table below the matrix). For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
 
-| Gene | PyPGx | Stargazer | Aldy | StellarPGx | OptiType | mutserve | CPIC Level | SV? |
-|------|:-----:|:---------:|:----:|:----------:|:--------:|:--------:|:----------:|:---:|
-| ABCG2 | — | — | ✓ | ✓ | — | — | B | |
-| CACNA1S | ✓ | — | — | ✓ | — | — | **A** | |
-| CYP1A1 | ✓ | ✓ | ✓ | ✓ | — | — | — | |
-| CYP1A2 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
-| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | — | B | ✓ paralog |
-| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | ✓ paralog |
-| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
-| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| CYP2D6 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | ✓ paralog + tandem |
-| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | — | ✓ CN |
-| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — | A† | |
-| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | — | B | ✓ CN |
-| DPYD | ✓ | ✓ | ✓ | — | — | — | **A** | |
-| G6PD | ✓ | ✓ | ✓ | — | — | — | **A** | ✓ CN |
-| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | — | ✓ deletion |
-| GSTT1 | ✓‡ | — | — | ✓ | — | — | — | ✓ deletion |
-| HLA-A | — | — | — | — | ✓ | — | **A** | |
-| HLA-B | — | — | — | — | ✓ | — | **A** | |
-| IFNL3 | ✓ | ✓ | ✓ | — | — | — | **A** | |
-| MT-RNR1 | — | — | — | — | — | ✓ | **A** | |
-| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | B | |
-| NAT2 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| POR | ✓ | ✓ | — | ✓ | — | — | — | |
-| RYR1 | ✓ | ✓ | ✓ | — | — | — | **A** | |
-| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| TPMT | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | — | **A** | |
-| VKORC1 | ✓ | ✓ | ✓ | — | — | — | **A** | |
+| Gene | PyPGx | Stargazer | Aldy | StellarPGx | Cyrius | PharmCAT | OptiType | mutserve | VCF-Check | CPIC Level | SV? |
+|------|:-----:|:---------:|:----:|:----------:|:------:|:--------:|:--------:|:--------:|:---------:|:----------:|:---:|
+| ABCG2 | — | — | ✓ | ✓ | — | — | — | — | — | B | |
+| CACNA1S | ✓ | — | — | ✓ | — | — | — | — | ★ | **A** | |
+| CYP1A1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — | |
+| CYP1A2 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | |
+| CYP2A6 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | ✓ paralog |
+| CYP2B6 | ✓ | ✓ | ✓ | ✓ | — | ★ | — | — | — | **A** | ✓ paralog |
+| CYP2C8 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | |
+| CYP2C9 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| CYP2C19 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| CYP2D6 | ✓ | ✓ | ✓ | ✓ | ★ | — | — | — | — | **A** | ✓ paralog + tandem |
+| CYP2E1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — | ✓ CN |
+| CYP3A4 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | A† | |
+| CYP3A5 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| CYP4F2 | ✓ | ✓ | ✓ | ✓ | — | ★ | — | — | — | B | ✓ CN |
+| DPYD | ✓ | ✓ | ✓ | — | — | — | — | — | — | **A** | |
+| G6PD | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | ✓ CN |
+| GSTM1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | — | ✓ deletion |
+| GSTT1 | ✓‡ | — | — | ✓ | — | — | — | — | — | — | ✓ deletion |
+| HLA-A | — | — | — | — | — | — | ✓ | — | — | **A** | |
+| HLA-B | — | — | — | — | — | — | ✓ | — | — | **A** | |
+| IFNL3 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
+| MT-RNR1 | — | — | — | — | — | — | — | ✓ | — | **A** | |
+| NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | |
+| NAT2 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| NUDT15 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| POR | ✓ | ✓ | — | ✓ | — | — | — | — | — | — | |
+| RYR1 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
+| SLCO1B1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| TPMT | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | **A** | |
+| UGT1A1 | ✓ | ✓ | ✓ | ✓ | — | ★ | — | — | — | **A** | |
+| VKORC1 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
 
 † CYP3A4 appears in the tacrolimus guideline alongside CYP3A5; no standalone CPIC Level A guideline for CYP3A4 genotyping alone.
 ‡ GSTT1 is on `chr22_KI270879v1_alt` (alternate contig) — bcftools mpileup is skipped; PyPGx depth preprocessing may also fail on standard GRCh38 references.
+
+> **PharmCAT** also runs once per sample across its broader CPIC gene set and is shown as an *informational cross-check* (call + agree/differ) on the report card and in the Tool Results table for many non-authority genes (e.g. CYP2C19, CYP2C9); the ★ marks only the three genes where it **is** the verdict.
 
 **Verdict authority** — for these genes a CPIC-reference method overrides the reconciled star-allele vote (and is shown as a badge on the report card):
 
@@ -403,7 +449,7 @@ All other genes use the reconciled (synonym-collapsed) multi-caller verdict.
 
 ## Output Fields
 
-Each tool reports different field names for equivalent concepts. The table below provides the mapping (N = 17 fields × 4 tools).
+The **four star-allele callers** share a common 17-field schema but name each field differently; the table below maps them. The other five callers (Cyrius, PharmCAT, OptiType, mutserve, VCF-Check) do not emit star-allele diplotypes in this schema — their fields are listed separately in [Other callers](#other-callers-fields).
 
 | # | Field | PyPGx (`data.tsv`) | Stargazer (`report.tsv` / `genotype-calls.tsv`) | Aldy (`.aldy`) | StellarPGx (`.alleles`) |
 |---|---|---|---|---|---|
@@ -424,6 +470,18 @@ Each tool reports different field names for equivalent concepts. The table below
 | 15 | **Allele score / confidence** | — | `dip_score`, `hap1_score`, `hap2_score` | `SolutionID` rank | — |
 | 16 | **Mean allele fraction** | Per-variant AF in `VariantData` | `hap1_af_mean_gene` / `hap2_af_mean_gene` / `hap1_af_mean_main` / `hap2_af_mean_main` | `Coverage` per variant | — |
 | 17 | **Phasing method** | Beagle statistical (1KGP panel) | Beagle; `BEAGLE imputed` flag + `ssr` marker | ILP joint optimisation | Graph-based (graphtyper) |
+
+### Other callers' fields
+
+The five non-star-allele callers emit a smaller, caller-specific set. All are normalised into the same `detail.json` fields (`diplotype`, `phenotype`, `supporting_variants`, …) by `pgx-compare.py`.
+
+| Caller | Output read | Diplotype | Phenotype / function | Other fields |
+|--------|-------------|-----------|----------------------|--------------|
+| **Cyrius** | `genes/CYP2D6/cyrius/<SAMPLE>.tsv` | CYP2D6 star diplotype (SV/CNV/hybrid-aware) | — (mapped via CPIC) | `Filter` (PASS / no-call), raw copy-number call |
+| **PharmCAT** | `pharmcat/pgx.report.json` | per-gene star diplotype | CPIC phenotype + allele **function** | per-allele function, CPIC drug recommendations |
+| **OptiType** | `genes/HLA-*/optitype/<SAMPLE>_result.tsv` | 4-digit HLA-A/B alleles (e.g. `A*02:01`) | — | reads, objective score |
+| **mutserve** | `genes/MT-RNR1/mt-rnr1/<SAMPLE>_mtrna1_result.json` | MT-RNR1 variant genotype | m.1555A>G risk status | per-position allele fraction, depth |
+| **VCF-Check** | gene `<GENE>.vcf.gz` + `vcf_check_variants.json` | genotype at the CPIC variant(s) | function/diplotype from the CPIC table | rsID, GT, depth per variant |
 
 ---
 

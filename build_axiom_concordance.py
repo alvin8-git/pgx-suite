@@ -243,6 +243,9 @@ def main():
     ap.add_argument("sample", nargs="?")
     ap.add_argument("--xlsx", default="Axiom.xlsx")
     ap.add_argument("--results", default="results")
+    ap.add_argument("--axiom-sample", default=None,
+                    help="Sample key to look up in Axiom.xlsx when it differs from "
+                         "the results dir name (e.g. ILMN 'H-342' dir vs Axiom 'H_342')")
     ap.add_argument("--selftest", action="store_true", help="run assertion checks and exit")
     args = ap.parse_args()
 
@@ -252,9 +255,9 @@ def main():
     if not args.sample:
         ap.error("sample is required (or pass --selftest)")
 
-    axiom = load_axiom(args.xlsx, args.sample)
+    axiom = load_axiom(args.xlsx, args.axiom_sample or args.sample)
     if not axiom:
-        sys.exit(f"No Axiom rows for sample {args.sample!r} in {args.xlsx}")
+        sys.exit(f"No Axiom rows for sample {args.axiom_sample or args.sample!r} in {args.xlsx}")
     p6 = axiom.get("Axiom P6", {})
     p9 = axiom.get("Axiom P9", {})
     pipe = load_pipeline(args.results, args.sample)

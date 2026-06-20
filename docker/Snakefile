@@ -293,7 +293,10 @@ rule pharmcat:
         "( bcftools mpileup -R {params.positions} -f {REF} --max-depth 500 -Ou {BAM} 2>/dev/null "
         "| bcftools call -m --output-type z -o {params.pcdir}/pgx.vcf.gz "
         "&& tabix -f -p vcf {params.pcdir}/pgx.vcf.gz "
-        "&& apptainer exec --bind {params.pcdir}:{params.pcdir} {params.sif} "
+        # --cleanenv: the runtime image exports JAVA_HOME=/usr/lib/jvm/java-21
+        # which would otherwise leak into the SIF (whose JDK is temurin-17 at
+        # /usr/bin/java), making pharmcat_pipeline look for a java that isn't there.
+        "&& apptainer exec --cleanenv --bind {params.pcdir}:{params.pcdir} {params.sif} "
         "pharmcat_pipeline {params.pcdir}/pgx.vcf.gz --missing-to-ref -reporterJson -o {params.pcdir} ) "
         "|| rc=$?; echo $rc > {output}"
 
