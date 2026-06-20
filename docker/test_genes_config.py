@@ -49,8 +49,16 @@ ORIG_SUPPORT = {
     "HLA-B": {"optitype"},
     "CACNA1S": {"pypgx", "stellarpgx", "vcf_check"},
     "MT-RNR1": {"mutserve"},
+    "CYP2C-CLUSTER": {"vcf_check"},  # rs12777823 single-SNP VCF-Check (CPIC warfarin)
+    # GeT-RM-comparability genes (PyPGx-supported, low CPIC value; validated on NA12878)
+    "GSTP1": {"pypgx", "aldy"},
+    "SLC15A2": {"pypgx"},
+    "SLC22A2": {"pypgx"},
+    "SLCO2B1": {"pypgx"},
+    "UGT2B15": {"pypgx"},
 }
-ORIG_PYPGX_SV = {"CYP2A6", "CYP2B6", "CYP2D6", "CYP2E1", "CYP4F2", "G6PD", "GSTM1", "GSTT1"}
+ORIG_PYPGX_SV = {"CYP2A6", "CYP2B6", "CYP2D6", "CYP2E1", "CYP4F2", "G6PD", "GSTM1", "GSTT1",
+                 "SLC22A2", "UGT2B15"}
 ORIG_STARGAZER_SV = {"CYP2A6", "CYP2B6", "CYP2D6"}
 ORIG_COORDS = {
     "CYP1A1": "chr15:74716541-74728528", "CYP1A2": "chr15:74745844-74759607",
@@ -69,6 +77,10 @@ ORIG_COORDS = {
     "VKORC1": "chr16:31087853-31097797", "ABCG2": "chr4:88085265-88236626",
     "HLA-A": "chr6:28510020-33480577", "HLA-B": "chr6:28510020-33480577",
     "CACNA1S": "chr1:201006956-201095000", "MT-RNR1": "chrM:648-1601",
+    "CYP2C-CLUSTER": "chr10:94644745-94646745",
+    "GSTP1": "chr11:67580811-67589653", "SLC15A2": "chr3:121891400-121947188",
+    "SLC22A2": "chr6:160206754-160268821", "SLCO2B1": "chr11:75148106-75209549",
+    "UGT2B15": "chr4:68640596-68676652",
 }
 _VDR = {"CYP2D6", "CYP2C19", "CYP2C9", "CYP2B6", "CYP2C8", "CYP3A4", "CYP3A5",
         "CYP4F2", "CYP1A1", "CYP1A2", "CYP2A6", "CYP2E1", "SLCO1B1", "G6PD",

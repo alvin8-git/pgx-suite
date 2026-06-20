@@ -1069,5 +1069,25 @@
         "hom": "Unfavorable response genotype (T/T)"
       }
     }
+  },
+  "CYP2C-CLUSTER": {
+    "mode": "single_snp",
+    "chrom": "chr10",
+    "region": "chr10:94644745-94646745",
+    "snp": {
+      "pos": 94645745,
+      "ref": "G",
+      "alt": "A",
+      "rsid": "rs12777823",
+      "hgvs": "rs12777823 (CYP2C cluster, intergenic CYP2C18/CYP2C19)",
+      "report_ref": "G",
+      "report_alt": "A",
+      "note": "rs12777823 CYP2C cluster; A allele associated with reduced warfarin dose requirement in patients of African ancestry (CPIC warfarin guideline). GRCh38 chr10:94645745 G>A, plus strand (Ensembl).",
+      "phenotypes": {
+        "ref": "Normal warfarin dose requirement (G/G)",
+        "het": "Reduced warfarin dose requirement (G/A) — CYP2C cluster (African-ancestry guidance)",
+        "hom": "Reduced warfarin dose requirement (A/A) — CYP2C cluster (African-ancestry guidance)"
+      }
+    }
   }
 }

@@ -1305,6 +1305,7 @@ _VCF_CHECK_PARSERS: dict = {
     "RYR1":    parse_ryr1_vcf,
     "VKORC1":  parse_single_snp_vcf,
     "IFNL3":   parse_single_snp_vcf,
+    "CYP2C-CLUSTER": parse_single_snp_vcf,  # rs12777823 (CPIC warfarin)
 }
 
 # Genes resolved by a single authoritative caller rather than a star-allele vote:
@@ -1315,6 +1316,7 @@ _VCF_CHECK_PARSERS: dict = {
 AUTHORITATIVE = {
     "RYR1": "VCF-Check", "CACNA1S": "VCF-Check", "G6PD": "VCF-Check",
     "VKORC1": "VCF-Check", "IFNL3": "VCF-Check", "CYP2D6": "Cyrius",
+    "CYP2C-CLUSTER": "VCF-Check",  # rs12777823 single SNP (CPIC warfarin)
     # PharmCAT (CPIC reference impl) is the authority where star-allele callers
     # genuinely disagree on a CPIC gene: UGT1A1 *28/*80 LD, CYP2B6, CYP4F2.
     "UGT1A1": "PharmCAT", "CYP2B6": "PharmCAT", "CYP4F2": "PharmCAT",
