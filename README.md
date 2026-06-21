@@ -24,11 +24,11 @@ No single PGx tool gets every gene right — they disagree on structural variant
 
 ### How accurate it is
 
-- **TTSH clinical cohort** — 13 samples on Illumina + MGI (26 pairs) vs the Thermo Fisher Axiom PGx array: **73.0%** strict verdict-concordance, **85.8%** once array panel-gaps and single-SNP notation are adjudicated (cases where WGS is more sensitive or at parity — not pipeline errors). Illumina and MGI agree.
+- **ThermoFisher Axiom validation cohort** — 13 samples on Illumina + MGI (26 pairs) vs the Thermo Fisher Axiom PGx array: **73.0%** strict verdict-concordance, **85.8%** once array panel-gaps and single-SNP notation are adjudicated (cases where WGS is more sensitive or at parity — not pipeline errors). Illumina and MGI agree.
 - **GIAB HG001 / NA12878** vs CDC **GeT-RM** consensus: **19/28** genes exact-match, 3 partial (nomenclature), 6 mismatch — residuals driven by GeT-RM-only sub-allele systems, not miscalls.
 - Reconciled verdict reproduced across all genes on GIAB **HG002**.
 
-Full method and per-gene breakdown: **[TTSHvalidation.md](TTSHvalidation.md)**.
+Full method and per-gene breakdown: **[docs/AxiomValidation.md](docs/AxiomValidation.md)**.
 
 Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven by one source-of-truth gene table (`docker/genes.tsv`); every caller runs as a **non-fatal rule** (one tool failing never aborts the gene or the batch) and `pgx-compare.py` is the single verdict authority. See [Architecture](#architecture) for the full reconciliation tiers.
 
@@ -600,11 +600,11 @@ docker run --privileged pgx-suite:latest
 | Axis | Result |
 |------|--------|
 | Orchestrator equivalence | Snakemake reproduces the legacy bash pipeline byte-for-byte across **all 31 genes** on GIAB HG002 — verdict + per-tool diplotype + status identical. |
-| Orthogonal truth (Axiom array) | TTSH cohort, 13 samples × 2 platforms (**26 pairs**) vs Thermo Fisher Axiom P6/P9, scored on the verdict engine: **73.0%** strict verdict-concordance, **85.8%** after adjudicating array panel-gaps + single-SNP notation (cases where WGS is more sensitive or at parity, not pipeline errors). >90% on CYP2C19, CYP2C9, CYP3A5, NAT2, NUDT15, SLCO1B1, TPMT, ABCG2, CYP3A4. Illumina ≈ MGI. Full report: [`TTSHvalidation.md`](TTSHvalidation.md). |
+| Orthogonal truth (Axiom array) | ThermoFisher Axiom validation cohort, 13 samples × 2 platforms (**26 pairs**) vs Thermo Fisher Axiom P6/P9, scored on the verdict engine: **73.0%** strict verdict-concordance, **85.8%** after adjudicating array panel-gaps + single-SNP notation (cases where WGS is more sensitive or at parity, not pipeline errors). >90% on CYP2C19, CYP2C9, CYP3A5, NAT2, NUDT15, SLCO1B1, TPMT, ABCG2, CYP3A4. Illumina ≈ MGI. Full report: [`docs/AxiomValidation.md`](docs/AxiomValidation.md). |
 | Orthogonal truth (GeT-RM) | GIAB **HG001 / NA12878** vs CDC GeT-RM consensus (the gold-standard PGx reference cell line): **19/28** genes exact-match, 3 partial, 6 mismatch — residuals are GeT-RM-only sub-allele nomenclature, not miscalls. (HG002–HG007 trios are not GeT-RM-characterized.) |
 | Input QC (ALT-awareness) | `pgx_altcheck.py` flags non-ALT-aware BAMs (minimap2 / no-ALT reference) and NO_CALLs paralog/SV genes — preventing the classic minimap2 false CYP2D6 `*5` deletion. Verified on bwa HG002 (verdict: ALT-aware *yes*, 0.16% reads on ALT contigs). |
 | Reference sample | HG002 (NA24385) CYP2D6 → **`*2/*4`**, Activity Score 1.0, Intermediate Metabolizer — concordant. |
-| Reconciliation cohort | TTSH/MGI cohort (20 samples) re-verdicted through the new engine: the phenotype tier resolved all 5 DPYD nomenclature/phasing artifacts (all NM/IM); a genuine NUDT15 3-way disagreement was correctly left flagged. Every clinically actionable CPIC gene reaches a confident verdict except 2 long-read-only complex CYP2D6 cases. |
+| Reconciliation cohort | ThermoFisher Axiom MGI cohort (20 samples) re-verdicted through the new engine: the phenotype tier resolved all 5 DPYD nomenclature/phasing artifacts (all NM/IM); a genuine NUDT15 3-way disagreement was correctly left flagged. Every clinically actionable CPIC gene reaches a confident verdict except 2 long-read-only complex CYP2D6 cases. |
 | Unit tests | `python3 docker/test_parsers.py · test_verdict.py · test_coverage_gate.py · test_genes_config.py · test_reconcile.py · test_vcf_check.py · test_cyrius.py · test_pharmcat.py · test_cpic.py` plus `pgx_altcheck.py --selftest` — parsers, verdict + phenotype tier, the NO_CALL gate, the single-source matrix, synonym reconciliation, the three authoritative callers, and the ALT-awareness classifier. |
 
 **Clinical-report safety properties** (enforced by `pgx-compare.py` + `pgx-report.py`):
@@ -677,9 +677,10 @@ pgx-suite/
 │   ├── CHANGES.md                      # Changelog
 │   ├── TODO.md                         # Roadmap
 │   ├── assets/                         # README hero image
-│   └── plans/                          # Design + review documents
-├── README.md                           # This file
-└── TTSHvalidation.md                   # Axiom-array validation report
+│   ├── plans/                          # Design + review documents
+│   ├── AxiomValidation.md              # Axiom-array validation report (technical)
+│   └── NGS-Migration-Report.md         # Array→NGS migration report (clinical lab)
+└── README.md                           # This file
 ```
 
 ---
@@ -692,7 +693,8 @@ pgx-suite/
 | [`docs/howto-add-a-gene.md`](docs/howto-add-a-gene.md) | How-to | Add or change gene / tool support via the single-source `genes.tsv` |
 | [`docs/ToolsDocumentation.md`](docs/ToolsDocumentation.md) | Reference | All callers (incl. Cyrius, PharmCAT, VCF-Check): algorithms, gene lists, SV handling, output formats, limitations |
 | [`docs/PGxDocumentation.md`](docs/PGxDocumentation.md) | Reference | Per-gene clinical reference (alleles, phenotypes, CPIC drugs) |
-| [`TTSHvalidation.md`](TTSHvalidation.md) | Explanation | Concordance vs the Axiom array (13 samples × 2 platforms) |
+| [`docs/AxiomValidation.md`](docs/AxiomValidation.md) | Explanation | Concordance vs the Axiom array (13 samples × 2 platforms) |
+| [`docs/NGS-Migration-Report.md`](docs/NGS-Migration-Report.md) | Explanation | Plain-language Axiom-array→NGS migration report for clinical labs |
 | [`docs/CHANGES.md`](docs/CHANGES.md) | — | Reverse-chronological changelog |
 | [`docs/TODO.md`](docs/TODO.md) | — | Roadmap and open tasks |
 | [`docker/README.md`](docker/README.md) | — | Container-specific build notes |

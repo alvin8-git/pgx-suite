@@ -11,7 +11,7 @@ The pipeline is now a **reconciliation engine**, not a string-equality ensemble 
 - [x] Verdict-driven report — authority badges, actionability-first grid, ticker fixed to follow verdict status, collapsible per-gene coverage, all 9 callers in the top pane
 - [x] Axiom-array adjudication panel for validation samples (`build_axiom_concordance.py`)
 - [x] Unit tests — `test_reconcile.py`, `test_vcf_check.py`, `test_cyrius.py`, `test_pharmcat.py` (+ phenotype-tier cases in `test_verdict.py`); resolves the earlier "in-container vcf_check tests" TODO
-- [x] TTSH/MGI cohort (20 samples) re-verdicted: every clinically actionable CPIC gene resolved except 2 long-read-only complex CYP2D6 cases
+- [x] ThermoFisher Axiom MGI cohort (20 samples) re-verdicted: every clinically actionable CPIC gene resolved except 2 long-read-only complex CYP2D6 cases
 
 Carried over from 2026-06-17:
 
@@ -352,7 +352,7 @@ genome project are:
 | **COMT** | Pain, dopamine, antipsychotic response (Val158Met, rs4680) |
 | **ANKK1/DRD2** | Tardive dyskinesia risk with antipsychotics |
 
-### Southeast Asian population priorities (Singapore / TTSH context)
+### Southeast Asian population priorities (Singapore clinical context)
 
 | Gene | Rationale |
 |------|-----------|

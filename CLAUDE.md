@@ -28,7 +28,7 @@ Inside the container the orchestrator is **Snakemake** (`/opt/pgx/Snakefile`):
 - One gene (debug): add `genes="CYP2D6"` to `--config` (space-separated for several).
 - CRAM input: also pass `depth_bam=<extracted-region-bam>` (see the `depth_bam` note in the Snakefile).
 
-Snakemake replaced the former bash orchestrators `pgx-run.sh` / `pgx-all-genes.sh` (removed 2026-06-17 after full-set 31-gene equivalence on HG002). Unit checks live in `docker/test_*.py` (`python3 docker/test_parsers.py`, `test_verdict.py`, `test_coverage_gate.py`, `test_genes_config.py`); whole-pipeline validation is by running real samples (see `TTSHvalidation.md`).
+Snakemake replaced the former bash orchestrators `pgx-run.sh` / `pgx-all-genes.sh` (removed 2026-06-17 after full-set 31-gene equivalence on HG002). Unit checks live in `docker/test_*.py` (`python3 docker/test_parsers.py`, `test_verdict.py`, `test_coverage_gate.py`, `test_genes_config.py`); whole-pipeline validation is by running real samples (see `docs/AxiomValidation.md`).
 
 ## Architecture & data flow
 

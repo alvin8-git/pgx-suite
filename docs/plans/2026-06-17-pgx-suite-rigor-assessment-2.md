@@ -7,7 +7,7 @@ review via plan-eng-review posture (boring-by-default, blast radius, systems-ove
 reversibility). Each finding verified against the current code.
 
 **Framing.** The pipeline now produces correct, validated calls on *good* input (31-gene
-HG002 equivalence; TTSH ~80% vs Axiom). The remaining flaws are the gap between "correct on
+HG002 equivalence; Axiom validation cohort ~80% vs Axiom). The remaining flaws are the gap between "correct on
 good input" and "trustworthy in a regulated lab": it cannot prove *what produced a result*,
 it cannot tell a clean all-normal sample from a broken run, and a rebuild months from now
 isn't guaranteed to reproduce. None of these are caught by the existing tests.

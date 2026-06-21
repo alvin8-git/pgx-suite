@@ -25,9 +25,9 @@ into `test.sh`. Verified: bwa HG002 → `yes`; simulated minimap2 → CYP2D6 NO_
   passing NA12878 GeT-RM validation. UGT2B7 (callers discordant) and UGT2B17 (whole-gene
   deletion, NO_CALL on short reads) were trialled and dropped.
 
-**Validation.** TTSH cohort re-scored on the verdict engine: 26 platform-sample pairs vs
+**Validation.** ThermoFisher Axiom validation cohort re-scored on the verdict engine: 26 platform-sample pairs vs
 Axiom — **73.0%** strict, **85.8%** adjudicated (ILMN ≈ MGI). GIAB HG001/NA12878 vs CDC
-GeT-RM consensus: **19/28** exact-match. Full method: `TTSHvalidation.md`.
+GeT-RM consensus: **19/28** exact-match. Full method: `AxiomValidation.md`.
 
 **Report UX.** Gene pages gained the consensus-diplotype headline, metaboliser pill,
 resolution/authority badge, and a "what the pipeline did" narrative (tool concordance +
@@ -73,7 +73,7 @@ phasing) but the phenotype-emitting callers agree on the CPIC phenotype, the cal
 is concordant-by-phenotype (`authority: "Phenotype"`); `Indeterminate`/unknown
 counts as abstain, not dissent. This matches CPIC (which reports by
 phenotype / gene-activity-score, not haplotype string) and resolved all five DPYD
-nomenclature/phasing artifacts in the TTSH/MGI cohort while correctly leaving a
+nomenclature/phasing artifacts in the ThermoFisher Axiom MGI cohort while correctly leaving a
 genuine NUDT15 3-way disagreement flagged.
 
 **Verdict-driven report (`pgx-report.py`).**
@@ -153,7 +153,7 @@ getting-started tutorial + add-a-gene how-to added.
 
 ### Summary
 
-Applied four actionable fixes derived from the TTSH validation study and added a
+Applied four actionable fixes derived from the ThermoFisher Axiom validation study and added a
 fifth independent UGT1A1 caller (VCF-Check). Docker image rebuilt to incorporate
 all changes.
 
@@ -179,7 +179,7 @@ all changes.
 - **RYR1 diplotype_check:** added `*ference/*ference` to exclusion list to prevent
   Aldy's reference notation from triggering spurious clinical alert banners
 - **DPYD/RYR1 low-depth warning:** new `_DEPTH_SENSITIVE_GENES` constant; amber
-  warning banner rendered when mean gene depth < 30× (threshold based on TTSH
+  warning banner rendered when mean gene depth < 30× (threshold based on ThermoFisher Axiom
   cohort observation that rare het variants were missed below this depth)
 - **DPYD description:** notes that WGS detects full variant spectrum including *5
   (c.1627A>G) and *9A (c.85T>C) not covered by standard pharmacogenomics arrays
@@ -196,7 +196,7 @@ all changes.
 
 ---
 
-## 2026-03-13 — TTSH Validation Report (13 samples × 16 genes, ILMN + MGI)
+## 2026-03-13 — ThermoFisher Axiom Validation Report (13 samples × 16 genes, ILMN + MGI)
 
 ### Summary
 
@@ -204,7 +204,7 @@ Comprehensive concordance analysis of 13 clinical samples previously genotyped
 on the Thermofisher Axiom Pharmacogenomics array (P6/P9) against the pgx-suite
 pipeline on both Illumina and MGI WGS platforms.
 
-### `TTSHvalidation.md` (new)
+### `AxiomValidation.md` (new)
 
 - **13 samples**, 26 platform-sample pairs (ILMN + MGI), **16 genes** evaluated
 - **Tool concordance:** Stargazer 81.5% > PyPGx 79.9% > Aldy 78.1% > StellarPGx 76.5%
