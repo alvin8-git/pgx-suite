@@ -5,7 +5,7 @@
 > NO_CALL coverage gate), see the [README](../README.md); for per-tool detail see
 > [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-This pipeline performs star-allele calling and diplotype assignment across 37 genes/loci using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes). All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
+This pipeline performs star-allele calling and diplotype assignment across 37 genes/loci using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes) -- nine callers in total. All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
 
 ---
 
