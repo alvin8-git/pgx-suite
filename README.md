@@ -311,7 +311,9 @@ Output layout:
 ├── all_genes_summary.tsv             # verdict-driven concordance summary across all genes
 ├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
 ├── pharmcat/                         # PharmCAT runs ONCE per sample (not per gene)
-│   ├── pgx.report.json               #   CPIC report consumed for UGT1A1/CYP2B6/CYP4F2 + cross-checks
+│   ├── pgx.report.json               #   full CPIC report: verdict source for UGT1A1/CYP2B6/CYP4F2
+│   │                                 #   + cross-checks, AND the per-DRUG CPIC recommendations
+│   │                                 #   (drug → implication → recommendation) — a downstream contract
 │   ├── pgx.match.json · pgx.phenotype.json
 │   └── pharmcat.status               #   non-fatal exit sentinel
 └── genes/
@@ -333,6 +335,15 @@ Output layout:
 back into each gene's `detail.json` (as the verdict for UGT1A1/CYP2B6/CYP4F2, and as an
 informational cross-check for the rest). **VCF-Check** has no output dir of its own — it
 reads the gene's `<GENE>.vcf.gz` directly against `vcf_check_variants.json`.
+
+**`pgx.report.json` as a downstream drug-level contract.** Beyond the three PharmCAT-authority
+genes, `pharmcat/pgx.report.json` carries PharmCAT's **full per-drug CPIC recommendations** for
+the sample — under `drugs["CPIC Guideline Annotation"][<drug>].guidelines[].annotations[]`, each
+with `drugRecommendation`, `implications`, `phenotypes`, `classification` (evidence strength) and
+`alternateDrugAvailable`. This is the authoritative source for a **medication-response-by-drug**
+view (drugs grouped by therapeutic class, each with a dose/caution action). Downstream consumers
+(e.g. the OmniGen reporting layer) read this file directly and **render** it — they do not re-call
+PGx. Keep the schema stable; it is a consumed contract, not just an internal artifact.
 
 ### Run a single gene (debug)
 

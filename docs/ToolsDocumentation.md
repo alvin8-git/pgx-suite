@@ -627,6 +627,12 @@ CYP4F2** — genes where the star-allele callers genuinely disagree (e.g. the UG
 
 - One `*.report.json` per sample covering all its genes; per-gene diplotype + phenotype.
   Feeds the `PharmCAT authoritative` card badge.
+- The same `pgx.report.json` also carries PharmCAT's **per-drug CPIC recommendations** under
+  `drugs["CPIC Guideline Annotation"][<drug>].guidelines[].annotations[]` — each with
+  `drugRecommendation`, `implications`, `phenotypes`, `classification` and `alternateDrugAvailable`.
+  This is a **downstream-consumable contract** for a medication-response-by-drug view (drugs by
+  therapeutic class, each with a dose/caution action); the OmniGen reporting layer reads and
+  renders it (it does not re-call PGx). Treat the schema as stable.
 
 ### Limitations
 
