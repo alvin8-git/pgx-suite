@@ -30,6 +30,17 @@ No single PGx tool gets every gene right — they disagree on structural variant
 
 Full method and per-gene breakdown: **[docs/AxiomValidation.md](docs/AxiomValidation.md)**.
 
+## Demo report
+
+A full per-sample HTML report is checked in for browsing without running the pipeline:
+**[docs/demo/HG002_report.html](docs/demo/HG002_report.html)** — download and open in a browser.
+
+It is built from GIAB **HG002**'s real pharmacogenomics results (all genes, verdicts, BAM QC,
+provenance). The **HLA Class II & Blood Group** section uses **synthetic, clearly-labelled**
+placeholder calls (a top banner marks them) — a celiac DQ2.5 + narcolepsy `DQB1*06:02` HLA-II
+example and an ABO type flagged **UNVALIDATED** — to illustrate the OmniGen add-on section
+without a full arcasHLA/ABO run. Not a real HLA/ABO result; do not use clinically.
+
 Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven by one source-of-truth gene table (`docker/genes.tsv`); every caller runs as a **non-fatal rule** (one tool failing never aborts the gene or the batch) and `pgx-compare.py` is the single verdict authority. See [Architecture](#architecture) for the full reconciliation tiers.
 
 > **License notice:** Stargazer and Aldy are restricted to non-commercial academic use.

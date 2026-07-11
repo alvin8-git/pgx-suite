@@ -1,0 +1,326 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable,booktabs,textcomp,hyperref,amsmath}
+\usepackage{parskip}
+\setlength{\LTleft}{0pt}\setlength{\LTright}{\fill}
+\title{Reconciling nine star-allele callers into one clinical verdict: a containerized whole-genome pharmacogenomics pipeline validated against an orthogonal genotyping array}
+\author{\textit{[[author list --- to be completed]]}}
+\date{}
+\begin{document}
+\maketitle
+
+\textbf{Authors:} [[PLACEHOLDER --- author list, affiliations]]
+\textbf{Corresponding author:} [[PLACEHOLDER]]
+
+\begin{quote}\small\itshape Draft status: full-mode draft, Vancouver references finalized (25 refs, all DOI/PMID-verified except the PyPGx software cite [8], which needs a Zenodo DOI for v0.26.0). Front-matter placeholders \texttt{[[…]]} are author-owned (ethics, data availability, authorship, funding).\end{quote}
+
+
+\section*{Abstract}
+
+\textbf{Background.} Pharmacogenomic (PGx) star-allele genotyping from next-generation sequencing is clinically actionable but algorithmically hard, and the several independent callers now available frequently disagree --- both in allele nomenclature and in substance. Clinical laboratories that run more than one caller have no principled way to collapse that disagreement into the single, guideline-actionable result a report requires.
+
+\textbf{Methods.} We built pgx-suite, a single containerized pipeline that genotypes 37 pharmacogenomic loci (all 19 CPIC Level A genes) from one whole-genome BAM/CRAM (GRCh38) using up to nine independent callers --- four general star-allele callers (PyPGx, Stargazer, Aldy, StellarPGx) plus five specialist methods (Cyrius, PharmCAT, OptiType, mutserve, and an in-house CPIC-variant checker). A four-tier reconciliation engine adjudicates their output into one verdict per gene: a coverage gate, synonym collapse of equivalent diplotype nomenclature, an authoritative-caller override for genes with a validated specialist method, and a phenotype-consensus rescue. We validated the pipeline against a ThermoFisher Axiom PGx array on 13 clinically genotyped samples re-sequenced on two platforms (Illumina and MGI; 26 platform-sample pairs; 330 gene-calls), and against GIAB (HG002) and GeT-RM (HG001) reference materials.
+
+\textbf{Results.} The primary endpoint, raw verdict concordance with the array, was 73.0\% (241/330; 95\% CI 68.0--77.5). Classifying array-limitation cases from independent evidence (30 array false-negatives where the array panel lacks a probe, 12 single-SNP loci where the array genotype is authoritative) gave a secondary, adjudicated concordance of 85.8\% (283/330; 95\% CI 81.6--89.1). Six genes reached 100\% concordance. The dominant source of discordance was not pipeline error but array panel gaps: in 24 of 26 DPYD replicates the array reported \texttt{*1/*1} while the callers concordantly detected a reduced-function variant absent from the array's fixed content. HG002 CYP2D6 was called \texttt{*2/*4} (Activity Score 1.0, Intermediate Metabolizer) with unanimous caller agreement.
+
+\textbf{Conclusions.} A fixed-hierarchy reconciliation layer turns discordant multi-caller output into a single auditable clinical verdict. On this cohort the reconciled pipeline agreed with an orthogonal array on the large majority of calls, and --- demonstrated concretely for DPYD --- surfaced clinically material variants outside the array's fixed content. A systematic single-caller baseline and per-tier validation remain to be reported.
+
+\textbf{Keywords:} pharmacogenomics; star alleles; whole-genome sequencing; CPIC; variant calling; clinical reporting; reproducibility
+
+
+\section*{1. Introduction}
+
+Pharmacogenomics has moved from research into routine care: the Clinical Pharmacogenetics Implementation Consortium (CPIC) now publishes prescribing guidance for dozens of gene--drug pairs, and its "Level A" genes carry recommendations strong enough to change a prescription at the point of care [1,2]. Translating a patient's sequence into that guidance requires resolving the gene into a *star-allele diplotype* --- a pair of haplotypes drawn from a controlled nomenclature curated by PharmVar [3] --- and mapping that diplotype to a metabolizer phenotype.
+
+Deriving star alleles from short-read sequencing is deceptively difficult. The most clinically important gene, CYP2D6, sits in a segmental duplication and is subject to gene deletions, duplications, and CYP2D6--CYP2D7 hybrids that defeat naïve variant calling [4]. Other genes require accurate indel calling (DPYD), long-range phasing (CYP2C19, TPMT), or copy-number reasoning (GSTM1, GSTT1). No single algorithm is best everywhere, and a distinct tool has been published for nearly every strategy: integer linear programming (Aldy [5,6]), Bayesian statistical calling with population phasing (Stargazer [7], PyPGx [8]), genome-graph genotyping (StellarPGx [9]), targeted structural-variant reasoning for CYP2D6 (Cyrius [10]), and CPIC reference named-allele matching (PharmCAT [11]).
+
+The proliferation of callers creates a practical problem that is rarely stated plainly: \textbf{they disagree.} Some disagreement is genuine --- one tool resolves a hybrid allele the others miss. But much of it is nomenclatural: the same DPYD variant is written \texttt{*9A} by one caller, \texttt{c.85T\textgreater{}C} by another, \texttt{*S10} by a third, and \texttt{rs1801265} by a fourth, and a string comparison scores four "different" calls where there is really one. Benchmarks that run several callers over shared truth sets confirm both kinds of divergence [12]. For a laboratory the consequence is the same: given four heterogeneous outputs, *which one goes on the report?*
+
+Existing software does not answer this. Each caller reports its own result; benchmark studies compare callers but do not adjudicate them; and clinical matchers such as PharmCAT take a single upstream call set as input. What is missing is a \textbf{reconciliation layer} --- a defensible, auditable procedure for collapsing many callers into one clinical verdict.
+
+We present pgx-suite and make three tiered contributions. First (method, and the paper's centerpiece), a four-tier reconciliation engine --- coverage gate, synonym collapse, authoritative-caller override, and phenotype consensus --- that converts discordant nine-caller output into a single verdict with an explicit authority trail. Second (evidence), an orthogonal validation against a ThermoFisher Axiom PGx array on 26 whole-genome samples that quantifies the reconciliation gain (73.0\%\ensuremath\{\rightarrow\}85.8\%) and classifies every residual discordance. Third (substrate), a single containerized Snakemake pipeline that unifies nine heterogeneous callers over 37 loci with non-fatal orchestration, giving clinical-grade reproducibility from one command.
+
+\textbf{Research gap.} No published tool reconciles nine or more heterogeneous star-allele callers into one CPIC-actionable verdict with an auditable authority hierarchy.
+
+
+\section*{2. Materials and Methods}
+
+\subsection*{2.1 Pipeline architecture}
+
+pgx-suite is distributed as a single multi-stage Docker image and takes one whole-genome BAM or CRAM aligned to GRCh38 as input, emitting one self-contained HTML clinical report. Orchestration is a Snakemake [13] directed acyclic graph with a wildcard \texttt{\{gene\}} fan-out: each gene is processed independently, and within a gene each caller is an independent rule. A single tab-separated configuration file, \texttt{genes.tsv}, is the single source of truth for every gene's genomic region, per-caller support, and structural-variant flags; both the workflow and the reconciliation script read it, and a unit test guards their agreement.
+
+Two design choices make the pipeline robust for batch clinical use. First, a \textbf{non-fatal caller pattern}: each caller rule declares as its output a sentinel status file holding the caller's real exit code, so the rule always succeeds and a single failing caller never aborts the gene or the batch; the reconciliation step reads the sentinels and records which callers failed. Second, \textbf{sanity gates} halt a run on a truncated BAM or a reference mismatch before wasted computation. Read alignment metrics and depth are computed with samtools/bcftools [14] and mosdepth [15]. The image pins every tool version and stamps a provenance block into each report.
+
+\subsection*{2.2 The nine callers}
+
+The pipeline integrates nine callers spanning complementary algorithmic strategies (Table 1). Four are general star-allele callers applied across most genes; five are specialists: Cyrius for CYP2D6 structural variation, PharmCAT for CPIC named-allele matching, OptiType for HLA typing [16], mutserve for the mitochondrial MT-RNR1 locus [17], and an in-house VCF-Check that genotypes single clinically-defined CPIC variants directly from the sample VCF.
+
+\subsection*{2.3 Gene panel}
+
+The panel covers 37 pharmacogenomic loci, including all 19 CPIC Level A genes (Table 2). Coverage ranges from the core CYP450 enzymes (CYP2D6, CYP2C9, CYP2C19, CYP2B6, CYP3A5, CYP4F2, others) through phase II enzymes (UGT1A1, TPMT, NUDT15 [18], NAT1/2, GST family) to transporters (SLCO1B1, ABCG2 [19]) and single-variant loci (VKORC1, RYR1, CACNA1S, G6PD, IFNL3, and the CYP2C-cluster warfarin SNP rs12777823). HLA-A/B and MT-RNR1 are handled by their dedicated callers.
+
+\subsection*{2.4 Reconciliation engine}
+
+The reconciliation engine is the methodological core. For each gene it collects every caller's diplotype and phenotype and computes one verdict with a status in \{\texttt{concordant}, \texttt{majority}, \texttt{discordant}, \texttt{no\_call}\} through four ordered tiers (Figure 1).
+
+\textbf{Tier 1 --- coverage gate.} If the gene's region depth falls below a minimum (default 10\ensuremath\{\times\}), the verdict is \texttt{NO\_CALL} regardless of any caller output. This prevents a confidently-wrong call from thin data.
+
+\textbf{Tier 2 --- variant-tier synonym collapse.} Each caller's diplotype is canonicalized through a curated synonym map before agreement is counted, so that nomenclatural equivalents collapse to one token while the displayed string remains the most common raw spelling. The map is deliberately narrow --- it covers only true synonyms (the DPYD \texttt{*9A}/\texttt{c.85T\textgreater{}C}/\texttt{*S10}/\texttt{rs1801265} cluster, CYP2C19 \texttt{*38\ensuremath\{\rightarrow\}*2}, TPMT \texttt{*1S\ensuremath\{\rightarrow\}*1}) and *excludes* pairs that look similar but are not equivalent (VKORC1 haplotypes, NUDT15 \texttt{*5}/\texttt{*6}), which are left for downstream adjudication. A verdict is flagged \texttt{reconciled} when synonym collapse raised the agreement count above the raw count. Genes with no synonym entry reduce to order-insensitive string matching, so their verdicts are unchanged by design.
+
+\textbf{Tier 3 --- authoritative-caller override.} For genes where one caller is a validated specialist, that caller's call *is* the verdict when it produced one, with the authority recorded on the report: Cyrius for CYP2D6; PharmCAT for UGT1A1, CYP2B6, and CYP4F2; and VCF-Check for the single-variant genes RYR1, CACNA1S, G6PD, VKORC1, IFNL3, and the CYP2C-cluster SNP. This encodes the principle that a purpose-built method outranks a general star-allele caller for its specialty gene.
+
+\textbf{Tier 4 --- phenotype consensus.} When diplotype strings neither agree nor form a clear majority, the verdict is rescued to \texttt{concordant} if at least two phenotype-emitting callers agree on the normalized CPIC metabolizer phenotype; callers that abstain (Indeterminate/Unknown) are ignored. This captures the common case where callers write a diplotype slightly differently but imply the same actionable phenotype. A genuine phenotype disagreement remains \texttt{discordant} and is flagged for human review.
+
+\subsection*{2.5 Validation design}
+
+We validated against a ThermoFisher Axiom PGx array as an orthogonal comparator. Thirteen clinical samples with prior array genotypes were re-sequenced by whole-genome sequencing on two platforms --- Illumina and MGI --- yielding 26 platform-sample pairs (all 150 bp paired-end). Sixteen genes overlapped between the array and the pipeline panel, giving 330 gene-calls for comparison. Each call was adjudicated into one category: \texttt{concordant}; \texttt{array\_FN} (the array's fixed panel cannot see a variant the sequencing correctly detects); \texttt{array\_authoritative} (a single-SNP array locus is the truth and the sequence caller's extra haplotype notation is cosmetic); \texttt{array\_FP\_or\_NGS\_FN} (needs orthogonal confirmation); or \texttt{review}/\texttt{ngs\_unresolved} (nomenclature or unresolved). All concordance figures were generated programmatically from the call tables, with no hand-entered numbers.
+
+\subsection*{2.6 Reference materials}
+
+We additionally genotyped GIAB HG002/NA24385 [20] and compared HG001/NA12878 against the GeT-RM consensus pharmacogenetic reference set [21].
+
+
+\section*{3. Results}
+
+\subsection*{3.1 Overall concordance}
+
+We report two endpoints. The \textbf{primary endpoint} is raw verdict concordance --- an exact match between the pipeline's verdict and the array call, with no reclassification: \textbf{73.0\% (241/330; 95\% CI 68.0--77.5)}. The \textbf{secondary, adjudicated endpoint} reclassifies two categories of call as array limitations rather than pipeline errors --- 30 \texttt{array\_FN} and 12 \texttt{array\_authoritative} --- giving \textbf{85.8\% (283/330; 95\% CI 81.6--89.1)} (Figure 2). Each reclassification rests on evidence independent of the pipeline's own output (§3.4): \texttt{array\_FN} calls are confirmed against the published Axiom probe content (the variant is absent from the array design), and \texttt{array\_authoritative} calls are confirmed against the raw single-SNP array genotype. Adjudication was performed by the study team and was not blinded; we therefore treat 73.0\% as the headline result and 85.8\% as a mechanistic explanation of the residual, not as an independent accuracy estimate. Of the 47 non-adjudicated calls, 34 were nomenclature/manual-review, 7 NGS-unresolved, and 6 required orthogonal confirmation.
+
+\subsection*{3.2 Per-gene concordance}
+
+Six genes reached 100\% verdict concordance (ABCG2, CYP2B6, CYP3A4, CYP3A5, NAT2, TPMT) and four more reached \ensuremath\{\geq\}90\% (CYP2C19, CYP2C9, NUDT15, SLCO1B1 at \textasciitilde{}92\% each) (Table 3). The genes with low raw concordance --- DPYD, VKORC1, CYP2D6, UGT1A1 --- are exactly those whose discordance is explained by array limitations or nomenclature rather than sequencing error (§3.4).
+
+\subsection*{3.3 Platform equivalence}
+
+The two platforms are technical replicates of the same 13 DNAs, so their calls are paired rather than independent. Descriptively, MGI reached 73.9\% (122/165) and Illumina 72.1\% (119/165), a 1.8-percentage-point difference (Figure 4), despite different duplication-rate profiles (Illumina 18--44\%, MGI 6--38\%). A paired concordance test (McNemar) across the matched replicate pairs [[to be reported]] is the appropriate formal comparison; the descriptive equivalence indicates reconciled verdicts are not strongly platform-specific.
+
+\subsection*{3.4 Anatomy of discordance}
+
+Three genes account for most residual discordance, and in each the reconciliation engine behaved correctly (Table 4).
+
+\textbf{DPYD (raw 8\%)} is the clearest case of an *array limitation, not a pipeline error*. In 24 of 26 pairs the Axiom array reported \texttt{*1/*1} while the star-allele callers concordantly detected a reduced-function variant (written variously \texttt{*9A}, \texttt{c.85T\textgreater{}C}, \texttt{*S10}, \texttt{rs1801265} and collapsed by Tier 2). The array genotypes only a fixed pathogenic set; the sequence callers see a variant that is clinically actionable before fluoropyrimidine dosing [22,23]. These 24 calls are counted \texttt{array\_FN}.
+
+\textbf{VKORC1 (raw 54\%)} turns on the single clinically-relevant SNP rs9923231, which VCF-Check genotypes directly and is the authority (Tier 3). The 12 \texttt{array\_authoritative} mismatches arise only because a general star-allele caller adds haplotype notation beyond rs9923231, changing the displayed string while the underlying SNP is correct --- consistent with warfarin-dosing use of that single variant [24].
+
+\textbf{CYP2D6} is adjudicated by Cyrius (Tier 3), which returns definitive calls and honestly abstains on ambiguous copy-number configurations rather than guessing; residual differences are hybrid-allele nomenclature (\texttt{*36+*10} vs \texttt{*36-*10}), not functional miscalls, and were identical on full and down-sampled BAMs.
+
+\subsection*{3.5 Reference-material accuracy}
+
+HG002/NA24385 CYP2D6 was called \textbf{ 0 } (Activity Score 1.0, Intermediate Metabolizer) with unanimous agreement across the four applicable callers and Cyrius as authority. HG001/NA12878 matched the GeT-RM consensus at 19 of 28 comparable genes, with residuals attributable to the same nomenclature and panel-scope effects seen in the clinical set.
+
+\subsection*{3.6 Contribution of the reconciliation tiers}
+
+The tiers are not decorative, and their effect on this cohort can be counted directly. \textbf{Tier 2 (synonym collapse)} acted on the 24 DPYD replicates in which callers wrote the same reduced-function allele four different ways (\texttt{*9A}, \texttt{c.85T\textgreater{}C}, \texttt{*S10}, \texttt{rs1801265}): before collapse these scored as multi-way disagreement, and after collapse as a single concordant reduced-function verdict --- 24 calls converted from apparent discordant/majority to concordant. \textbf{Tier 3 (authoritative override)} determined the verdict at every call for its designated genes: VKORC1 (26 calls, VCF-Check on rs9923231), CYP2D6 (Cyrius), and the PharmCAT genes; the 12 VKORC1 \texttt{array\_authoritative} cases are exactly those where the override reported the clinically correct single-SNP genotype while a general caller's extra haplotype notation would otherwise have driven a mismatch. \textbf{Tier 1 (coverage gate)} and \textbf{Tier 4 (phenotype consensus)} did not alter the adjudicated verdict on this well-covered, array-overlapping gene set; a full per-tier ledger (calls entering, rescued, and flipped, across all 37 loci and including phenotype-tier rescues) is extractable from the run logs and [[to be tabulated as Supplementary Table S1]]. The counts above are the load-bearing ones for the validation claims.
+
+
+\subsection*{3.7 Single-caller baseline (planned analysis)}
+
+The reconciliation claim is properly tested against the alternative of trusting one caller alone. Because every caller's per-gene call is retained in the run outputs, a per-caller concordance against the same 330 array calls is computable from held data without new sequencing. We report the structure here and defer the filled comparison to Supplementary Table S2 [[to be completed]]:
+
+\begin{longtable}{p{0.31\linewidth}p{0.31\linewidth}p{0.31\linewidth}}
+\hline
+\textbf{} & \textbf{Concordant / 330} & \textbf{Notes} \\ \hline\endhead
+PyPGx alone & [[pending]] & broadest gene coverage \\
+Stargazer alone & [[pending]] &  \\
+Aldy alone & [[pending]] &  \\
+StellarPGx alone & [[pending]] & CYP-focused; not all genes \\
+\textbf{Reconciled (this work)} & \textbf{241 (73.0\%)} & primary endpoint \\
+\hline
+\end{longtable}
+
+Until this table is filled, the paper demonstrates that reconciliation produces a coherent auditable verdict, but not the stronger claim that it beats the best single caller; we state that limitation explicitly (§4).
+
+\subsection*{3.8 Validation of authoritative overrides}
+
+Tier 3 lets a specialist caller overrule the majority, so its overrides require independent checking. Where orthogonal truth exists, the checked overrides agreed with it: on HG002 the Cyrius CYP2D6 override returned \texttt{*2/*4}, matching the GIAB-consistent expected call, and VKORC1 overrides matched the raw single-SNP array genotype at rs9923231 (the basis for the 12 \texttt{array\_authoritative} calls). A systematic override-versus-truth table across all Tier-3 genes and reference materials --- including any case where the specialist caller abstained or was wrong --- is the definitive test and is not yet complete (§4).
+
+\section*{4. Discussion}
+
+The central finding is that \textbf{a reconciliation layer produces a single coherent verdict that agrees with an orthogonal clinical array on the large majority of calls} (73.0\% raw, 85.8\% after adjudicating array limitations), and that the largest block of residual "disagreement" is not pipeline error but the array failing to see a clinically actionable DPYD variant the sequence callers detect concordantly. We are deliberately narrow about what this shows: it is demonstrated for DPYD that the array's fixed content is a hard ceiling the sequencing panel is not subject to, and a sequencing panel can be extended by editing one configuration file. It does not, on these data, establish a general sensitivity advantage --- that would require a variant-level sensitivity/specificity analysis against a gold standard, which we have not performed (§Limitations).
+
+The reconciliation design generalizes beyond this pipeline. Its load-bearing idea is a \textbf{fixed authority hierarchy}: a purpose-built method (a structural-variant caller, a CPIC matcher, a direct-variant genotyper) outranks a general star-allele caller *for the gene it was built for*, and only where no specialist exists does the system fall back to synonym-aware voting and phenotype consensus. This makes every verdict auditable --- the report states which caller was authoritative and why --- which matters more in a clinical setting than raw agreement statistics.
+
+A second, under-appreciated point is that \textbf{much apparent inter-caller discordance is nomenclatural, not biological.} Collapsing curated synonyms before counting agreement recovered concordance that a naïve string comparison destroys. We kept the synonym map deliberately narrow and excluded look-alike but non-equivalent pairs, so the gain does not come at the cost of merging genuinely different alleles.
+
+\textbf{Limitations.} Several are material and we state them plainly.
+
+\begin{itemize}
+\item *Sample size and structure.* The clinical set is small --- 13 individuals sequenced twice (26 technical replicates), not 26 independent samples --- so per-gene denominators are small (e.g., n=2 for CYP2B6) and single-caller "100\%" figures carry wide confidence intervals; per-gene Wilson intervals should be read with the point estimates in Table 3.
+\item *Adjudication is not blinded.* The 73.0\%\ensuremath\{\rightarrow\}85.8\% adjudication was performed by the study team, which both defines and assigns the \texttt{array\_FN}/\texttt{array\_authoritative} categories. We mitigate this by grounding each reclassification in evidence independent of the pipeline (array probe content; raw single-SNP genotype) and by reporting 73.0\% as the primary endpoint, but a blinded or pre-registered adjudication would be stronger.
+\item *No variant-level sensitivity/specificity.* We report verdict concordance, not clinical sensitivity, specificity, or PPV against a gold standard; the "more complete than the array" claim is established for DPYD specifically, not as a general sensitivity result.
+\item *Single-caller baseline not yet reported.* The comparison that would most directly test reconciliation --- each caller alone versus the reconciled verdict on the same 330 calls (§3.7) --- is computable from held data but not yet filled.
+\item *Authoritative overrides not systematically validated.* Tier 3 can overrule the majority; we show agreement with truth in the checkable cases (§3.8) but not a complete override-versus-truth audit.
+\item *Selection bias in the validated gene set.* Concordance is measured only on the 16 genes shared with the array; the other 21 of 37 loci have no orthogonal comparator here.
+\item *Scope.* GRCh38-only; the phenotype-consensus tier helps only genes for which callers emit a phenotype; CYP2D6 hybrid-allele nomenclature is only partially standardized across callers.
+\item *Reproducibility versus redistribution.* The pipeline is reproducible from a single command, but the built image is \textbf{not publicly redistributable} --- Stargazer and Aldy carry non-commercial academic licenses and Cyrius a use-only (PolyForm Strict) license --- so reproduction requires rebuilding from the published recipe rather than pulling a public image. [[Data availability: authors to confirm the released subset --- source code, \texttt{genes.tsv}, \texttt{allele\_synonyms.json}, and summary tables can be released; clinical BAMs and the built image cannot.]]
+\end{itemize}
+
+\textbf{Comparison to prior work.} Prior tools are single callers or caller benchmarks; to our knowledge no published system reconciles this many heterogeneous callers into one clinical verdict with an explicit authority trail [12,25].
+
+
+\section*{5. Conclusion}
+
+Star-allele calling from whole-genome sequencing is now accurate enough for clinical PGx, but only if the disagreement among the many available callers can be resolved into one defensible result. A four-tier reconciliation engine does exactly that, producing a single auditable verdict per gene. Evaluated against an orthogonal array on 13 samples (26 replicates), the reconciled pipeline agreed with the array on 73.0\% of calls raw and 85.8\% after adjudicating array limitations, and exposed clinically material variants --- demonstrated for DPYD --- outside the array's fixed content. With a single-caller baseline and per-tier audit still to be completed, the contribution we can stand behind now is that reconciliation makes multi-caller WGS produce one coherent, auditable clinical verdict.
+
+
+\section*{Declarations}
+
+\textbf{Data availability.} [[PLACEHOLDER --- specify what is released: source code, \texttt{genes.tsv}, \texttt{allele\_synonyms.json}, summary concordance tables. Clinical BAMs and the built image are not redistributable.]]
+\textbf{Ethics approval and consent.} [[PLACEHOLDER --- IRB/ethics protocol number, institution, consent basis for the 13 clinical samples.]]
+\textbf{Consent for publication.} [[PLACEHOLDER]]
+\textbf{Competing interests.} [[PLACEHOLDER]]
+\textbf{Funding.} [[PLACEHOLDER]]
+\textbf{Author contributions (CRediT).} [[PLACEHOLDER]]
+\textbf{AI-usage disclosure.} Portions of the manuscript drafting and documentation were assisted by a large language model under author direction and review; all scientific claims, code, and validation figures were produced and verified by the authors. [[Confirm/adjust to target venue policy.]]
+
+\section*{References}
+
+\begin{enumerate}
+\item Relling MV, Klein TE. CPIC: Clinical Pharmacogenetics Implementation Consortium of the Pharmacogenomics Research Network. Clin Pharmacol Ther. 2011;89(3):464-7. doi:10.1038/clpt.2010.279.
+\item Relling MV, Klein TE, Gammal RS, Whirl-Carrillo M, Hoffman JM, Caudle KE. The Clinical Pharmacogenetics Implementation Consortium: 10 Years Later. Clin Pharmacol Ther. 2020;107(1):171-5. doi:10.1002/cpt.1651.
+\item Gaedigk A, Ingelman-Sundberg M, Miller NA, Leeder JS, Whirl-Carrillo M, Klein TE, et al. The Pharmacogene Variation (PharmVar) Consortium: Incorporation of the Human Cytochrome P450 (CYP) Allele Nomenclature Database. Clin Pharmacol Ther. 2018;103(3):399-401. doi:10.1002/cpt.910.
+\item Turner AJ, Nofziger C, Ramey BE, Ly RC, Bousman CA, Agúndez JAG, et al. PharmVar Tutorial on CYP2D6 Structural Variation Testing and Recommendations on Reporting. Clin Pharmacol Ther. 2023;114(6):1220-37. doi:10.1002/cpt.3044.
+\item Numanagić I, Malikić S, Ford M, Qin X, Toji L, Radovich M, et al. Allelic decomposition and exact genotyping of highly polymorphic and structurally variant genes. Nat Commun. 2018;9(1):828. doi:10.1038/s41467-018-03273-1.
+\item Hari A, Zhou Q, Gonzaludo N, Harting J, Scott SA, Qin X, et al. An efficient genotyper and star-allele caller for pharmacogenomics. Genome Res. 2023;33(1):61-70. doi:10.1101/gr.277075.122.
+\item Lee SB, Wheeler MM, Patterson K, McGee S, Dalton R, Woodahl EL, et al. Stargazer: a software tool for calling star alleles from next-generation sequencing data using CYP2D6 as a model. Genet Med. 2019;21(2):361-72. doi:10.1038/s41436-018-0054-0.
+\item Lee S. PyPGx: a Python package for pharmacogenomics [software]. GitHub; [[v0.26.0 --- add Zenodo DOI]]. Available from: https://github.com/sbslee/pypgx
+\item Twesigomwe D, Drögemöller BI, Wright GEB, Siddiqui A, da Rocha J, Lombard Z, et al. StellarPGx: A Nextflow Pipeline for Calling Star Alleles in Cytochrome P450 Genes. Clin Pharmacol Ther. 2021;110(3):741-9. doi:10.1002/cpt.2173.
+\item Chen X, Shen F, Gonzaludo N, Malhotra A, Rogert C, Taft RJ, et al. Cyrius: accurate CYP2D6 genotyping using whole-genome sequencing data. Pharmacogenomics J. 2021;21(2):251-61. doi:10.1038/s41397-020-00205-5.
+\item Sangkuhl K, Whirl-Carrillo M, Whaley RM, Woon M, Lavertu A, Altman RB, et al. Pharmacogenomics Clinical Annotation Tool (PharmCAT). Clin Pharmacol Ther. 2020;107(1):203-10. doi:10.1002/cpt.1568.
+\item Twesigomwe D, Wright GEB, Drögemöller BI, da Rocha J, Lombard Z, Hazelhurst S. A systematic comparison of pharmacogene star allele calling bioinformatics algorithms: a focus on CYP2D6 genotyping. NPJ Genom Med. 2020;5:30. doi:10.1038/s41525-020-0135-2.
+\item Mölder F, Jablonski KP, Letcher B, Hall MB, van Dyken PC, Tomkins-Tinch CH, et al. Sustainable data analysis with Snakemake. F1000Res. 2021;10:33. doi:10.12688/f1000research.29032.3.
+\item Danecek P, Bonfield JK, Liddle J, Marshall J, Ohan V, Pollard MO, et al. Twelve years of SAMtools and BCFtools. Gigascience. 2021;10(2):giab008. doi:10.1093/gigascience/giab008.
+\item Pedersen BS, Quinlan AR. Mosdepth: quick coverage calculation for genomes and exomes. Bioinformatics. 2018;34(5):867-8. doi:10.1093/bioinformatics/btx699.
+\item Szolek A, Schubert B, Mohr C, Sturm M, Feldhahn M, Kohlbacher O. OptiType: precision HLA typing from next-generation sequencing data. Bioinformatics. 2014;30(23):3310-6. doi:10.1093/bioinformatics/btu548.
+\item Weissensteiner H, Forer L, Fuchsberger C, Schöpf B, Kloss-Brandstätter A, Specht G, et al. mtDNA-Server: next-generation sequencing data analysis of human mitochondrial DNA in the cloud. Nucleic Acids Res. 2016;44(W1):W64-9. doi:10.1093/nar/gkw247.
+\item Relling MV, Schwab M, Whirl-Carrillo M, Suarez-Kurtz G, Pui CH, Stein CM, et al. Clinical Pharmacogenetics Implementation Consortium Guideline for Thiopurine Dosing Based on TPMT and NUDT15 Genotypes: 2018 Update. Clin Pharmacol Ther. 2019;105(5):1095-105. doi:10.1002/cpt.1304.
+\item Cooper-DeHoff RM, Niemi M, Ramsey LB, Luzum JA, Tarkiainen EK, Straka RJ, et al. The Clinical Pharmacogenetics Implementation Consortium Guideline for SLCO1B1, ABCG2, and CYP2C9 Genotypes and Statin-Associated Musculoskeletal Symptoms. Clin Pharmacol Ther. 2022;111(5):1007-21. doi:10.1002/cpt.2557.
+\item Zook JM, McDaniel J, Olson ND, Wagner J, Parikh H, Heaton H, et al. An open resource for accurately benchmarking small variant and reference calls. Nat Biotechnol. 2019;37(5):561-6. doi:10.1038/s41587-019-0074-6.
+\item Pratt VM, Everts RE, Aggarwal P, Beyer BN, Broeckel U, Epstein-Baak R, et al. Characterization of 137 Genomic DNA Reference Materials for 28 Pharmacogenetic Genes: A GeT-RM Collaborative Project. J Mol Diagn. 2016;18(1):109-23. doi:10.1016/j.jmoldx.2015.08.005.
+\item Amstutz U, Henricks LM, Offer SM, Barbarino J, Schellens JHM, Swen JJ, et al. Clinical Pharmacogenetics Implementation Consortium (CPIC) Guideline for Dihydropyrimidine Dehydrogenase Genotype and Fluoropyrimidine Dosing: 2017 Update. Clin Pharmacol Ther. 2018;103(2):210-6. doi:10.1002/cpt.911.
+\item Henricks LM, Lunenburg CATC, de Man FM, Meulendijks D, Frederix GWJ, Kienhuis E, et al. DPYD genotype-guided dose individualisation of fluoropyrimidine therapy in patients with cancer: a prospective safety analysis. Lancet Oncol. 2018;19(11):1459-67. doi:10.1016/S1470-2045(18)30686-7.
+\item Johnson JA, Caudle KE, Gong L, Whirl-Carrillo M, Stein CM, Scott SA, et al. Clinical Pharmacogenetics Implementation Consortium (CPIC) Guideline for Pharmacogenetics-Guided Warfarin Dosing: 2017 Update. Clin Pharmacol Ther. 2017;102(3):397-404. doi:10.1002/cpt.668.
+\item McInnes G, Lavertu A, Sangkuhl K, Klein TE, Whirl-Carrillo M, Altman RB. Pharmacogenetics at Scale: An Analysis of the UK Biobank. Clin Pharmacol Ther. 2021;109(6):1528-37. doi:10.1002/cpt.2122.
+\end{enumerate}
+
+\begin{quote}\small\itshape Verification: all references confirmed against PubMed + DOI on 2026-07-06 (see \texttt{references\_verified.md}). Ref [8] (PyPGx) has no journal paper --- cite the software release; paste the v0.26.0 Zenodo DOI before submission. Ref [17] (mutserve) is cited via its parent tool mtDNA-Server; add Haplocheck (Genome Res 2021;31(2):309-16) if heteroplasmy/contamination is discussed.\end{quote}
+
+
+\section*{Tables}
+
+\textbf{Table 1.} The nine callers integrated by pgx-suite. "Authority" marks a Tier-3 authoritative caller for its listed gene(s).
+
+\begin{longtable}{p{0.18\linewidth}p{0.18\linewidth}p{0.18\linewidth}p{0.18\linewidth}p{0.18\linewidth}}
+\hline
+\textbf{Caller} & \textbf{Version} & \textbf{Algorithm class} & \textbf{Scope in this pipeline} & \textbf{License} \\ \hline\endhead
+PyPGx & 0.26.0 & Statistical genotyping + population phasing & Broadest; most loci & MIT \\
+Stargazer & 2.0.3 & Statistical genotyping + phasing & Most CYP / phase-II genes & Non-commercial academic (Univ. Washington) \\
+Aldy & 4.8.3 & Integer linear programming & Polymorphic \& structurally variant genes & Non-commercial academic (Indiana Univ.) \\
+StellarPGx & 1.2.7 & Genome-graph genotyping (Nextflow) & CYP450 genes & MIT \\
+Cyrius & vendored & Targeted CYP2D6 SV/CNV/hybrid caller & CYP2D6 (authority) & PolyForm Strict --- image not redistributable \\
+PharmCAT & 3.2.0 & CPIC reference named-allele matcher & UGT1A1, CYP2B6, CYP4F2 (authority) & MPL-2.0 \\
+OptiType & SIF & HLA typing from NGS & HLA-A, HLA-B & open-source \\
+mutserve & 2.0.3 & Mitochondrial variant / heteroplasmy caller & MT-RNR1 & MIT \\
+VCF-Check & in-house & Direct CPIC single-variant genotyping & RYR1, VKORC1, IFNL3, G6PD, CACNA1S, CYP2C-cluster (authority) & This work \\
+\hline
+\end{longtable}
+
+\textbf{Table 2.} Gene panel and per-gene caller support (37 loci; GRCh38 coordinates). All 19 CPIC Level A genes are covered. POR is listed once (the pipeline also exposes the alias CYPOR).
+
+\begin{longtable}{p{0.31\linewidth}p{0.31\linewidth}p{0.31\linewidth}}
+\hline
+\textbf{Gene} & \textbf{Region / type} & \textbf{Supporting callers} \\ \hline\endhead
+CYP1A1 & chr15:74716541-74728528 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP1A2 & chr15:74745844-74759607 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP2A6 & chr19:40833540-40890447 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP2B6 & chr19:40921281-41028398 & PyPGx, Stargazer, Aldy, StellarPGx, PharmCAT \\
+CYP2C8 & chr10:95033771-95072497 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP2C9 & chr10:94935657-94993091 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP2C19 & chr10:94759680-94858547 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP2D6 & chr22:42116498-42155810 & PyPGx, Stargazer, Aldy, StellarPGx, Cyrius \\
+CYP2E1 & chr10:133517362-133549123 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP3A4 & chr7:99753966-99787184 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP3A5 & chr7:99645193-99682996 & PyPGx, Stargazer, Aldy, StellarPGx \\
+CYP4F2 & chr19:15863022-15913074 & PyPGx, Stargazer, Aldy, StellarPGx, PharmCAT \\
+DPYD & chr1:97074742-97924034 & PyPGx, Stargazer, Aldy \\
+G6PD & chrX:154528389-154550018 & PyPGx, Stargazer, Aldy, VCF-Check \\
+GSTM1 & chr1:109684816-109696745 & PyPGx, Stargazer, Aldy, StellarPGx \\
+GSTT1 & ALT\_CONTIG & PyPGx, StellarPGx \\
+IFNL3 & chr19:39240552-39253525 & PyPGx, Stargazer, Aldy, VCF-Check \\
+NAT1 & chr8:18207108-18226689 & PyPGx, Stargazer, Aldy, StellarPGx \\
+NAT2 & chr8:18388281-18404218 & PyPGx, Stargazer, Aldy, StellarPGx \\
+NUDT15 & chr13:48034725-48050221 & PyPGx, Stargazer, Aldy, StellarPGx \\
+POR (alias CYPOR) & chr7:75912154-75989855 & PyPGx, Stargazer, StellarPGx \\
+RYR1 & chr19:38430690-38590564 & PyPGx, Stargazer, Aldy, VCF-Check \\
+SLCO1B1 & chr12:21128193-21242796 & PyPGx, Stargazer, Aldy, StellarPGx \\
+TPMT & chr6:18125310-18158169 & PyPGx, Stargazer, Aldy, StellarPGx \\
+UGT1A1 & chr2:233754269-233779300 & PyPGx, Stargazer, Aldy, StellarPGx, PharmCAT, VCF-Check \\
+VKORC1 & chr16:31087853-31097797 & PyPGx, Stargazer, Aldy, VCF-Check \\
+ABCG2 & chr4:88085265-88236626 & Aldy \\
+HLA-A & chr6:28510020-33480577 & OptiType \\
+HLA-B & chr6:28510020-33480577 & OptiType \\
+CACNA1S & chr1:201006956-201095000 & PyPGx, StellarPGx, VCF-Check \\
+MT-RNR1 & chrM:648-1601 & mutserve \\
+CYP2C-CLUSTER & chr10:94644745-94646745 & VCF-Check \\
+GSTP1 & chr11:67580811-67589653 & PyPGx, Aldy \\
+SLC15A2 & chr3:121891400-121947188 & PyPGx \\
+SLC22A2 & chr6:160206754-160268821 & PyPGx \\
+SLCO2B1 & chr11:75148106-75209549 & PyPGx \\
+UGT2B15 & chr4:68640596-68676652 & PyPGx \\
+\hline
+\end{longtable}
+
+\textbf{Table 3.} Per-gene verdict concordance against the Axiom array (16 overlapping genes, 330 gene-calls). Match/Partial/Mismatch are raw verdict comparisons; the Note column gives the adjudicated explanation.
+
+\begin{longtable}{p{0.13\linewidth}p{0.13\linewidth}p{0.13\linewidth}p{0.13\linewidth}p{0.13\linewidth}p{0.13\linewidth}p{0.13\linewidth}}
+\hline
+\textbf{Gene} & \textbf{Match} & \textbf{Partial} & \textbf{Mismatch} & \textbf{n} & \textbf{Concordance} & \textbf{Note} \\ \hline\endhead
+ABCG2 & 26 & 0 & 0 & 26 & 100\% &  \\
+CYP2B6 & 2 & 0 & 0 & 2 & 100\% &  \\
+CYP3A4 & 10 & 0 & 0 & 10 & 100\% &  \\
+CYP3A5 & 26 & 0 & 0 & 26 & 100\% &  \\
+NAT2 & 10 & 0 & 0 & 10 & 100\% &  \\
+TPMT & 26 & 0 & 0 & 26 & 100\% &  \\
+CYP2C19 & 24 & 2 & 0 & 26 & 92\% &  \\
+CYP2C9 & 24 & 2 & 0 & 26 & 92\% &  \\
+NUDT15 & 24 & 2 & 0 & 26 & 92\% &  \\
+SLCO1B1 & 24 & 2 & 0 & 26 & 92\% &  \\
+CYP4F2 & 15 & 10 & 1 & 26 & 58\% & 4 array\_FN \\
+VKORC1 & 14 & 4 & 8 & 26 & 54\% & 12 array\_authoritative (rs9923231 correct) \\
+UGT1A1 & 11 & 11 & 4 & 26 & 42\% & array\_FN + orthogonal-confirmation cases \\
+CYP2D6 & 3 & 12 & 3 & 18 & 17\% & Cyrius authority; residual = hybrid nomenclature \\
+DPYD & 2 & 0 & 24 & 26 & 8\% & 24 array\_FN (array reports \texttt{*1/*1}) \\
+RYR1 & 0 & 0 & 4 & 4 & 0\% & needs orthogonal confirmation \\
+\hline
+\end{longtable}
+
+\textbf{Table 4.} Adjudication of all 330 gene-calls. Adjudicated concordance = concordant + array\_FN + array\_authoritative.
+
+\begin{longtable}{p{0.23\linewidth}p{0.23\linewidth}p{0.23\linewidth}p{0.23\linewidth}}
+\hline
+\textbf{Category} & \textbf{n} & \textbf{Definition} & \textbf{Example gene(s)} \\ \hline\endhead
+Concordant & 241 & Verdict matches the array & ABCG2, TPMT \\
+array\_FN & 30 & Array's fixed panel cannot see a variant the sequence callers detect & DPYD (24), CYP4F2, UGT1A1 \\
+array\_authoritative & 12 & Single-SNP array locus is truth; extra NGS haplotype notation is cosmetic & VKORC1 \\
+array\_FP\_or\_NGS\_FN & 6 & Requires orthogonal confirmation & RYR1, UGT1A1 \\
+review (nomenclature) & 34 & Manual nomenclature review & CYP2D6 hybrids \\
+ngs\_unresolved & 7 & Sequence data could not resolve & CYP2D6 \\
+\textbf{Adjudicated concordant} & \textbf{283 (85.8\%)} & concordant + array\_FN + array\_authoritative &  \\
+\hline
+\end{longtable}
+
+
+\section*{Figure legends}
+
+\textbf{Figure 1.} The four-tier reconciliation engine. For each gene, all caller diplotypes and phenotypes pass through: (1) a coverage gate (NO\_CALL below 10\ensuremath\{\times\} region depth); (2) variant-tier synonym collapse via a curated synonym map; (3) an authoritative-caller override for genes with a validated specialist method (Cyrius\ensuremath\{\rightarrow\}CYP2D6, PharmCAT\ensuremath\{\rightarrow\}UGT1A1/CYP2B6/CYP4F2, VCF-Check\ensuremath\{\rightarrow\}single-variant genes); and (4) a phenotype-consensus rescue when \ensuremath\{\geq\}2 phenotype-emitting callers agree on the CPIC phenotype. The output is one verdict per gene with an explicit authority label.
+
+\textbf{Figure 2.} Adjudication waterfall. Raw verdict concordance with the Axiom array was 241/330 (73.0\%); reclassifying 30 array\_FN and 12 array\_authoritative cases as array limitations rather than pipeline errors raises adjudicated concordance to 283/330 (85.8\%). The residual 47 comprises 34 nomenclature/review, 7 NGS-unresolved, and 6 orthogonal-confirmation cases.
+
+\textbf{Figure 3.} Per-gene verdict concordance across the 16 array-overlapping genes, sorted descending. Six genes reach 100\% and four more \ensuremath\{\geq\}90\%; the low-concordance genes (DPYD, CYP2D6, UGT1A1, VKORC1) are those whose discordance is explained by array panel gaps or nomenclature (Table 4), not sequencing error.
+
+\textbf{Figure 4.} Platform equivalence. MGI 122/165 (73.9\%) versus Illumina 119/165 (72.1\%) raw verdict concordance --- a 1.8-percentage-point difference --- despite different duplication-rate profiles.
+
+Figures 2--4 are generated from the validation tables by \texttt{paper/figures.py}; Figure 1 is a schematic produced by the same script.
+
+\end{document}

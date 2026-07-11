@@ -35,3 +35,31 @@ Stargazer_v2.0.3.zip
 stargazer-grc38-2.0.3/stargazer/1kgp_vcf/
 stargazer-grc38-2.0.3/unit_test/
 .gstack/
+
+# ── Data & outputs (shared convention with SVcaller / poly-suite) ────────────
+# Per-sample outputs and clinical/input data volumes — never committed. Kept on
+# disk locally; untracked here. The ONLY committed report is docs/demo/ (below).
+# TTSH/ — clinical WGS cohort (large); minibam/ — extracted region BAMs;
+# staging/ — ad-hoc run logs/scratch; GRCh38 — symlink to local reference;
+# Axiom.xlsx — Axiom array export (validation input data).
+TTSH/
+minibam/
+staging/
+GRCh38
+Axiom.xlsx
+
+# Alignment / variant / container binaries anywhere in the tree
+*.bam
+*.cram
+*.sam
+*.bai
+*.crai
+*.sif
+*.simg
+*.fa
+*.fasta
+*.fai
+
+# The committed demo report is an intentional documentation artifact — keep it.
+!docs/demo/
+!docs/demo/**
