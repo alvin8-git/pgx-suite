@@ -16,6 +16,7 @@ The script reads:
 """
 
 import argparse
+import csv
 import glob
 import json
 import os
@@ -23,6 +24,15 @@ import sys
 from collections import Counter
 from datetime import date
 from html import escape
+
+# Shared OmniGen add-on helpers (HLA class-II disease associations). Resolve the
+# real script dir (report is symlinked into /usr/local/bin) so the sibling
+# module in /opt/pgx is importable; degrade gracefully if absent.
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+try:
+    import omnigen_addons as _oa
+except Exception:  # noqa: BLE001
+    _oa = None
 
 # ── Field metadata (17 rows in the detail table) ──────────────────────────────
 FIELDS = [
@@ -109,6 +119,11 @@ GENE_LOCI: dict[str, str] = {
     "VKORC1":  "chr16:31,087,853-31,097,797",
     "CACNA1S": "chr1:201,006,956-201,083,927",
     "MT-RNR1": "chrM:648-1,601 (rCRS / GRCh38 chrM)",
+    # OmniGen add-ons
+    "HLA-DQA1": "chr6:32,628,179-32,647,062 (MHC class II)",
+    "HLA-DQB1": "chr6:32,659,467-32,668,383 (MHC class II)",
+    "HLA-DRB1": "chr6:32,578,769-32,589,848 (MHC class II)",
+    "ABO":      "chr9:133,255,000-133,258,000 (ABO; PROVISIONAL)",
 }
 
 # diplotype_check: lambda(diplotype_str) -> bool for genes where the diplotype
@@ -942,6 +957,75 @@ def gene_depth_table(bs: dict) -> str:
     </details>"""
 
 
+def build_hla2_abo_section(out_dir: str) -> str:
+    """HLA class-II disease associations (celiac / narcolepsy / T1D) + provisional
+    ABO blood type. Reuses omnigen_addons.hla2_disease_findings (unit-tested).
+    Susceptibility markers only — NOT diagnostic. Renders nothing if no data."""
+    # Collect class-II diplotypes from the per-gene detail JSONs.
+    calls: dict[str, str] = {}
+    for gene in ("HLA-DQA1", "HLA-DQB1", "HLA-DRB1"):
+        matches = glob.glob(os.path.join(out_dir, "genes", gene, "*_detail.json"))
+        if not matches:
+            continue
+        try:
+            d = json.load(open(matches[0]))
+            dip = (d.get("verdict", {}) or {}).get("consensus_diplotype") \
+                or (d.get("verdict", {}) or {}).get("diplotype")
+            if not dip:
+                # fall back to the arcasHLA tool entry
+                dip = ((d.get("tools", {}) or {}).get("arcasHLA", {}) or {}).get("diplotype")
+            if dip and dip not in ("-", "NO_CALL"):
+                calls[gene] = dip
+        except Exception:  # noqa: BLE001
+            continue
+
+    findings = _oa.hla2_disease_findings(calls) if (_oa and calls) else []
+
+    # Provisional ABO.
+    abo = None
+    try:
+        with open(os.path.join(out_dir, "abo", "abo_type.tsv")) as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        abo = rows[0] if rows else None
+    except Exception:  # noqa: BLE001
+        abo = None
+
+    if not findings and not abo:
+        return ""
+
+    body = ""
+    if findings:
+        items = ""
+        for f in findings:
+            items += (
+                f'<li style="margin-bottom:0.4rem"><strong>{escape(f["condition"])}</strong> '
+                f'&mdash; <span style="color:#4a5568">{escape(f["risk_haplotype"])}</span>'
+                f'<div style="font-size:0.82rem;color:#718096">{escape(f["note"])}</div></li>')
+        body += (
+            '<div style="margin-bottom:1rem"><div style="font-weight:600;margin-bottom:0.3rem">'
+            'HLA class II disease associations</div>'
+            f'<ul style="margin:0;padding-left:1.1rem">{items}</ul></div>')
+    if abo:
+        body += (
+            '<div style="border:1px dashed #f6ad55;background:#fffaf0;border-radius:8px;'
+            'padding:0.8rem;font-size:0.9rem">'
+            f'<strong>ABO blood group (PROVISIONAL): {escape(str(abo.get("ABO_type","?")))}</strong> '
+            f'&nbsp;<span style="color:#718096">alleles {escape(str(abo.get("alleles","-")))}, '
+            f'confidence {escape(str(abo.get("confidence","low")))}</span>'
+            '<div style="color:#9c4221;font-size:0.8rem;margin-top:0.3rem">&#9888; UNVALIDATED '
+            '&mdash; ABO typer not yet validated against a known-type control and the GRCh38 '
+            'reference-allele / coordinates are unconfirmed. Do NOT use clinically.</div></div>')
+
+    return f"""
+    <div class="section">
+        <h2>HLA Class II &amp; Blood Group</h2>
+        <p style="font-size:0.85rem;color:#718096;margin:0 0 0.8rem">
+            Disease-association haplotypes are <strong>susceptibility markers, not
+            diagnostic</strong>. ABO typing is provisional research output.</p>
+        {body}
+    </div>"""
+
+
 def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_dir: str,
                   genes_rel_prefix: str = "",
                   gene_fragments: dict | None = None,
@@ -1110,6 +1194,9 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             {bam_stats_cards(bs)}
         </div>"""
         gene_depth_html = gene_depth_table(bs)
+
+    # ── HLA class II disease associations + provisional ABO (OmniGen add-ons) ──
+    hla2_abo_html = build_hla2_abo_section(out_dir)
 
     today = date.today().isoformat()
 
@@ -1405,6 +1492,7 @@ document.addEventListener('DOMContentLoaded', function () {
 {summary_strip_html}
 
 {clinical_html}
+{hla2_abo_html}
 
 {qc_html}
 

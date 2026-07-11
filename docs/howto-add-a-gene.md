@@ -20,7 +20,7 @@ gene.
 |--------|---------|
 | `gene` | Gene symbol (uppercase; hyphens allowed, e.g. `HLA-A`) |
 | `region` | `chr:start-end` on GRCh38, or `ALT_CONTIG` for alt-contig genes (GSTT1) |
-| `pypgx` `stargazer` `aldy` `stellarpgx` `optitype` `mutserve` | `1` if that tool calls this gene, else `0` |
+| `pypgx` `stargazer` `aldy` `stellarpgx` `optitype` `mutserve` `arcashla` | `1` if that tool calls this gene, else `0` (`arcashla` = HLA class-II typing for DQA1/DQB1/DRB1, runs once per sample like PharmCAT) |
 | `vcf_check` | `1` if `pgx-compare.py` runs VCF-Check (direct genotype from the CPIC variant table — RYR1/VKORC1/etc.) |
 | `pypgx_sv` | `1` if PyPGx needs SV preprocessing (depth-of-coverage + VDR control) |
 | `stargazer_sv` | `1` if Stargazer needs a GDF depth profile (paralog CN) |
@@ -29,7 +29,7 @@ gene.
 | `pharmcat` | `1` if PharmCAT is authoritative for this gene (UGT1A1/CYP2B6/CYP4F2) |
 
 Column order in the file is: `gene region pypgx stargazer aldy stellarpgx optitype
-mutserve vcf_check pypgx_sv stargazer_sv stargazer_control cyrius pharmcat`.
+mutserve vcf_check pypgx_sv stargazer_sv stargazer_control cyrius pharmcat arcashla`.
 
 **Authority wiring (only if a CPIC-reference method should *override* the star-allele
 vote).** Setting `cyrius`/`pharmcat`/`vcf_check` to `1` runs the method; to make it the

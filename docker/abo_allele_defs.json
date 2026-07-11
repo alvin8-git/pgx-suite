@@ -1,0 +1,45 @@
+{
+  "gene": "ABO",
+  "build": "GRCh38",
+  "strand": "minus",
+  "region": "chr9:133255000-133280000",
+  "validation_status": "UNVALIDATED — provisional. Coordinates and GRCh38 reference-allele identity require empirical confirmation; the caller must be validated against a known-type control before any clinical use. DO NOT USE CLINICALLY.",
+  "reference_allele_note": "ABO is on the minus strand of chr9. The GRCh38 reference-allele identity at the O-defining frameshift (rs8176719) determines whether a homozygous-reference sample types as A/B (reference carries the intact base) or O (reference already carries the deletion) — this MUST be confirmed with `samtools faidx` before the O logic is trusted. Empirical faidx context recorded below at the widely-cited positions; positions themselves still require dbSNP/Ensembl confirmation.",
+  "o_defining_rsid": "rs8176719",
+  "ab_discriminating_rsids": ["rs8176746", "rs8176747"],
+  "variants": [
+    {
+      "rsid": "rs8176719",
+      "chrom": "chr9",
+      "pos_grch38_provisional": 133257521,
+      "type": "indel",
+      "role": "O_defining",
+      "cdna": "c.261delG",
+      "consequence": "frameshift -> premature stop -> non-functional (O) allele",
+      "observed_ref_context_133257518_133257524": "GGGTACC",
+      "note": "Any single-base deletion at/near this homopolymer marks the O haplotype. Position PROVISIONAL — confirm against dbSNP GRCh38."
+    },
+    {
+      "rsid": "rs8176746",
+      "chrom": "chr9",
+      "pos_grch38_provisional": 133256264,
+      "type": "snp",
+      "role": "AB_discriminating",
+      "cdna": "c.796C>A",
+      "protein": "Leu266Met",
+      "observed_ref_context_133256260_133256268": "GGCCGGCTG",
+      "note": "Distinguishes A vs B (with rs8176747). Minus strand: cDNA C>A -> forward-strand complement. B-defining alt must be confirmed empirically. Position PROVISIONAL."
+    },
+    {
+      "rsid": "rs8176747",
+      "chrom": "chr9",
+      "pos_grch38_provisional": 133256205,
+      "type": "snp",
+      "role": "AB_discriminating",
+      "cdna": "c.803G>C",
+      "protein": "Gly268Ala",
+      "observed_ref_context_133256201_133256210": "GCGCGCACCT",
+      "note": "Distinguishes A vs B (with rs8176746). Minus strand. B-defining alt must be confirmed empirically. Position PROVISIONAL."
+    }
+  ]
+}

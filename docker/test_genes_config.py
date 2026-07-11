@@ -56,6 +56,11 @@ ORIG_SUPPORT = {
     "SLC22A2": {"pypgx"},
     "SLCO2B1": {"pypgx"},
     "UGT2B15": {"pypgx"},
+    # OmniGen add-ons: HLA class II (arcasHLA) + provisional ABO typer (VCF-Check)
+    "HLA-DQA1": {"arcashla"},
+    "HLA-DQB1": {"arcashla"},
+    "HLA-DRB1": {"arcashla"},
+    "ABO": {"vcf_check"},
 }
 ORIG_PYPGX_SV = {"CYP2A6", "CYP2B6", "CYP2D6", "CYP2E1", "CYP4F2", "G6PD", "GSTM1", "GSTT1",
                  "SLC22A2", "UGT2B15"}
@@ -81,6 +86,8 @@ ORIG_COORDS = {
     "GSTP1": "chr11:67580811-67589653", "SLC15A2": "chr3:121891400-121947188",
     "SLC22A2": "chr6:160206754-160268821", "SLCO2B1": "chr11:75148106-75209549",
     "UGT2B15": "chr4:68640596-68676652",
+    "HLA-DQA1": "chr6:28510020-33480577", "HLA-DQB1": "chr6:28510020-33480577",
+    "HLA-DRB1": "chr6:28510020-33480577", "ABO": "chr9:133255000-133258000",
 }
 _VDR = {"CYP2D6", "CYP2C19", "CYP2C9", "CYP2B6", "CYP2C8", "CYP3A4", "CYP3A5",
         "CYP4F2", "CYP1A1", "CYP1A2", "CYP2A6", "CYP2E1", "SLCO1B1", "G6PD",
@@ -89,7 +96,7 @@ _VDR = {"CYP2D6", "CYP2C19", "CYP2C9", "CYP2B6", "CYP2C8", "CYP3A4", "CYP3A5",
 ORIG_CONTROL = {g: ("vdr" if g in _VDR else "-") for g in ORIG_COORDS}
 
 ALL_TOOLS = ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve",
-             "vcf_check", "cyrius", "pharmcat")
+             "vcf_check", "cyrius", "pharmcat", "arcashla")
 
 
 def _load_compare():

@@ -24,6 +24,7 @@ from typing import Any
 # resolve the real dir before importing the sibling module.
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import reconcile  # noqa: E402
+import omnigen_addons as _oa  # noqa: E402  (ABO + HLA class-II helpers)
 
 # VCF-Check variant tables (design D) — curated clinical variant lists kept as
 # data, not code. Currently RYR1 (CPIC malignant-hyperthermia alleles); CACNA1S
@@ -116,7 +117,8 @@ def load_gene_config(path: str | None = None):
             support[g] = {
                 k: True
                 for k in ("pypgx", "stargazer", "aldy", "stellarpgx",
-                          "optitype", "mutserve", "vcf_check", "cyrius", "pharmcat")
+                          "optitype", "mutserve", "vcf_check", "cyrius", "pharmcat",
+                          "arcashla")
                 if row.get(k) == "1"
             }
             if row["pypgx_sv"] == "1":
@@ -1294,6 +1296,126 @@ def parse_single_snp_vcf(output_dir: str, gene: str, sample: str) -> CallerResul
     return result
 
 
+# ── Parser: ABO blood type (SNP + indel; VCF-Check-style) ** PROVISIONAL ** ───
+# Models the classic 3-site ABO*O.01/A1/B call: the rs8176719 frameshift deletion
+# defines O; rs8176746 + rs8176747 discriminate A vs B among non-O haplotypes.
+# Reads ABO.vcf.gz (the generic vcf_check bcftools rule) and delegates the pure
+# assignment to omnigen_addons.abo_assign_type (unit-tested). Also writes the
+# top-level OmniGen contract results/<S>/abo/abo_type.tsv (+ .json).
+# ABO output is UNVALIDATED — see omnigen_addons.ABO_VALIDATION_STATUS.
+def parse_abo_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
+    result = CallerResult(
+        tool="ABO-Typer",
+        phasing_method="bcftools mpileup (indel-aware) — 3-site SNP+indel assignment (unphased)",
+    )
+    try:
+        defs = _oa.load_abo_defs()
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.diplotype = f"ABO defs missing: {exc}"
+        return result
+
+    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
+    sites: dict = {v["rsid"]: None for v in defs["variants"]}
+    depth_by_rs: dict = {}
+    if os.path.exists(vcf):
+        for v in defs["variants"]:
+            pos = v.get("pos_grch38_provisional")
+            chrom = v.get("chrom", "chr9")
+            if not pos:
+                continue
+            try:
+                proc = subprocess.run(
+                    ["bcftools", "view", "-r", f"{chrom}:{pos}-{pos}", vcf],
+                    capture_output=True, text=True, timeout=30,
+                )
+            except FileNotFoundError:
+                result.status = "failed"
+                result.diplotype = "bcftools not in PATH"
+                return result
+            except subprocess.TimeoutExpired:
+                continue
+            for line in proc.stdout.splitlines():
+                if line.startswith("#"):
+                    continue
+                f = line.split("\t")
+                if len(f) < 10 or int(f[1]) != pos:
+                    continue
+                ref, alt = f[3], f[4]
+                fmt = dict(zip(f[8].split(":"), f[9].split(":")))
+                gt = fmt.get("GT", "./.").replace("|", "/")
+                dp = fmt.get("DP", "-")
+                copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
+                if copies == 0:
+                    continue
+                is_indel = any(len(a) != len(ref) for a in alt.split(","))
+                sites[v["rsid"]] = {"alt_copies": copies, "gt": gt,
+                                    "depth": int(dp) if dp.isdigit() else 0,
+                                    "is_indel": is_indel}
+                depth_by_rs[v["rsid"]] = dp
+                break
+
+    call = _oa.abo_assign_type(sites, defs)
+
+    # Top-level OmniGen contract: results/<S>/abo/abo_type.tsv (+ .json).
+    sample_root = os.path.dirname(os.path.dirname(output_dir))  # .../genes/ABO -> sample root
+    abo_dir = os.path.join(sample_root, "abo")
+    try:
+        _oa.write_abo_tsv(os.path.join(abo_dir, "abo_type.tsv"), sample, call)
+        with open(os.path.join(abo_dir, "abo_type.json"), "w") as fh:
+            json.dump({"sample": sample, **call}, fh, indent=2)
+    except Exception:  # noqa: BLE001  (contract write is best-effort)
+        pass
+
+    result.diplotype = call["alleles"]
+    result.phenotype = f"ABO blood group {call['ABO_type']}"
+    result.allele_score = f"confidence={call['confidence']} (UNVALIDATED — do not use clinically)"
+    result.supporting_variants = [
+        {"allele": s["rsid"], "chrom": "chr9", "pos": "-", "ref": "-", "alt": "-",
+         "af": "-", "depth": s.get("depth"), "effect": "ABO defining site",
+         "rsid": s["rsid"]}
+        for s in call["per_site"]
+    ]
+    result.status = "ok"
+    return result
+
+
+# ── Parser: arcasHLA (HLA class II — DQA1/DQB1/DRB1) ──────────────────────────
+# arcasHLA types all HLA genes once per sample into hla2/<sample>.genotype.json.
+# The per-gene compare reads that shared JSON (sample-level dependency, like
+# PharmCAT) and emits the SAME *_comparison.tsv schema OptiType uses for class I.
+def parse_arcashla(output_dir: str, gene: str, sample: str) -> CallerResult:
+    result = CallerResult(
+        tool="arcasHLA",
+        phasing_method="arcasHLA — read-partitioned HLA genotyping (class II)",
+    )
+    # hla2/<sample>.genotype.json is sample-level; search the gene dir, sample root.
+    sample_root = os.path.dirname(os.path.dirname(output_dir))
+    candidates = [
+        os.path.join(sample_root, "hla2", f"{sample}.genotype.json"),
+        os.path.join(output_dir, "hla2", f"{sample}.genotype.json"),
+    ]
+    candidates += glob.glob(os.path.join(sample_root, "hla2", "*.genotype.json"))
+    path = next((p for p in candidates if os.path.isfile(p)), None)
+    if not path:
+        return result  # not_run
+    try:
+        geno = json.load(open(path))
+    except Exception as exc:  # noqa: BLE001
+        result.status = "failed"
+        result.diplotype = f"parse error: {exc}"
+        return result
+    haps = _oa.parse_arcashla_genotype(geno, gene)
+    if not haps:
+        result.status = "failed"
+        result.diplotype = f"{gene} absent from arcasHLA output"
+        return result
+    result.haplotype1, result.haplotype2 = haps
+    result.diplotype = f"{haps[0]}/{haps[1]}"
+    result.status = "ok"
+    return result
+
+
 # ── VCF-Check dispatch table ───────────────────────────────────────────────────
 # Maps gene name → gene-specific VCF parser function.
 # Add new genes here; the main() loop calls the appropriate function via
@@ -1306,6 +1428,7 @@ _VCF_CHECK_PARSERS: dict = {
     "VKORC1":  parse_single_snp_vcf,
     "IFNL3":   parse_single_snp_vcf,
     "CYP2C-CLUSTER": parse_single_snp_vcf,  # rs12777823 (CPIC warfarin)
+    "ABO":     parse_abo_vcf,               # PROVISIONAL — UNVALIDATED
 }
 
 # Genes resolved by a single authoritative caller rather than a star-allele vote:
@@ -1317,6 +1440,7 @@ AUTHORITATIVE = {
     "RYR1": "VCF-Check", "CACNA1S": "VCF-Check", "G6PD": "VCF-Check",
     "VKORC1": "VCF-Check", "IFNL3": "VCF-Check", "CYP2D6": "Cyrius",
     "CYP2C-CLUSTER": "VCF-Check",  # rs12777823 single SNP (CPIC warfarin)
+    "ABO": "VCF-Check",            # provisional ABO typer (UNVALIDATED)
     # PharmCAT (CPIC reference impl) is the authority where star-allele callers
     # genuinely disagree on a CPIC gene: UGT1A1 *28/*80 LD, CYP2B6, CYP4F2.
     "UGT1A1": "PharmCAT", "CYP2B6": "PharmCAT", "CYP4F2": "PharmCAT",
@@ -1643,6 +1767,8 @@ def main() -> None:
         results.append(parse_stellarpgx(args.output_dir, gene, args.sample))
     if support.get("optitype"):
         results.append(parse_optitype(args.output_dir, gene, args.sample))
+    if support.get("arcashla"):
+        results.append(parse_arcashla(args.output_dir, gene, args.sample))
     if support.get("mutserve"):
         results.append(parse_mutserve(args.output_dir, gene, args.sample))
     if support.get("vcf_check"):

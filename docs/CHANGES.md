@@ -5,6 +5,34 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-11 — OmniGen add-ons: HLA class II + ABO (haplogroups moved to OmniGen)
+
+Two BAM-derived add-ons, each emitting a small stable contract file for OmniGen to render
+(pgx-suite calls/types; OmniGen renders). Both work from the existing aligned GRCh38 BAM.
+
+- **HLA class II (DQA1/DQB1/DRB1).** New `docker/pgx-hla2.sh` + sample-level `hla2` rule run
+  **arcasHLA** (Apptainer SIF `arcashla.sif`) once per sample; `parse_arcashla` in
+  `pgx-compare.py` reuses the class-I `*_comparison.tsv` schema. New `arcashla` column in
+  `genes.tsv`; rows `HLA-DQA1/DQB1/DRB1`. Report surfaces celiac (DQ2.5/DQ8), narcolepsy
+  (DQB1\*06:02), and T1D susceptibility (susceptibility markers, not diagnostic).
+- **ABO blood type — PROVISIONAL / UNVALIDATED.** New `ABO` row (`vcf_check`) + `parse_abo_vcf`
+  assign O (rs8176719 frameshift) / A vs B (rs8176746/747) via the VCF-Check machinery.
+  Contract: `results/<S>/abo/abo_type.tsv`. **The GRCh38 reference-allele identity and variant
+  coordinates are unconfirmed and the caller is not yet validated against a known-type
+  control — every ABO result is flagged UNVALIDATED; do NOT use clinically.**
+
+Shared deterministic logic in `docker/omnigen_addons.py` (pure, stdlib-only), unit-tested by
+`docker/test_omnigen_addons.py` (10 checks, runs without a BAM). `test_genes_config.py`
+updated for the 4 new genes + `arcashla` column. Report gains an **HLA Class II & Blood
+Group** section (`docker/pgx-report.py`). Design/plan: `docs/omnigen-additions-plan.md`.
+
+**mtDNA + Y-chromosome haplogroups moved to OmniGen.** After validating that haplogrep3
+reproduces both GIAB trios' maternal lineages exactly (ancestry-correct) directly from the
+30X WGS VCFs downstream, both haplogroups now live in OmniGen; pgx-suite no longer emits
+`mito/`/`ychr/` contracts or bundles haplogrep3/yhaplo.
+
+---
+
 ## 2026-06-20 — ALT-aware input gate, 6 new genes/loci, report & validation refresh
 
 **ALT-awareness QC gate.** New `docker/pgx_altcheck.py` classifies whether the input

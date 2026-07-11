@@ -175,6 +175,26 @@ rule mutserve:
         "echo $rc > {output}"
 
 
+# ── OmniGen add-on: HLA class II (sample-level; non-fatal) ───────────────────
+# (mtDNA + Y haplogroups were moved to OmniGen — classified downstream from the
+# WGS VCFs — so pgx-suite no longer runs them.)
+# HLA class II (DQA1/DQB1/DRB1) via arcasHLA — runs ONCE per sample (like PharmCAT).
+# Writes hla2/<sample>.genotype.json; per-gene compare reads it (parse_arcashla).
+rule hla2:
+    output:
+        os.path.join(OUT, "hla2", "hla2.status"),
+    threads: 4
+    resources:
+        mem_mb=8000
+    params:
+        outdir=os.path.join(OUT, "hla2"),
+        sif="/pgx/containers/arcashla.sif",
+    shell:
+        "mkdir -p {params.outdir}; rc=0; "
+        "pgx-hla2.sh {BAM} {SAMPLE} {params.outdir} --ref {REF} --sif {params.sif} "
+        "|| rc=$?; echo $rc > {output}"
+
+
 # ── SV preprocessing (hard deps — not callers; failure is a real error) ──────
 rule pypgx_depth:
     output:
@@ -323,6 +343,8 @@ def compare_inputs(w):
         ins["bcftools"] = STAT(g, "bcftools")
     if _flag(g, "pharmcat"):   # sample-level dependency; PharmCAT runs once
         ins["pharmcat"] = os.path.join(OUT, "pharmcat", "pharmcat.status")
+    if _flag(g, "arcashla"):   # sample-level dependency; arcasHLA types all HLA once
+        ins["hla2"] = os.path.join(OUT, "hla2", "hla2.status")
     return ins
 
 rule compare:

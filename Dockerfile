@@ -152,6 +152,10 @@ COPY docker/pgx-bamstats.sh   /opt/pgx/pgx-bamstats.sh
 COPY docker/pgx-report.py     /opt/pgx/pgx-report.py
 COPY docker/pgx-hla.sh            /opt/pgx/pgx-hla.sh
 COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
+# OmniGen add-ons: shared pure-Python helpers + HLA-II/ABO scripts + data.
+COPY docker/omnigen_addons.py     /opt/pgx/omnigen_addons.py
+COPY docker/pgx-hla2.sh           /opt/pgx/pgx-hla2.sh
+COPY docker/abo_allele_defs.json  /opt/pgx/abo_allele_defs.json
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/cpic.json             /opt/pgx/cpic.json
@@ -169,11 +173,12 @@ ARG PGX_VERSION=dev
 RUN echo "pgx-suite ${PGX_VERSION} (image built $(date -u +%Y-%m-%dT%H:%M:%SZ))" > /opt/pgx/VERSION
 RUN chmod +x /opt/pgx/test.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
-             /opt/pgx/pgx-mt.sh \
+             /opt/pgx/pgx-mt.sh /opt/pgx/pgx-hla2.sh \
     && ln -s /opt/pgx/pgx-bamstats.sh  /usr/local/bin/pgx-bamstats.sh \
     && ln -s /opt/pgx/pgx-report.py    /usr/local/bin/pgx-report.py \
     && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh \
-    && ln -s /opt/pgx/pgx-mt.sh        /usr/local/bin/pgx-mt.sh
+    && ln -s /opt/pgx/pgx-mt.sh        /usr/local/bin/pgx-mt.sh \
+    && ln -s /opt/pgx/pgx-hla2.sh      /usr/local/bin/pgx-hla2.sh
 
 # ── 9. Runtime volume mount-points ───────────────────────────────────────────
 RUN mkdir -p /pgx/bundle /pgx/stellarpgx /pgx/containers /pgx/ref /pgx/data /pgx/results

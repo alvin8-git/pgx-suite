@@ -72,6 +72,7 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 | [PharmCAT](https://github.com/PharmGKB/PharmCAT) | 3.2.0 | CPIC reference star-allele caller + named-allele matcher | UGT1A1, CYP2B6, CYP4F2 (+ its CPIC set) | MPL-2.0 |
 | [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
 | [mutserve](https://github.com/seppinho/mutserve) | 2.0.3 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
+| [arcasHLA](https://github.com/RabadanLab/arcasHLA) | 0.6.0 | Read-partitioned HLA typing | HLA class II (DQA1/DQB1/DRB1) | GPL-3.0 |
 
 **VCF-Check** (in-house, no third-party dependency) is the verdict authority for
 single-SNP / variant-list genes — **RYR1, VKORC1, IFNL3, G6PD, CACNA1S** — reading
@@ -344,6 +345,26 @@ with `drugRecommendation`, `implications`, `phenotypes`, `classification` (evide
 view (drugs grouped by therapeutic class, each with a dose/caution action). Downstream consumers
 (e.g. the OmniGen reporting layer) read this file directly and **render** it — they do not re-call
 PGx. Keep the schema stable; it is a consumed contract, not just an internal artifact.
+
+### OmniGen add-on contracts (HLA class II, ABO)
+
+Two BAM-derived add-ons emit small stable contract files alongside the PGx outputs. The
+principle is unchanged — pgx-suite **calls/types**; OmniGen **renders**. Both work from the
+same aligned GRCh38 BAM; no germline caller is required.
+
+| Add-on | Tool | Contract file | Status |
+|--------|------|---------------|--------|
+| **HLA class II** (DQA1/DQB1/DRB1) | arcasHLA (once per sample) | `genes/HLA-{DQA1,DQB1,DRB1}/*_comparison.tsv` (+`detail.json`) — **same schema as class-I HLA** | celiac (DQ2.5/DQ8), narcolepsy (DQB1\*06:02), T1D susceptibility |
+| **ABO blood type** | SNP+indel VCF-Check (rs8176719/746/747) | `results/<S>/abo/abo_type.tsv` (`sample, ABO_type, alleles, confidence`) + `genes/ABO/*_comparison.tsv` | **PROVISIONAL / UNVALIDATED** — GRCh38 reference-allele + coordinates unconfirmed; do NOT use clinically until validated against a known-type control |
+
+The deterministic parsing/assignment logic lives in `docker/omnigen_addons.py` (pure,
+stdlib-only, unit-tested by `docker/test_omnigen_addons.py` without a BAM). The report adds an
+**HLA Class II & Blood Group** section. See
+[`docs/omnigen-additions-plan.md`](docs/omnigen-additions-plan.md) for the full design.
+
+> **mtDNA + Y-chromosome haplogroups moved to OmniGen.** They classify directly from the
+> 30X WGS VCFs downstream (haplogrep3 reproduced both GIAB trios' maternal lineages exactly),
+> so pgx-suite no longer emits `mito/` or `ychr/` contracts.
 
 ### Run a single gene (debug)
 
