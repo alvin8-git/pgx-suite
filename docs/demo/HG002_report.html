@@ -588,7 +588,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 </head>
 <body>
-<div style="background:#fef3c7;border:2px solid #d97706;color:#7c2d12;padding:0.9rem 1.1rem;margin:0;font-size:0.95rem;text-align:center;font-weight:600">&#9888; DEMO REPORT &mdash; real HG002 pharmacogenomics data, but the <u>HLA class II and ABO sections use SYNTHETIC placeholder calls</u> (celiac DQ2.5 + narcolepsy DQB1*06:02; ABO flagged UNVALIDATED) to illustrate the new report section. Not a real HLA/ABO result &mdash; do not use clinically.</div>
 <div class="report-status-banner status-research">RESEARCH USE ONLY</div>
 
 <header onclick="if(window.pgxShowMain)pgxShowMain();return false;" style="cursor:pointer" title="Back to sample summary">
@@ -600,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     <div class="report-meta">
         <div><strong>Sample:</strong> HG002</div>
-        <div><strong>Date:</strong> 2026-07-11</div>
+        <div><strong>Date:</strong> 2026-07-12</div>
         <div>GRCh38 &bull; CPIC Guidelines</div>
     </div>
 </header>
@@ -613,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="qc-label">Sample ID</div>
             <div class="sample-id">HG002</div>
             
-            <div class="sample-meta">BAM: HG002.bam</div>
+            <div class="sample-meta">BAM: HG002.bwa.sortdup.bqsr.bam</div>
         </div>
         <div>
             <div class="qc-label">Tools</div>
@@ -630,7 +629,7 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
     </div>
 
-<div class="summary-strip"><span class="summary-total">37 genes assessed</span><span class="summary-flagged">2 need review</span><span class="summary-pill card-red"><b>2</b> ✗ Discordant</span><span class="summary-pill card-amber"><b>3</b> ≈ Majority</span><span class="summary-pill card-green"><b>32</b> ✓ Concordant</span></div>
+<div class="summary-strip"><span class="summary-total">40 genes assessed</span><span class="summary-flagged">2 need review</span><span class="summary-pill card-red"><b>2</b> ✗ Discordant</span><span class="summary-pill card-amber"><b>3</b> ≈ Majority</span><span class="summary-pill card-green"><b>35</b> ✓ Concordant</span></div>
 
 
     <div class="section">
@@ -695,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <p style="font-size:0.85rem;color:#718096;margin:0 0 0.8rem">
             Disease-association haplotypes are <strong>susceptibility markers, not
             diagnostic</strong>. ABO typing is provisional research output.</p>
-        <div style="margin-bottom:1rem"><div style="font-weight:600;margin-bottom:0.3rem">HLA class II disease associations</div><ul style="margin:0;padding-left:1.1rem"><li style="margin-bottom:0.4rem"><strong>Celiac disease susceptibility</strong> &mdash; <span style="color:#4a5568">DQ2.5</span><div style="font-size:0.82rem;color:#718096">Celiac-permissive HLA-DQ haplotype present. HLA is necessary but not sufficient for celiac disease (present in ~30-40% of the general population). Susceptibility marker only — not diagnostic.</div></li><li style="margin-bottom:0.4rem"><strong>Narcolepsy type 1 association</strong> &mdash; <span style="color:#4a5568">DQB1*06:02</span><div style="font-size:0.82rem;color:#718096">DQB1*06:02 present (~98% of narcolepsy-cataplexy cases carry it, but also ~12-25% of the general population). Susceptibility marker only.</div></li><li style="margin-bottom:0.4rem"><strong>Type 1 diabetes susceptibility</strong> &mdash; <span style="color:#4a5568">DR3-DQ2 / DR4-DQ8</span><div style="font-size:0.82rem;color:#718096">HLA class-II T1D risk haplotype present. Susceptibility marker only — most carriers never develop T1D.</div></li><li style="margin-bottom:0.4rem"><strong>Type 1 diabetes (protective allele co-present)</strong> &mdash; <span style="color:#4a5568">DQB1*06:02 (protective)</span><div style="font-size:0.82rem;color:#718096">DQB1*06:02 is strongly protective against T1D and dominantly modifies risk.</div></li></ul></div><div style="border:1px dashed #f6ad55;background:#fffaf0;border-radius:8px;padding:0.8rem;font-size:0.9rem"><strong>ABO blood group (PROVISIONAL): A</strong> &nbsp;<span style="color:#718096">alleles ABO*A1.01/ABO*O.01.01, confidence low</span><div style="color:#9c4221;font-size:0.8rem;margin-top:0.3rem">&#9888; UNVALIDATED &mdash; ABO typer not yet validated against a known-type control and the GRCh38 reference-allele / coordinates are unconfirmed. Do NOT use clinically.</div></div>
+        <div style="margin-bottom:1rem"><div style="font-weight:600;margin-bottom:0.3rem">HLA class II disease associations</div><ul style="margin:0;padding-left:1.1rem"><li style="margin-bottom:0.4rem"><strong>Celiac disease susceptibility</strong> &mdash; <span style="color:#4a5568">DQ8</span><div style="font-size:0.82rem;color:#718096">Celiac-permissive HLA-DQ haplotype present. HLA is necessary but not sufficient for celiac disease (present in ~30-40% of the general population). Susceptibility marker only — not diagnostic.</div></li><li style="margin-bottom:0.4rem"><strong>Type 1 diabetes susceptibility</strong> &mdash; <span style="color:#4a5568">DR4-DQ8 (present)</span><div style="font-size:0.82rem;color:#718096">HLA class-II T1D risk haplotype present: DR4-DQ8. Susceptibility marker only — most carriers never develop T1D. (DR3-DQ2 not detected.)</div></li></ul></div>
     </div>
 
 
@@ -814,7 +813,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 
                 <div class="gene-depth">Depth: 31.14X &nbsp;|&nbsp; &#8805;30X: <span class="depth-caution">58.8%</span></div>
-            </a><div class="grid-divider grid-divider-normal">✓ Normal (31)</div>
+            </a><div class="grid-divider grid-divider-normal">✓ Normal (34)</div>
             <a href="#" onclick="pgxShowGene('CYP2A6'); return false;" class="gene-card card-amber">
                 <div class="gene-name">CYP2A6</div>
                 <div class="gene-status">≈ Majority</div>
@@ -1080,6 +1079,48 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 
                 <div class="gene-depth">Depth: 21.55X &nbsp;|&nbsp; &#8805;30X: <span class="depth-poor">30.52%</span></div>
+            </a>
+            <a href="#" onclick="pgxShowGene('HLA-DQA1'); return false;" class="gene-card card-green">
+                <div class="gene-name">HLA-DQA1</div>
+                <div class="gene-status">✓ Concordant</div>
+                <div class="gene-diplo" title="HLA-DQA1*03:01/HLA-DQA1*01:05">HLA-DQA1*03:01/HLA-DQA1*01:05</div>
+                <div>
+                    <span class="gene-pheno-pill" style="background:#718096">—</span>
+                </div>
+                <div class="gene-concord">
+                    Concordance: <span class="badge badge-green">1/1 tools</span>
+                </div>
+                
+                
+                
+            </a>
+            <a href="#" onclick="pgxShowGene('HLA-DQB1'); return false;" class="gene-card card-green">
+                <div class="gene-name">HLA-DQB1</div>
+                <div class="gene-status">✓ Concordant</div>
+                <div class="gene-diplo" title="HLA-DQB1*03:02/HLA-DQB1*05:01">HLA-DQB1*03:02/HLA-DQB1*05:01</div>
+                <div>
+                    <span class="gene-pheno-pill" style="background:#718096">—</span>
+                </div>
+                <div class="gene-concord">
+                    Concordance: <span class="badge badge-green">1/1 tools</span>
+                </div>
+                
+                
+                
+            </a>
+            <a href="#" onclick="pgxShowGene('HLA-DRB1'); return false;" class="gene-card card-green">
+                <div class="gene-name">HLA-DRB1</div>
+                <div class="gene-status">✓ Concordant</div>
+                <div class="gene-diplo" title="HLA-DRB1*10:01/HLA-DRB1*04:02">HLA-DRB1*10:01/HLA-DRB1*04:02</div>
+                <div>
+                    <span class="gene-pheno-pill" style="background:#718096">—</span>
+                </div>
+                <div class="gene-concord">
+                    Concordance: <span class="badge badge-green">1/1 tools</span>
+                </div>
+                
+                
+                
             </a>
             <a href="#" onclick="pgxShowGene('MT-RNR1'); return false;" class="gene-card card-green">
                 <div class="gene-name">MT-RNR1</div>
@@ -5644,6 +5685,222 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </div>
 </div>
+<div id="gene-panel-HLA-DQA1" class="gene-panel" hidden>
+<div class="container">
+
+    <a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>
+
+    <nav class="gene-page-nav">
+        <a href="#HLA-DQA1-tool-results">Tool Results</a>
+        <a href="#HLA-DQA1-variant-evidence">Variant Evidence</a>
+        <a href="#HLA-DQA1-cpic-reference">CPIC Reference</a>
+    </nav>
+
+    <div class="gene-header">
+        <div>
+            <div class="qc-label">Gene</div>
+            <div class="gene-title">HLA-DQA1</div>
+            <div class="gene-locus">&#128205; chr6:32,628,179-32,647,062 (MHC class II) (GRCh38)</div>
+            <div class="sample-meta" style="margin-top:0.3rem">Sample: HG002 &bull; GRCh38</div>
+        </div>
+        <div style="text-align:right">
+            <div class="qc-label">Diplotype</div>
+            <div class="gene-diplo-headline" style="font-size:1.4rem;font-weight:600;margin-top:0.1rem">HLA-DQA1*03:01/HLA-DQA1*01:05</div>
+            
+            <div style="margin-top:0.4rem">
+                <span class="badge badge-green" style="font-size:0.9rem;padding:0.3rem 0.9rem">Concordance 1/1</span>
+                <span class="badge badge-green">Consensus</span>
+            </div>
+            
+        </div>
+    </div>
+    <div class="pipeline-narrative"><div><strong>Tool concordance</strong> &mdash; 1 caller produced a call. Callers agree: arcasHLA HLA-DQA1*03:01/HLA-DQA1*01:05.</div><div style="margin-top:0.45rem"><strong>CPIC resolution</strong> &mdash; All 1 of 1 callers agree on HLA-DQA1*03:01/HLA-DQA1*01:05 (synonymous diplotypes collapsed before counting); no authority override was needed.</div></div>
+    
+
+    <div class="section" id="HLA-DQA1-tool-results">
+        <h2>Tool Results &#8212; HLA-DQA1</h2>
+        <div class="detail-table-wrap table-scroll">
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>PyPGx</th><th>Stargazer</th><th>Aldy</th><th>StellarPGx</th><th>Cyrius</th><th>PharmCAT</th><th>OptiType</th><th>mutserve</th><th>VCF-Check</th>
+                    </tr>
+                </thead>
+                <tbody>
+<tr><td>Diplotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 1</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 2</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Sub-alleles</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Alternative diplotypes</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phenotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Activity score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV type</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Copy number</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Supporting variants<a href="#HLA-DQA1-variant-evidence" class="var-anchor-link">&#8595; see table below</a></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td></tr>
+<tr><td>Functional effects</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>dbSNP IDs</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Allele score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Mean allele frequency</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phasing method</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Status</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV mode note</td><td colspan="9" style="color:var(--muted);font-style:italic">no SVs expected</td></tr>
+                </tbody>
+            </table>
+        </div>
+<div class="sv-note">&#128202; no SVs expected</div>
+    </div>
+
+
+
+
+
+</div>
+</div>
+<div id="gene-panel-HLA-DQB1" class="gene-panel" hidden>
+<div class="container">
+
+    <a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>
+
+    <nav class="gene-page-nav">
+        <a href="#HLA-DQB1-tool-results">Tool Results</a>
+        <a href="#HLA-DQB1-variant-evidence">Variant Evidence</a>
+        <a href="#HLA-DQB1-cpic-reference">CPIC Reference</a>
+    </nav>
+
+    <div class="gene-header">
+        <div>
+            <div class="qc-label">Gene</div>
+            <div class="gene-title">HLA-DQB1</div>
+            <div class="gene-locus">&#128205; chr6:32,659,467-32,668,383 (MHC class II) (GRCh38)</div>
+            <div class="sample-meta" style="margin-top:0.3rem">Sample: HG002 &bull; GRCh38</div>
+        </div>
+        <div style="text-align:right">
+            <div class="qc-label">Diplotype</div>
+            <div class="gene-diplo-headline" style="font-size:1.4rem;font-weight:600;margin-top:0.1rem">HLA-DQB1*03:02/HLA-DQB1*05:01</div>
+            
+            <div style="margin-top:0.4rem">
+                <span class="badge badge-green" style="font-size:0.9rem;padding:0.3rem 0.9rem">Concordance 1/1</span>
+                <span class="badge badge-green">Consensus</span>
+            </div>
+            
+        </div>
+    </div>
+    <div class="pipeline-narrative"><div><strong>Tool concordance</strong> &mdash; 1 caller produced a call. Callers agree: arcasHLA HLA-DQB1*03:02/HLA-DQB1*05:01.</div><div style="margin-top:0.45rem"><strong>CPIC resolution</strong> &mdash; All 1 of 1 callers agree on HLA-DQB1*03:02/HLA-DQB1*05:01 (synonymous diplotypes collapsed before counting); no authority override was needed.</div></div>
+    
+
+    <div class="section" id="HLA-DQB1-tool-results">
+        <h2>Tool Results &#8212; HLA-DQB1</h2>
+        <div class="detail-table-wrap table-scroll">
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>PyPGx</th><th>Stargazer</th><th>Aldy</th><th>StellarPGx</th><th>Cyrius</th><th>PharmCAT</th><th>OptiType</th><th>mutserve</th><th>VCF-Check</th>
+                    </tr>
+                </thead>
+                <tbody>
+<tr><td>Diplotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 1</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 2</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Sub-alleles</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Alternative diplotypes</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phenotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Activity score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV type</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Copy number</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Supporting variants<a href="#HLA-DQB1-variant-evidence" class="var-anchor-link">&#8595; see table below</a></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td></tr>
+<tr><td>Functional effects</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>dbSNP IDs</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Allele score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Mean allele frequency</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phasing method</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Status</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV mode note</td><td colspan="9" style="color:var(--muted);font-style:italic">no SVs expected</td></tr>
+                </tbody>
+            </table>
+        </div>
+<div class="sv-note">&#128202; no SVs expected</div>
+    </div>
+
+
+
+
+
+</div>
+</div>
+<div id="gene-panel-HLA-DRB1" class="gene-panel" hidden>
+<div class="container">
+
+    <a href="#" onclick="pgxShowMain(); return false;" class="back-link">&#8592; Back to sample summary</a>
+
+    <nav class="gene-page-nav">
+        <a href="#HLA-DRB1-tool-results">Tool Results</a>
+        <a href="#HLA-DRB1-variant-evidence">Variant Evidence</a>
+        <a href="#HLA-DRB1-cpic-reference">CPIC Reference</a>
+    </nav>
+
+    <div class="gene-header">
+        <div>
+            <div class="qc-label">Gene</div>
+            <div class="gene-title">HLA-DRB1</div>
+            <div class="gene-locus">&#128205; chr6:32,578,769-32,589,848 (MHC class II) (GRCh38)</div>
+            <div class="sample-meta" style="margin-top:0.3rem">Sample: HG002 &bull; GRCh38</div>
+        </div>
+        <div style="text-align:right">
+            <div class="qc-label">Diplotype</div>
+            <div class="gene-diplo-headline" style="font-size:1.4rem;font-weight:600;margin-top:0.1rem">HLA-DRB1*10:01/HLA-DRB1*04:02</div>
+            
+            <div style="margin-top:0.4rem">
+                <span class="badge badge-green" style="font-size:0.9rem;padding:0.3rem 0.9rem">Concordance 1/1</span>
+                <span class="badge badge-green">Consensus</span>
+            </div>
+            
+        </div>
+    </div>
+    <div class="pipeline-narrative"><div><strong>Tool concordance</strong> &mdash; 1 caller produced a call. Callers agree: arcasHLA HLA-DRB1*10:01/HLA-DRB1*04:02.</div><div style="margin-top:0.45rem"><strong>CPIC resolution</strong> &mdash; All 1 of 1 callers agree on HLA-DRB1*10:01/HLA-DRB1*04:02 (synonymous diplotypes collapsed before counting); no authority override was needed.</div></div>
+    
+
+    <div class="section" id="HLA-DRB1-tool-results">
+        <h2>Tool Results &#8212; HLA-DRB1</h2>
+        <div class="detail-table-wrap table-scroll">
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>PyPGx</th><th>Stargazer</th><th>Aldy</th><th>StellarPGx</th><th>Cyrius</th><th>PharmCAT</th><th>OptiType</th><th>mutserve</th><th>VCF-Check</th>
+                    </tr>
+                </thead>
+                <tbody>
+<tr><td>Diplotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 1</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Haplotype 2</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Sub-alleles</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Alternative diplotypes</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phenotype</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Activity score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV type</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Copy number</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Supporting variants<a href="#HLA-DRB1-variant-evidence" class="var-anchor-link">&#8595; see table below</a></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td><td><span class="var-count-cell">0 variants</span></td></tr>
+<tr><td>Functional effects</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>dbSNP IDs</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Allele score</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Mean allele frequency</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Phasing method</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>Status</td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td><td><span class="dash">—</span></td></tr>
+<tr><td>SV mode note</td><td colspan="9" style="color:var(--muted);font-style:italic">no SVs expected</td></tr>
+                </tbody>
+            </table>
+        </div>
+<div class="sv-note">&#128202; no SVs expected</div>
+    </div>
+
+
+
+
+
+</div>
+</div>
 
 
 <footer>
@@ -5651,7 +5908,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div>PGx Suite &bull; GRCh38 Reference &bull; CPIC Guidelines (cpicpgx.org) &bull; PharmVar (pharmvar.org)</div>
     <div>PyPGx 0.26 &bull; Stargazer 2.0.3 &bull; Aldy 4.8.3 &bull; StellarPGx 1.2.7 &bull; OptiType 1.3.5</div>
     <div style="margin-top:0.4rem;font-style:italic">For clinical decision support only &#8212; not a standalone diagnostic report. Results require clinical validation and interpretation by a qualified clinician.</div>
-    <div class="provenance" style="margin-top:0.6rem;font-size:0.78rem;color:#475569;text-align:left;display:inline-block"><div style="font-weight:600;color:#334155">Provenance</div><div><span class="prov-k">Pipeline:</span> <span class="prov-v">pgx-suite dev (image built 2026-06-20T07:24:21Z)</span></div><div><span class="prov-k">Generated:</span> <span class="prov-v">2026-06-20T08:20:16Z</span></div><div><span class="prov-k">Reference:</span> <span class="prov-v">/pgx/ref/hg38.fa (455 contigs, 3273481150 bytes)</span></div><div><span class="prov-k">Tools:</span> <span class="prov-v">pypgx 0.26.0 &amp;bull; aldy 4.8.3 &amp;bull; stargazer Stargazer v2.0.0 &amp;bull; stellarpgx 1.2.7 (image) &amp;bull; optitype 1.3.5 (image) &amp;bull; mutserve 2.0.0 (image) &amp;bull; samtools samtools 1.13 &amp;bull; bcftools bcftools 1.13 &amp;bull; snakemake 9.23.0</span></div></div>
+    
 </footer>
 </body>
 </html>

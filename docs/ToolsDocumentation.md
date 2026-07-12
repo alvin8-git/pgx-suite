@@ -9,7 +9,8 @@
 This document provides a concise reference for the six pharmacogenomics (PGx)
 callers bundled in the **pgx-suite** Docker container. Four tools handle star allele
 genotyping across the pharmacogenome; one (OptiType) performs HLA class I typing for
-HLA-A and HLA-B; and one (mutserve) performs mitochondrial variant calling for MT-RNR1
+HLA-A and HLA-B; one (arcasHLA) performs HLA class II typing for HLA-DQA1/DQB1/DRB1; and
+one (mutserve) performs mitochondrial variant calling for MT-RNR1
 (aminoglycoside-induced hearing loss). It is intended to let users understand each tool's
 approach, gene coverage, and limitations without having to read six separate documentation
 sites.
@@ -447,6 +448,92 @@ formatted as `HLA-A*01:01/HLA-A*02:01` (slash-separated ordered pair).
   privileges (same constraint as StellarPGx).
 - **SIF must be pulled separately**: The OptiType SIF is not baked into the Docker
   image. It must be pre-pulled to `/pgx/containers/optitype.sif`.
+
+---
+
+## 5b. arcasHLA (HLA class II)
+
+### Overview
+
+arcasHLA (RabadanLab, Columbia) is the suite's **HLA class II** typer, complementing
+OptiType's class I calls. It types HLA-DQA1, HLA-DQB1 and HLA-DRB1 (and, for cross-check,
+class I A/B/C and DPB1) directly from MHC reads by pseudo-aligning them against the IMGT/HLA
+cDNA database with **kallisto** and resolving the diplotype with an expectation-maximisation
+(EM) model over allele abundances. It is lighter than HLA-LA (no ~30–40 GB graph alignment)
+and emits a simple per-gene genotype JSON.
+
+Designed for RNA-seq, arcasHLA also runs on WGS MHC reads. At WGS depth over the MHC the
+per-locus read counts are modest (tens of reads), so class II resolution (DRB1/DQB1) is
+reliable while class I protein-field precision is weaker than OptiType's — hence OptiType
+remains the primary class I typer and arcasHLA the class II typer.
+
+### How it is integrated in pgx-suite
+
+Sample-level `hla2` rule (once per sample, like PharmCAT), driven by `docker/pgx-hla2.sh`:
+
+1. **MHC read extraction** — reuses the `pgx-hla.sh` window `chr6:28,510,020-33,480,577`
+   (`samtools` → `bedtools bamtofastq`), producing paired FASTQs.
+2. **arcasHLA genotype** — `arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 R1 R2 -o hla2/`
+   pseudo-aligns with kallisto and runs the EM genotyper, writing
+   `hla2/<sample>.genotype.json` (+ `.genes.json`, `.genotype.log`).
+3. **Parsing in `pgx-compare.py`** — `parse_arcashla()` reads the genotype JSON and, for each
+   of HLA-DQA1/DQB1/DRB1, emits the standard `genes/HLA-*/*_comparison.tsv` row
+   (`Tool=arcasHLA`, 2-field `Diplotype`) plus `*_detail.json`, reusing the class-I contract
+   so OmniGen needs no new reader logic.
+
+Ship as an Apptainer SIF (`StellarPGx/containers/arcashla.sif`), mounted read-only and run
+`--privileged` like OptiType.
+
+### IMGT/HLA reference database
+
+arcasHLA needs a one-time reference build from the IMGT/HLA `hla.dat` (kallisto index +
+`hla.p.json` under `<arcasHLA>/dat/ref/`), via `arcasHLA reference --rebuild`. The DB lives at
+`<arcasHLA>/dat/IMGTHLA/` (symlink it to a shared clone rather than re-downloading).
+
+> **Note (2026-07-12):** the ANHIG/IMGTHLA GitHub repo distributes `hla.dat` via git-lfs and
+> its LFS budget is periodically exhausted (the git-lfs pull fails with "repository exceeded
+> its LFS budget"). When that happens, fetch `hla.dat` from the EBI IPD-IMGT/HLA FTP mirror
+> (`https://ftp.ebi.ac.uk/pub/databases/ipd/imgt/hla/hla.dat`, non-LFS) and rebuild. The HG002
+> validation reference was built this way from **IMGT/HLA 3.63.0**.
+
+### Input requirements
+
+- **Paired FASTQs of MHC reads** (`chr6:28,510,020-33,480,577`), extracted from the aligned
+  GRCh38 BAM. A single-end file may be added with `--single`.
+- **Tools on PATH:** `kallisto==0.44.0` (required — arcasHLA parses the 0.44 pseudo output
+  format; newer kallisto is incompatible), `samtools`, `bedtools`, `pigz`, `git`/`git-lfs`,
+  and a Python 3 stack (`numpy`, `scipy`, `pandas`, `biopython`).
+- **Recommended coverage:** ≥30× WGS over the MHC (class II is robust; class I benefits from
+  higher depth).
+
+### Genes covered
+
+HLA-DQA1, HLA-DQB1, HLA-DRB1 (contract genes); HLA-A/B/C, HLA-DPB1 and other loci typed for
+cross-check but not written to the contract (OptiType owns class I A/B/C).
+
+### Output
+
+`hla2/<sample>.genotype.json` — a per-gene map of the two called alleles at full arcasHLA
+resolution (e.g. `"DRB1": ["DRB1*10:01:01", "DRB1*04:02:01"]`). `parse_arcashla` truncates to
+2-field for the `Diplotype` column and records the read count / heterozygosity in the detail
+JSON's `allele_score`.
+
+### Validation (GIAB HG002, 2026-07-12)
+
+Typed against Chin et al. 2020 MHC-benchmark truth (Suppl. Table 4, clinical trio-phased),
+2-field: **DRB1 2/2, DQB1 2/2** exact; **DQA1 1/2** (`03:01` exact, `01:05` vs `01:01`, same
+allele group). Class-I cross-check: A 2/2; B/C allele-group-correct but protein-field
+discordant. Full table in `docs/omnigen-additions-plan.md` Feature 3 §(f).
+
+### Limitations
+
+- **Class I precision weaker than OptiType on WGS** — thin MHC read depth (tens of reads/
+  locus) causes protein-field errors at B/C; use OptiType for class I.
+- **kallisto version-locked** — requires kallisto 0.44.0 exactly.
+- **hla.dat via git-lfs** — the canonical GitHub source hits LFS-budget outages; use the EBI
+  FTP mirror as fallback (see reference note above).
+- **2-field reporting** — the contract records 2-field alleles even though arcasHLA emits
+  higher-resolution calls internally.
 
 ---
 

@@ -84,16 +84,24 @@ def hla2_disease_findings(calls: dict[str, str]) -> list[dict]:
             "note": ("DQB1*06:02 present (~98% of narcolepsy-cataplexy cases carry it, "
                      "but also ~12-25% of the general population). Susceptibility marker only."),
         })
-    # Type 1 diabetes — DR3-DQ2 / DR4-DQ8 risk; DQB1*06:02 is protective
-    t1d_risk = (_has("DRB1", "DRB1*03:01") and _has("DQB1", "DQB1*02")) or \
-               (_has("DRB1", "DRB1*04") and _has("DQB1", "DQB1*03:02"))
+    # Type 1 diabetes — DR3-DQ2 and/or DR4-DQ8 risk arms; DQB1*06:02 is protective.
+    # Report ONLY the arm(s) the sample actually carries so the label can never imply
+    # a haplotype that is absent (e.g. a DR4-DQ8-only sample must not read as DR3-DQ2).
+    dr3_dq2 = _has("DRB1", "DRB1*03:01") and _has("DQB1", "DQB1*02")
+    dr4_dq8 = _has("DRB1", "DRB1*04") and _has("DQB1", "DQB1*03:02")
+    t1d_risk = dr3_dq2 or dr4_dq8
     if t1d_risk:
+        present = " + ".join(w for w, f in (("DR3-DQ2", dr3_dq2), ("DR4-DQ8", dr4_dq8)) if f)
+        absent = " + ".join(w for w, f in (("DR3-DQ2", dr3_dq2), ("DR4-DQ8", dr4_dq8)) if not f)
+        note = (f"HLA class-II T1D risk haplotype present: {present}. "
+                "Susceptibility marker only — most carriers never develop T1D.")
+        if absent:
+            note += f" ({absent} not detected.)"
         findings.append({
             "condition": "Type 1 diabetes susceptibility",
-            "risk_haplotype": "DR3-DQ2 / DR4-DQ8",
+            "risk_haplotype": f"{present} (present)",
             "tier": "informational",
-            "note": ("HLA class-II T1D risk haplotype present. Susceptibility marker "
-                     "only — most carriers never develop T1D."),
+            "note": note,
         })
     if _has("DQB1", "DQB1*06:02") and t1d_risk:
         findings.append({

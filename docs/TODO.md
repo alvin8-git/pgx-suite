@@ -288,11 +288,12 @@ Candidate tools: **HLA-HD** (IMGT-based, high resolution) or **arcasHLA** (RNA-s
 | **HLA-DQB1** | *06:02 | Clozapine (agranulocytosis protective) | — | Observational |
 
 **Implementation tasks:**
-- [ ] Evaluate HLA-HD vs arcasHLA for WGS (non-RNA) input compatibility with GRCh38
-- [ ] Add Class II tool to `Dockerfile` (Apptainer SIF or conda install)
-- [ ] Write `docker/pgx-hla2.sh`: MHC read extraction (chr6:28510020-33480577) → HLA Class II calling
-- [ ] Parse Class II results in `pgx-compare.py` and `pgx-report.py`
-- [ ] Add HLA-DRB1, HLA-DQA1, HLA-DQB1 to gene support matrix and CPIC_DB
+- [x] Evaluate HLA-HD vs arcasHLA for WGS (non-RNA) input compatibility with GRCh38 — **arcasHLA chosen** (types class I+II from WGS MHC reads; lighter than HLA-LA)
+- [x] Add Class II tool to `Dockerfile` (Apptainer SIF or conda install) — arcasHLA design landed (`arcashla.sif`); locally provisioned via conda (kallisto 0.44.0 + git-lfs + py3.10) for the HG002 validation run
+- [x] Write `docker/pgx-hla2.sh`: MHC read extraction (chr6:28510020-33480577) → HLA Class II calling
+- [x] Parse Class II results in `pgx-compare.py` and `pgx-report.py` — `parse_arcashla` + HLA Class II & Blood Group report section
+- [x] Add HLA-DRB1, HLA-DQA1, HLA-DQB1 to gene support matrix and CPIC_DB — `genes.tsv` `arcashla` column + 4 rows
+- [x] **Validate on GIAB HG002 (2026-07-12)** — arcasHLA vs Chin et al. Suppl. Table 4 (2-field): **DRB1 2/2, DQB1 2/2**, DQA1 1/2 (01:05 vs 01:01, same group); class-I cross-check A 2/2, B/C group-correct only. Reference built from IMGT/HLA 3.63.0 (EBI FTP; ANHIG GitHub LFS budget exhausted). See `docs/omnigen-additions-plan.md` §(f) + `docs/ToolsDocumentation.md`.
 
 ### 9c. CYB5R3 (dapsone methaemoglobinaemia)
 

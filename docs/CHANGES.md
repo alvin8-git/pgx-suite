@@ -5,6 +5,40 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-12 — HLA class II (arcasHLA) validated on GIAB HG002
+
+Feature 3 (HLA class-II typing) run end-to-end and validated against published truth.
+
+- **Tooling provisioned.** arcasHLA (RabadanLab) cloned to `/data/alvin/tmp/arcasHLA`;
+  kallisto 0.44.0, git-lfs, and a python-3.10 stack (numpy/scipy/pandas/biopython) installed
+  in dedicated conda envs (samtools/bedtools/pigz from host). Reference built with
+  `arcasHLA reference --rebuild` from **IMGT/HLA 3.63.0** `hla.dat` fetched from the EBI
+  IPD-IMGT/HLA FTP — the ANHIG GitHub LFS budget was exhausted, so the git-lfs pull of
+  `hla.dat` failed and EBI was used as the non-LFS source.
+- **Genotyped HG002** (all 7 loci) from the 30–40X MHC reads
+  (`chr6:28,510,020-33,480,577`, `HG002.hla.{1,2}.fq.gz`).
+- **Concordance vs Chin et al. 2020 MHC benchmark, Suppl. Table 4** (clinical trio-phased),
+  2-field: **DRB1 2/2 ✅, DQB1 2/2 ✅** (class-II target passes); **DQA1 1/2** (`03:01` exact,
+  `01:05` vs truth `01:01`, same allele group). Class-I cross-check: **A 2/2**, B/C
+  allele-group-correct but 2-field-discordant (thin WGS depth for an RNA-seq-tuned tool —
+  OptiType stays the primary class-I typer). DPB1 has no entry in the truth table
+  (`04:01` plausible, `677:01` low-confidence).
+- **Contract written.** Raw output at `results/HG002/hla2/HG002.genotype.{json,genes.json,log}`;
+  per-gene `results/HG002/genes/HLA-{DQA1,DQB1,DRB1}/*_comparison.tsv` + `*_detail.json`
+  (reuses the class-I `Gene/Sample/Build/Tool/Diplotype/…` schema, `Tool=arcasHLA`).
+- **Demo report regenerated** (`docker/pgx-report.py` → `docs/demo/HG002_report.html`) so the
+  **HLA Class II & Blood Group** section and the DQA1/DQB1/DRB1 gene cards show the validated
+  calls (Celiac DQ8 + T1D susceptibility surfaced).
+- **Bug fix — `omnigen_addons.hla2_disease_findings` T1D label.** The Type-1-diabetes
+  `risk_haplotype` label was hardcoded `"DR3-DQ2 / DR4-DQ8"` and rendered in full whenever
+  *either* arm matched, overstating risk (e.g. HG002, which carries only DR4-DQ8, appeared to
+  carry DR3-DQ2). Now each arm (DR3-DQ2 = DRB1\*03:01 + DQB1\*02; DR4-DQ8 = DRB1\*04 +
+  DQB1\*03:02) is evaluated independently and only the arm(s) actually present are surfaced
+  (`"DR4-DQ8 (present)"`), with the absent arm explicitly marked "not detected". Celiac
+  DQ2.5/DQ8 labelling already worked this way and is unchanged. `test_omnigen_addons.py`
+  (12 checks) still passes.
+- Details: `docs/omnigen-additions-plan.md` Feature 3 §(f); `docs/ToolsDocumentation.md`.
+
 ## 2026-07-11 — OmniGen add-ons: HLA class II + ABO (haplogroups moved to OmniGen)
 
 Two BAM-derived add-ons, each emitting a small stable contract file for OmniGen to render
