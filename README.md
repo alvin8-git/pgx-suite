@@ -2,12 +2,12 @@
 
 [![tests](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml/badge.svg)](https://github.com/alvin8-git/pgx-suite/actions/workflows/test.yml)
 ![reference](https://img.shields.io/badge/reference-GRCh38%2Fhg38-1f6feb)
-![genes](https://img.shields.io/badge/genes-37%20(19%20CPIC%20Level%20A)-2ea043)
+![genes](https://img.shields.io/badge/genes-38%20(19%20CPIC%20Level%20A)-2ea043)
 ![callers](https://img.shields.io/badge/callers-9-8957e5)
 ![orchestrator](https://img.shields.io/badge/orchestrator-Snakemake-039475)
 ![license](https://img.shields.io/badge/license-non--commercial%20academic-d29922)
 
-**PGx Suite genotypes pharmacogenomic star alleles from one WGS BAM/CRAM and produces a single self-contained HTML clinical report — one command in, one report out.** It runs **nine** PGx callers over **GRCh38**, covering **37 genes/loci (all 19 CPIC Level A)**, and reconciles them into **one verdict per gene** (`concordant` / `majority` / `discordant` / `no_call`).
+**PGx Suite genotypes pharmacogenomic star alleles from one WGS BAM/CRAM and produces a single self-contained HTML clinical report — one command in, one report out.** It runs **nine** PGx callers over **GRCh38**, covering **38 genes/loci (all 19 CPIC Level A)**, and reconciles them into **one verdict per gene** (`concordant` / `majority` / `discordant` / `no_call`).
 
 ![PGx Suite — multi-caller pharmacogenomics report](docs/assets/hg002_report_collage.png)
 
@@ -311,7 +311,7 @@ docker run --privileged --rm \
 | `depth_bam` | = `bam` | For CRAM: a pre-extracted region BAM for QC depth |
 
 `--cores N` budgets how many genes × tools Snakemake schedules at once. Snakemake
-expands one `{gene}` rule graph over the 37-gene support matrix, writes a verdict
+expands one `{gene}` rule graph over the 38-gene support matrix, writes a verdict
 summary to `<outdir>/all_genes_summary.tsv`, and generates the standalone HTML
 report at `<outdir>/<SAMPLE>_pgx_report.html`.
 
@@ -319,7 +319,7 @@ Output layout:
 
 ```
 <outdir>/
-├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 37 gene panels embedded)
+├── <SAMPLE>_pgx_report.html          # standalone single-file HTML report (all 38 gene panels embedded)
 ├── all_genes_summary.tsv             # verdict-driven concordance summary across all genes
 ├── bam_stats.json                    # whole-BAM QC metrics (incl. per-gene depth)
 ├── pharmcat/                         # PharmCAT runs ONCE per sample (not per gene)
@@ -338,7 +338,7 @@ Output layout:
         ├── aldy/<GENE>.aldy
         ├── stellarpgx/<gene>/alleles/*.alleles
         ├── cyrius/<SAMPLE>.tsv                    # CYP2D6 only (verdict authority)
-        ├── optitype/<SAMPLE>_result.tsv          # HLA-A/HLA-B only
+        ├── optitype/<SAMPLE>_result.tsv          # HLA-A/HLA-B/HLA-C (all three class-I loci)
         └── mt-rnr1/<SAMPLE>_mtrna1_result.json   # MT-RNR1 only
 ```
 
@@ -399,7 +399,7 @@ The Snakefile (driven by `docker/genes.tsv`) automatically, per gene:
 - Generates a gene-region VCF via `bcftools mpileup | bcftools call | tabix`
 - Runs SV-aware preprocessing (depth-of-coverage + VDR control stats) for PyPGx SV genes
 - Runs GDF depth-profile creation for Stargazer's three paralog genes (CYP2A6, CYP2B6, CYP2D6)
-- Routes HLA-A/HLA-B to OptiType, MT-RNR1 to mutserve, and alt-contig GSTT1 to a no-VCF path
+- Routes HLA-A/HLA-B/HLA-C to OptiType, MT-RNR1 to mutserve, and alt-contig GSTT1 to a no-VCF path
 - Records each caller's real exit code in a `logs/<tool>.status` sentinel (a failed caller is
   marked `failed`, never silently dropped) and reconciles everything in `pgx-compare.py`
 
@@ -457,7 +457,7 @@ downstream.
 
 ## Gene Coverage
 
-**37 genes/loci** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix shows all nine callers. **✓** = the caller produces a call for that gene; **★** = that caller is the **verdict authority** for the gene (its call *is* the verdict, overriding the reconciled star-allele vote — see the table below the matrix). For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
+**38 genes/loci** supported across **nine callers**. Covers **19/19 CPIC Level A genes**. The matrix shows all nine callers. **✓** = the caller produces a call for that gene; **★** = that caller is the **verdict authority** for the gene (its call *is* the verdict, overriding the reconciled star-allele vote — see the table below the matrix). For full per-tool gene lists and SV details see [`ToolsDocumentation.md`](docs/ToolsDocumentation.md).
 
 | Gene | PyPGx | Stargazer | Aldy | StellarPGx | Cyrius | PharmCAT | OptiType | mutserve | VCF-Check | CPIC Level | SV? |
 |------|:-----:|:---------:|:----:|:----------:|:------:|:--------:|:--------:|:--------:|:---------:|:----------:|:---:|
@@ -483,6 +483,7 @@ downstream.
 | GSTP1 | ✓ | — | ✓ | — | — | — | — | — | — | — | |
 | HLA-A | — | — | — | — | — | — | ✓ | — | — | **A** | |
 | HLA-B | — | — | — | — | — | — | ✓ | — | — | **A** | |
+| HLA-C | — | — | — | — | — | — | ✓ | — | — | — | |
 | IFNL3 | ✓ | ✓ | ✓ | — | — | — | — | — | ★ | **A** | |
 | MT-RNR1 | — | — | — | — | — | — | — | ✓ | — | **A** | |
 | NAT1 | ✓ | ✓ | ✓ | ✓ | — | — | — | — | — | B | |
@@ -550,7 +551,7 @@ The five non-star-allele callers emit a smaller, caller-specific set. All are no
 |--------|-------------|-----------|----------------------|--------------|
 | **Cyrius** | `genes/CYP2D6/cyrius/<SAMPLE>.tsv` | CYP2D6 star diplotype (SV/CNV/hybrid-aware) | — (mapped via CPIC) | `Filter` (PASS / no-call), raw copy-number call |
 | **PharmCAT** | `pharmcat/pgx.report.json` | per-gene star diplotype | CPIC phenotype + allele **function** | per-allele function, CPIC drug recommendations |
-| **OptiType** | `genes/HLA-*/optitype/<SAMPLE>_result.tsv` | 4-digit HLA-A/B alleles (e.g. `A*02:01`) | — | reads, objective score |
+| **OptiType** | `genes/HLA-*/optitype/<SAMPLE>_result.tsv` | 4-digit HLA-A/B/C alleles (e.g. `A*02:01`) | — | reads, objective score |
 | **mutserve** | `genes/MT-RNR1/mt-rnr1/<SAMPLE>_mtrna1_result.json` | MT-RNR1 variant genotype | m.1555A>G risk status | per-position allele fraction, depth |
 | **VCF-Check** | gene `<GENE>.vcf.gz` + `vcf_check_variants.json` | genotype at the CPIC variant(s) | function/diplotype from the CPIC table | rsID, GT, depth per variant |
 

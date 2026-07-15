@@ -5,7 +5,7 @@
 > NO_CALL coverage gate), see the [README](../README.md); for per-tool detail see
 > [`ToolsDocumentation.md`](ToolsDocumentation.md).
 
-This pipeline performs star-allele calling and diplotype assignment across 37 genes/loci using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes) -- nine callers in total. All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
+This pipeline performs star-allele calling and diplotype assignment across 38 genes/loci using four complementary star-allele callers (PyPGx 0.26.0, Stargazer 2.0.3, Aldy 4.8.3, StellarPGx 1.2.7), with OptiType for HLA typing and mutserve for mitochondrial variants. Three further methods act as **verdict authorities** for genes the star-allele callers mishandle: **Cyrius** (CYP2D6 structural variants), **PharmCAT** (UGT1A1/CYP2B6/CYP4F2), and the in-house **VCF-Check** (single-variant genes) -- nine callers in total. All analyses run against GRCh38. Results are aggregated into a unified HTML report whose verdict is reconciled across tools — see [Reconciliation & Verdict Authority](#reconciliation--verdict-authority) below.
 
 ---
 
@@ -43,6 +43,7 @@ genes (CYP1A1, CYP2E1, GSTM1/P1/T1, NAT1, POR, SLC15A2, SLC22A2, SLCO2B1, UGT2B1
 20. [GSTT1](#gstt1)
 21. [HLA-A](#hla-a) — **Level A**
 22. [HLA-B](#hla-b) — **Level A**
+22a. [HLA-C](#hla-c) — *not a CPIC gene; disease association + transplant matching*
 23. [IFNL3](#ifnl3) — **Level A**
 24. [MT-RNR1](#mt-rnr1) — **Level A**
 25. [NAT1](#nat1)
@@ -1036,6 +1037,30 @@ HLA-B*57:01 allele frequency is ~5–8% in Europeans, ~6% in Africans, and ~2–
 | mutserve | No |
 
 > OptiType performs HLA-B 4-digit typing. HLA-B allele calling is the primary clinical application of HLA typing in this pipeline.
+
+---
+
+## HLA-C
+
+### Overview
+
+HLA-C encodes the third classical MHC class I molecule, located on chromosome 6p21.3 between HLA-B and the class III region. Like HLA-A and HLA-B it presents intracellular peptides to CD8+ T cells, and it is additionally the dominant ligand for killer-cell immunoglobulin-like receptors (KIR) on NK cells. HLA-C is expressed at lower cell-surface levels than HLA-A/HLA-B and is less polymorphic, though still highly variable at the 4-digit level.
+
+### Significance
+
+HLA-C is **not a CPIC pharmacogene** — it carries no CPIC drug-prescribing guideline, and it is typed here for disease-association and histocompatibility reasons rather than for drug dosing:
+
+- **HLA-C\*06:02** is the major susceptibility allele for **psoriasis** (the PSORS1 locus). It is the strongest known genetic risk factor for psoriasis vulgaris, with the association strongest for early-onset disease, and it also associates with psoriatic arthritis. This is the association consumed downstream by OmniGen.
+- **Transplant matching.** HLA-C is one of the loci matched in haematopoietic stem-cell transplantation; a C-locus mismatch is an independent risk factor for graft-versus-host disease and reduced survival.
+
+### Typing in this pipeline
+
+| Caller | Supported |
+|--------|-----------|
+| OptiType | Yes (C1/C2 columns of the class-I result TSV) |
+| PyPGx / Stargazer / Aldy / StellarPGx | No |
+
+> OptiType has always typed all three class-I loci in one ILP run. Until 2026-07 the `C1`/`C2` columns were parsed and then discarded, so HLA-C never reached the per-gene outputs and the C\*06:02 association could not be screened — it read as "absent" rather than "not typed". See [`CHANGES.md`](CHANGES.md), 2026-07-13.
 
 ---
 

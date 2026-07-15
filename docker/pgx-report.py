@@ -85,7 +85,7 @@ def phenotype_color(pheno: str) -> str:
 # Static lookup for the 15 most actionable CPIC Level A/B gene-drug pairs.
 # ── Gene loci (GRCh38, 1-based display coordinates) ──────────────────────────
 # Used to show "chrN:start-end (GRCh38)" under the gene name on detail pages.
-# HLA-A/HLA-B use the actual gene body coordinates, not the MHC extraction region.
+# HLA-A/HLA-B/HLA-C use the actual gene body coordinates, not the MHC extraction region.
 # GSTT1 is on an alt contig.
 GENE_LOCI: dict[str, str] = {
     "ABCG2":   "chr4:88,085,265-88,236,626",
@@ -107,6 +107,7 @@ GENE_LOCI: dict[str, str] = {
     "GSTT1":   "chr22_KI270879v1_alt (alt contig)",
     "HLA-A":   "chr6:29,910,247-29,913,661",
     "HLA-B":   "chr6:31,321,649-31,324,666",
+    "HLA-C":   "chr6:31,268,749-31,272,130",
     "IFNL3":   "chr19:39,240,552-39,253,525",
     "NAT1":    "chr8:18,207,108-18,226,689",
     "NAT2":    "chr8:18,388,281-18,404,218",

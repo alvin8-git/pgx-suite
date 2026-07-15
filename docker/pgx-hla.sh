@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# docker/pgx-hla.sh — HLA-A/HLA-B typing using OptiType (via Apptainer)
+# docker/pgx-hla.sh — HLA class-I (HLA-A/HLA-B/HLA-C) typing using OptiType (via Apptainer)
 #
 # Usage: pgx-hla.sh <GENE> <BAM> <SAMPLE> <OUTPUT_DIR>
-#   GENE:       HLA-A or HLA-B
+#   GENE:       HLA-A, HLA-B or HLA-C
 #   BAM:        Input BAM/CRAM file (GRCh38)
 #   SAMPLE:     Sample name
 #   OUTPUT_DIR: Gene output directory (e.g. /pgx/results/HLA-A)
@@ -13,12 +13,22 @@
 #
 # Method:
 #   1. samtools view extracts reads from the full MHC region (chr6:28,510,020-33,480,577)
-#      covering HLA-A (chr6:29,910,247-29,913,661) and HLA-B (chr6:31,321,649-31,324,666).
+#      covering HLA-A (chr6:29,910,247-29,913,661), HLA-B (chr6:31,321,649-31,324,666)
+#      and HLA-C (chr6:31,268,749-31,272,130).
 #   2. samtools fastq converts extracted reads to FASTQ (R1+R2 for paired, single for SE).
 #   3. OptiType (Apptainer container) types HLA Class I (A, B, C) via ILP optimisation.
 #      Internally OptiType runs razers3 against its bundled IMGT/HLA reference.
-#   4. pgx-compare.py reads the result TSV and extracts A1/A2 (for HLA-A) or B1/B2
-#      (for HLA-B) to produce the per-gene comparison TSV and detail JSON.
+#   4. pgx-compare.py reads the result TSV and extracts A1/A2 (for HLA-A), B1/B2
+#      (for HLA-B) or C1/C2 (for HLA-C) to produce the per-gene comparison TSV and
+#      detail JSON.
+#
+#      HISTORY (fixed 2026-07): OptiType has always typed all three class-I loci and
+#      written C1/C2 into the result TSV, but parse_optitype() had no HLA-C branch and
+#      no HLA-C row existed in genes.tsv, so the C call was computed and then thrown
+#      away. Downstream, OmniGen's HLA-C*06:02 psoriasis association could therefore
+#      never be screened: it rendered as "absent" rather than "not typed", so a
+#      C*06:02 homozygote would have been told the risk allele was absent. HLA-C is
+#      also clinically relevant for transplant matching.
 #
 # Container requirement:
 #   The OptiType Apptainer SIF must be present at /pgx/containers/optitype.sif
@@ -32,11 +42,18 @@
 #   Total                                               ~3-6 min
 #
 # Notes:
-#   - Both HLA-A and HLA-B pgx-run.sh calls run full OptiType independently;
-#     each writes results to its own OUTPUT_DIR/optitype/. This is slightly
-#     redundant but keeps each gene call self-contained.
-#   - MHC extraction uses the primary assembly region. HLA-A and HLA-B genes
-#     are both within chr6:28.5 Mb-33.5 Mb (GRCh38).
+#   - REDUNDANT WORK (known, not fixed here): each class-I gene runs a full,
+#     independent OptiType job that types A, B and C, then keeps only its own
+#     locus. With HLA-A + HLA-B that was 2x the necessary work; adding HLA-C makes
+#     it 3x — three identical OptiType runs per sample (~3-6 min each), all three
+#     producing the SAME result TSV. Each writes to its own OUTPUT_DIR/optitype/.
+#     This keeps every gene call self-contained (and lets a single locus be re-run
+#     in isolation), but the cheaper design is to run OptiType ONCE per sample and
+#     have all three loci parse that one result TSV. Recommended follow-up; see
+#     docs/TODO.md. The parser is already locus-agnostic, so the change is confined
+#     to the Snakefile (a sample-level optitype rule + a shared result path).
+#   - MHC extraction uses the primary assembly region. HLA-A, HLA-B and HLA-C are
+#     all within chr6:28.5 Mb-33.5 Mb (GRCh38).
 
 set -uo pipefail
 

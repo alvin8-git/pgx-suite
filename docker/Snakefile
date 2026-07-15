@@ -2,7 +2,8 @@
 #
 # Wildcard {gene} pipeline covering EVERY gene, routed by genes.tsv support flags:
 #   - standard star-allele genes : bcftools + pypgx/stargazer/aldy/stellarpgx
-#   - HLA-A / HLA-B              : OptiType (pgx-hla.sh)
+#   - HLA-A / HLA-B / HLA-C      : OptiType (pgx-hla.sh) — NB: one full OptiType run per
+#                                  gene, each typing all 3 loci then keeping one. See TODO.
 #   - MT-RNR1                    : mutserve (pgx-mt.sh)
 #   - GSTT1 (alt contig)        : pypgx (SV, no VCF) + stellarpgx
 # Then BAM QC (pgx-bamstats.sh) and the HTML report (pgx-report.py).

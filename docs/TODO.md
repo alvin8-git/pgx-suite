@@ -1,5 +1,25 @@
 # PGx Suite — TODO
 
+## Open — run OptiType once per sample, not once per class-I gene
+
+Raised by the 2026-07-13 HLA-C fix (see [`CHANGES.md`](CHANGES.md)).
+
+- [ ] **Collapse the three redundant OptiType runs into one.** A single OptiType run types
+      **all three** class-I loci (A, B, C) and writes them into one `<sample>_result.tsv`.
+      But the `optitype` rule is keyed on `{gene}`, so each class-I gene launches its own
+      full OptiType job and then keeps only its own locus. With HLA-A + HLA-B this was 2x
+      redundant; now that HLA-C is a first-class gene it is **3x** — three identical
+      ~3-6 min runs per sample, all producing the same TSV. That is ~6-12 min of pure waste
+      per sample.
+      **Recommended shape:** make `optitype` a *sample-level* rule that runs once and writes
+      to a shared path, then have the HLA-A/HLA-B/HLA-C compare steps all parse that one
+      result TSV. `parse_optitype()` is already locus-agnostic (it takes `gene` and selects
+      the column pair), so **no parser change is needed** — the work is confined to the
+      Snakefile (one rule + a shared result path) plus the `optitype_dir` lookup in
+      `pgx-compare.py`, which currently expects the TSV under the per-gene dir.
+      Deliberately NOT done as part of the HLA-C fix: correctness first, and re-architecting
+      the rule graph is a separate, riskier change that deserves its own equivalence run.
+
 ## Current state — 2026-06-19
 
 The pipeline is now a **reconciliation engine**, not a string-equality ensemble (see the

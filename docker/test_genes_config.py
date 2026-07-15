@@ -47,6 +47,7 @@ ORIG_SUPPORT = {
     "ABCG2": {"aldy"},
     "HLA-A": {"optitype"},
     "HLA-B": {"optitype"},
+    "HLA-C": {"optitype"},  # 2026-07: OptiType always typed C; it was parsed and dropped
     "CACNA1S": {"pypgx", "stellarpgx", "vcf_check"},
     "MT-RNR1": {"mutserve"},
     "CYP2C-CLUSTER": {"vcf_check"},  # rs12777823 single-SNP VCF-Check (CPIC warfarin)
@@ -81,6 +82,7 @@ ORIG_COORDS = {
     "TPMT": "chr6:18125310-18158169", "UGT1A1": "chr2:233754269-233779300",
     "VKORC1": "chr16:31087853-31097797", "ABCG2": "chr4:88085265-88236626",
     "HLA-A": "chr6:28510020-33480577", "HLA-B": "chr6:28510020-33480577",
+    "HLA-C": "chr6:28510020-33480577",
     "CACNA1S": "chr1:201006956-201095000", "MT-RNR1": "chrM:648-1601",
     "CYP2C-CLUSTER": "chr10:94644745-94646745",
     "GSTP1": "chr11:67580811-67589653", "SLC15A2": "chr3:121891400-121947188",

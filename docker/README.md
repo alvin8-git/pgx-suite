@@ -43,7 +43,7 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | StellarPGx | 1.2.7 | `nextflow run /pgx/stellarpgx/main.nf` |
 | Cyrius | vendored | `cyrius` rule → `/opt/cyrius/star_caller.py` (CYP2D6; authority) |
 | PharmCAT | 3.2.0 | `pharmcat` rule → `pharmcat_pipeline` in `pharmcat.sif` (UGT1A1/CYP2B6/CYP4F2; authority) |
-| OptiType | 1.3.5 | `optitype` rule (Apptainer SIF, HLA-A/B) |
+| OptiType | 1.3.5 | `optitype` rule (Apptainer SIF, HLA-A/B/C) |
 | mutserve | 2.0.3 | `mutserve` rule (baked-in JAR, MT-RNR1) |
 | VCF-Check | in-house | `pgx-compare.py` direct genotype from `vcf_check_variants.json` (RYR1/VKORC1/IFNL3/G6PD/CACNA1S; authority) |
 | Snakemake | orchestrator | `snakemake -s /opt/pgx/Snakefile` |

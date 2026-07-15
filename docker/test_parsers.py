@@ -123,7 +123,7 @@ def test_stellarpgx():
         shutil.rmtree(d)
 
 
-def test_optitype_hla_a_and_b():
+def test_optitype_hla_a_b_and_c():
     d = tempfile.mkdtemp()
     try:
         os.makedirs(os.path.join(d, "optitype"))
@@ -135,6 +135,26 @@ def test_optitype_hla_a_and_b():
         assert ra.status == "ok" and ra.diplotype == "HLA-A*01:01/HLA-A*02:01", vars(ra)
         rb = cmp.parse_optitype(d, "HLA-B", "S")
         assert rb.status == "ok" and rb.diplotype == "HLA-B*57:01/HLA-B*07:02", vars(rb)
+        # HLA-C: OptiType always emitted C1/C2, but the parser used to discard them,
+        # which left the downstream HLA-C*06:02 psoriasis association unscreenable.
+        rc = cmp.parse_optitype(d, "HLA-C", "S")
+        assert rc.status == "ok" and rc.diplotype == "HLA-C*01:02/HLA-C*02:02", vars(rc)
+        assert rc.haplotype1 == "HLA-C*01:02" and rc.haplotype2 == "HLA-C*02:02", vars(rc)
+    finally:
+        shutil.rmtree(d)
+
+
+def test_optitype_hla_c_homozygous_psoriasis_allele():
+    # Regression: a C*06:02 homozygote must read as a real call, not "absent".
+    d = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(d, "optitype"))
+        with open(os.path.join(d, "optitype", "S_result.tsv"), "w") as fh:
+            w = csv.writer(fh, delimiter="\t")
+            w.writerow(["", "A1", "A2", "B1", "B2", "C1", "C2", "Reads", "Objective"])
+            w.writerow(["0", "A*30:01", "A*30:01", "B*13:01", "B*38:01", "C*06:02", "C*06:02", "361.0", "347.99"])
+        rc = cmp.parse_optitype(d, "HLA-C", "S")
+        assert rc.status == "ok" and rc.diplotype == "HLA-C*06:02/HLA-C*06:02", vars(rc)
     finally:
         shutil.rmtree(d)
 

@@ -5,6 +5,54 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-13 — HLA-C promoted to a first-class typed gene (bug fix)
+
+**OptiType was already typing HLA-C correctly; pgx-suite threw the call away.**
+
+- **The bug.** OptiType types all three class-I loci (A, B, **C**) in a single ILP run and
+  writes `A1 A2 B1 B2 C1 C2` into `<sample>_result.tsv`. But `parse_optitype()` in
+  `docker/pgx-compare.py` had only `HLA-A` and `HLA-B` branches — its own docstring
+  documented the `C1`/`C2` columns it then ignored — and `genes.tsv` had no `HLA-C` row, so
+  no `genes/HLA-C/` output directory was ever produced. The C call was computed on every
+  run since HLA typing was introduced, and silently discarded.
+- **Why it mattered (downstream).** The consumer, OmniGen (`prototype/report_hla.py`), asks
+  for `["HLA-A", "HLA-B", "HLA-C"]`. Because HLA-C never arrived, its **psoriasis
+  association (HLA-C\*06:02)** was unscreenable for every sample ever reported — and it
+  rendered as **"absent" rather than "not typed"**, so a C\*06:02 homozygote would have been
+  actively told the risk allele was absent. This is a false-negative class of failure, not a
+  missing-feature one. HLA-C also matters for transplant matching.
+- **The fix.** Added the `HLA-C` branch to `parse_optitype()` (reads `C1`/`C2`, prepends
+  `HLA-`, same status/diplotype/haplotype handling as A and B) and an `HLA-C` row to
+  `docker/genes.tsv` (`optitype=1`), which is the single source of truth the Snakefile
+  routes from — so HLA-C now gets a per-gene dir, `comparison.tsv` and `detail.json` exactly
+  like A and B. Also wired into `pgx-bamstats.sh` (depth BED), `pgx-report.py` (gene locus),
+  and the `test_genes_config.py` regression matrix.
+- **Verified without a pipeline re-run.** `parse_optitype()` called directly against the
+  existing OptiType output for HG002 returns **`HLA-C*12:03/HLA-C*12:03`, status `ok`**.
+- **Backfilled 13 samples** (HG001, HG002, HG003, HG005, HG006, HG007, H_342, P_62, P_93,
+  P_1143, P_2000, EQ_2017, EQ_2021) from their already-computed OptiType result TSVs — no
+  OptiType or pipeline re-run. Schema is byte-identical to the HLA-A/HLA-B
+  `comparison.tsv`, so OmniGen's reader works unchanged. Notably **HG003 is
+  `HLA-C*06:02/HLA-C*06:02`** — a psoriasis-risk homozygote that the old code reported as
+  "absent".
+  - **HG004 could NOT be backfilled**: OptiType emitted **empty `C1`/`C2` fields** for that
+    sample (A and B typed fine), so there is genuinely no C call on disk. The parser returns
+    `not_run` and no file is written — correctly reading as *not typed*, not *absent*.
+  - Backfill coverage is recorded as `NOT_COMPUTED` (`mean_depth: null`): HLA-C had no row
+    in the bamstats depth BED when those results were produced, so no HLA-C region depth
+    exists. No depth was invented. The OptiType call is unaffected — it comes from the same
+    MHC extraction and the same result TSV as HLA-A/HLA-B.
+- **Known inefficiency (not fixed, see `docs/TODO.md`).** Each class-I gene runs its own full
+  OptiType job that types A, B *and* C and then keeps only its own locus. That was 2x
+  redundant with A+B; adding HLA-C makes it **3x** — three identical ~3-6 min OptiType runs
+  per sample producing the same result TSV. Recommended fix: run OptiType **once per sample**
+  and have all three loci parse the one TSV. The parser is already locus-agnostic, so the
+  change is confined to the Snakefile.
+
+**37 → 38 genes/loci** (CPIC Level A count unchanged at 19 — HLA-C has no CPIC guideline).
+
+---
+
 ## 2026-07-12 — HLA class II (arcasHLA) validated on GIAB HG002
 
 Feature 3 (HLA class-II typing) run end-to-end and validated against published truth.

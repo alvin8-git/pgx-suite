@@ -597,13 +597,19 @@ def parse_stellarpgx(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
-# ── Parser: OptiType (HLA-A, HLA-B) ─────────────────────────────────────────
+# ── Parser: OptiType (HLA-A, HLA-B, HLA-C) ──────────────────────────────────
 def parse_optitype(output_dir: str, gene: str, sample: str) -> CallerResult:
-    """Parse OptiType result TSV for HLA-A or HLA-B.
+    """Parse OptiType result TSV for HLA-A, HLA-B or HLA-C.
 
     OptiType outputs a TSV with columns:
         (index)  A1  A2  B1  B2  C1  C2  Reads  Objective
     Values are like "A*01:01" (without "HLA-" prefix).
+
+    OptiType types all three class-I loci in a single run. Until 2026-07 only the
+    A and B columns were read and the C1/C2 columns were silently discarded, so
+    HLA-C never reached the per-gene outputs — which made the downstream OmniGen
+    HLA-C*06:02 psoriasis association unscreenable (it rendered as "absent"
+    rather than "not typed") for every sample ever reported.
     """
     result = CallerResult(
         tool="OptiType",
@@ -638,6 +644,15 @@ def parse_optitype(output_dir: str, gene: str, sample: str) -> CallerResult:
                         # OptiType outputs "B*57:01"; prepend "HLA-" → "HLA-B*57:01"
                         result.haplotype1 = f"HLA-{b1}" if not b1.startswith("HLA") else b1
                         result.haplotype2 = f"HLA-{b2}" if not b2.startswith("HLA") else b2
+                        result.diplotype  = f"{result.haplotype1}/{result.haplotype2}"
+                        result.status = "ok"
+                elif gene == "HLA-C":
+                    c1 = (row.get("C1") or "").strip()
+                    c2 = (row.get("C2") or "").strip()
+                    if c1 and c2:
+                        # OptiType outputs "C*06:02"; prepend "HLA-" → "HLA-C*06:02"
+                        result.haplotype1 = f"HLA-{c1}" if not c1.startswith("HLA") else c1
+                        result.haplotype2 = f"HLA-{c2}" if not c2.startswith("HLA") else c2
                         result.diplotype  = f"{result.haplotype1}/{result.haplotype2}"
                         result.status = "ok"
                 reads = _dash(row.get("Reads"))
