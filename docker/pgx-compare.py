@@ -616,10 +616,22 @@ def parse_optitype(output_dir: str, gene: str, sample: str) -> CallerResult:
         phasing_method="ILP optimisation on HLA-reference-filtered MHC reads",
     )
 
-    optitype_dir = os.path.join(output_dir, "optitype")
-    # Look for <sample>_result.tsv or any *_result.tsv
-    candidates = [os.path.join(optitype_dir, f"{sample}_result.tsv")]
-    candidates += glob.glob(os.path.join(optitype_dir, "*_result.tsv"))
+    # OptiType now runs ONCE per sample (a sample-level Snakemake rule) and writes
+    # a single shared result TSV at <sample_root>/optitype/ — all three class-I loci
+    # (A/B/C) parse that same TSV. Older per-gene runs wrote it under the gene dir
+    # (<sample_root>/genes/<gene>/optitype/). Check the sample-level path first, then
+    # fall back to the per-gene dir so results produced by the previous layout (and
+    # the parser unit tests, which pass the gene dir directly) still parse.
+    sample_root = os.path.dirname(os.path.dirname(output_dir))  # .../genes/<gene> -> sample root
+    optitype_dirs = [
+        os.path.join(sample_root, "optitype"),   # sample-level (current)
+        os.path.join(output_dir, "optitype"),    # per-gene (legacy / unit-test layout)
+    ]
+    # Look for <sample>_result.tsv or any *_result.tsv, sample-level location first.
+    candidates: list[str] = []
+    for optitype_dir in optitype_dirs:
+        candidates.append(os.path.join(optitype_dir, f"{sample}_result.tsv"))
+        candidates += glob.glob(os.path.join(optitype_dir, "*_result.tsv"))
     tsv_path = next((p for p in candidates if os.path.exists(p)), None)
     if tsv_path is None:
         return result

@@ -159,6 +159,30 @@ def test_optitype_hla_c_homozygous_psoriasis_allele():
         shutil.rmtree(d)
 
 
+def test_optitype_shared_sample_level_tsv():
+    # OptiType now runs ONCE per sample and writes a single shared result TSV at
+    # <sample_root>/optitype/. All three class-I loci parse that same TSV from their
+    # own gene dir (<sample_root>/genes/<gene>). Assert the parser resolves the
+    # sample-level path (../../optitype) when no per-gene optitype dir exists —
+    # proving the sample-level scheduling produces byte-identical per-gene results.
+    root = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(root, "optitype"))
+        with open(os.path.join(root, "optitype", "S_result.tsv"), "w") as fh:
+            w = csv.writer(fh, delimiter="\t")
+            w.writerow(["", "A1", "A2", "B1", "B2", "C1", "C2", "Reads", "Objective"])
+            w.writerow(["0", "A*01:01", "A*02:01", "B*57:01", "B*07:02", "C*01:02", "C*02:02", "1234", "56.7"])
+        for gene, dip in (("HLA-A", "HLA-A*01:01/HLA-A*02:01"),
+                          ("HLA-B", "HLA-B*57:01/HLA-B*07:02"),
+                          ("HLA-C", "HLA-C*01:02/HLA-C*02:02")):
+            gene_dir = os.path.join(root, "genes", gene)   # no per-gene optitype/ dir
+            os.makedirs(gene_dir)
+            r = cmp.parse_optitype(gene_dir, gene, "S")
+            assert r.status == "ok" and r.diplotype == dip, (gene, vars(r))
+    finally:
+        shutil.rmtree(root)
+
+
 def test_mutserve():
     d = tempfile.mkdtemp()
     try:

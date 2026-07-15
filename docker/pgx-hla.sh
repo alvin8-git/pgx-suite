@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # docker/pgx-hla.sh — HLA class-I (HLA-A/HLA-B/HLA-C) typing using OptiType (via Apptainer)
 #
-# Usage: pgx-hla.sh <GENE> <BAM> <SAMPLE> <OUTPUT_DIR>
-#   GENE:       HLA-A, HLA-B or HLA-C
+# SAMPLE-LEVEL: runs ONCE per sample (like PharmCAT / arcasHLA). OptiType types all
+# three class-I loci (A, B, C) in a single ILP run and writes A1/A2/B1/B2/C1/C2 into
+# one result TSV, so there is no per-gene invocation — the HLA-A/HLA-B/HLA-C compare
+# steps all parse this one shared TSV.
+#
+# Usage: pgx-hla.sh <BAM> <SAMPLE> <OUTPUT_DIR>
 #   BAM:        Input BAM/CRAM file (GRCh38)
 #   SAMPLE:     Sample name
-#   OUTPUT_DIR: Gene output directory (e.g. /pgx/results/HLA-A)
+#   OUTPUT_DIR: Sample results root (e.g. /pgx/results); OptiType writes to
+#               <OUTPUT_DIR>/optitype/
 #
 # Output:
 #   <OUTPUT_DIR>/optitype/<SAMPLE>_result.tsv
@@ -42,30 +47,26 @@
 #   Total                                               ~3-6 min
 #
 # Notes:
-#   - REDUNDANT WORK (known, not fixed here): each class-I gene runs a full,
-#     independent OptiType job that types A, B and C, then keeps only its own
-#     locus. With HLA-A + HLA-B that was 2x the necessary work; adding HLA-C makes
-#     it 3x — three identical OptiType runs per sample (~3-6 min each), all three
-#     producing the SAME result TSV. Each writes to its own OUTPUT_DIR/optitype/.
-#     This keeps every gene call self-contained (and lets a single locus be re-run
-#     in isolation), but the cheaper design is to run OptiType ONCE per sample and
-#     have all three loci parse that one result TSV. Recommended follow-up; see
-#     docs/TODO.md. The parser is already locus-agnostic, so the change is confined
-#     to the Snakefile (a sample-level optitype rule + a shared result path).
+#   - REDUNDANT WORK (FIXED 2026-07): OptiType previously ran once PER class-I gene
+#     (the Snakefile `optitype` rule was keyed on {gene}), so HLA-A/HLA-B/HLA-C each
+#     launched a full, independent OptiType job that typed A, B and C and then kept
+#     only its own locus — 3x identical work (~3-6 min each), all producing the SAME
+#     result TSV. It is now a SAMPLE-level rule: one run writes OUTPUT_DIR/optitype/
+#     <SAMPLE>_result.tsv and all three loci parse that one TSV (parse_optitype is
+#     locus-agnostic). Saves ~6-12 min/sample of pure redundant compute.
 #   - MHC extraction uses the primary assembly region. HLA-A, HLA-B and HLA-C are
 #     all within chr6:28.5 Mb-33.5 Mb (GRCh38).
 
 set -uo pipefail
 
-if [[ $# -lt 4 ]]; then
-    echo "Usage: pgx-hla.sh <GENE> <BAM> <SAMPLE> <OUTPUT_DIR>" >&2
+if [[ $# -lt 3 ]]; then
+    echo "Usage: pgx-hla.sh <BAM> <SAMPLE> <OUTPUT_DIR>" >&2
     exit 1
 fi
 
-GENE="$1"
-BAM="$2"
-SAMPLE="$3"
-OUTPUT_DIR="$4"
+BAM="$1"
+SAMPLE="$2"
+OUTPUT_DIR="$3"
 
 # Full MHC primary-assembly region — covers HLA-A, HLA-B, HLA-C
 MHC_REGION="chr6:28510020-33480577"
@@ -96,7 +97,7 @@ if [[ ! -f "$OPTITYPE_SIF" ]]; then
     exit 1
 fi
 
-echo "[hla] Gene:   ${GENE}"
+echo "[hla] Loci:   HLA-A / HLA-B / HLA-C (class I, one OptiType run)"
 echo "[hla] BAM:    ${BAM}"
 echo "[hla] Region: ${MHC_REGION}"
 

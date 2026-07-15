@@ -128,7 +128,32 @@ def test_coords_and_control_match_frozen():
         assert rows[g]["stargazer_control"] == ORIG_CONTROL[g], (g, rows[g]["stargazer_control"])
 
 
+def test_optitype_is_scheduled_once_per_sample():
+    """OptiType types all three class-I loci (A/B/C) in one run, so its Snakemake
+    rule MUST be sample-level (one job per sample) — NOT keyed on {gene}, which
+    would launch a full, identical OptiType run for HLA-A, HLA-B AND HLA-C (3x the
+    necessary compute for byte-identical output). Guard against a regression to the
+    per-gene form."""
+    import re
+    with open(os.path.join(HERE, "Snakefile")) as fh:
+        src = fh.read()
+    # Isolate the `rule optitype:` block (up to the next top-level `rule ` / `def `).
+    m = re.search(r"\nrule optitype:\n(.*?)(?=\n(?:rule |def |# ── ))", src, re.S)
+    assert m, "rule optitype not found in Snakefile"
+    block = m.group(1)
+    # Sample-level: output is OUT/optitype/optitype.status; there is NO {gene}
+    # wildcard anywhere in the rule (which would fan it out per HLA gene).
+    assert 'os.path.join(OUT, "optitype", "optitype.status")' in block, \
+        "optitype rule output must be the sample-level OUT/optitype/optitype.status"
+    assert "{gene}" not in block and "w.gene" not in block and "wildcards.gene" not in block, \
+        "optitype rule must not be keyed on {gene} — that schedules one full run per HLA locus"
+    # The three HLA loci depend on the single shared status via compare_inputs.
+    assert 'ins["optitype"] = os.path.join(OUT, "optitype", "optitype.status")' in src, \
+        "compare_inputs must consume the shared sample-level optitype status"
+
+
 if __name__ == "__main__":
     test_support_matches_frozen()
     test_coords_and_control_match_frozen()
+    test_optitype_is_scheduled_once_per_sample()
     print("all genes.tsv regression checks passed")

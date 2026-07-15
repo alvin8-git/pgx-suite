@@ -5,6 +5,37 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-15 — OptiType runs once per sample, not once per class-I gene (perf)
+
+**Removed ~2-3x redundant OptiType compute (~6-12 min/sample of pure waste).**
+
+- **The waste.** OptiType types all three class-I loci (A, B, C) in ONE ILP run and writes
+  `A1 A2 B1 B2 C1 C2` into a single `<sample>_result.tsv`. But the Snakemake `optitype` rule
+  was keyed on `{gene}`, so HLA-A, HLA-B and (after 2026-07-13) HLA-C each triggered a full,
+  independent OptiType job that typed all three loci and then kept only its own — three
+  identical ~3-6 min runs producing byte-identical output. Logged in `docs/TODO.md` when
+  HLA-C was added (commit 935804b) but deferred for a dedicated change.
+- **The fix.** `optitype` is now a **sample-level** rule (like PharmCAT / arcasHLA): it runs
+  once per sample, writes `results/<sample>/optitype/<sample>_result.tsv`, and the three HLA
+  compare steps depend on the single shared status (`results/<sample>/optitype/optitype.status`)
+  and all parse that one TSV.
+  - `docker/Snakefile`: `rule optitype` no longer carries a `{gene}` wildcard; output is the
+    sample-level `OUT/optitype/optitype.status`. `compare_inputs()` gains the shared optitype
+    dependency (removed from the per-gene tool loop). The compare `run` block reads OptiType's
+    failure status from the sample-level path.
+  - `docker/pgx-hla.sh`: signature is now `<BAM> <SAMPLE> <OUTPUT_DIR>` (no per-gene `GENE`
+    arg); OptiType always typed all loci regardless of the dropped arg.
+  - `docker/pgx-compare.py` `parse_optitype()`: unchanged locus logic — only *where it looks*.
+    It now checks the sample-level `optitype/` dir first, then falls back to the legacy
+    per-gene dir, so existing on-disk results still parse.
+- **Contract preserved.** Per-gene `HLA-{A,B,C}_<sample>_comparison.tsv` and `_detail.json`
+  keep the same schema and paths, so the OmniGen consumer (`report_hla.py` / `report_hla2.py`)
+  works unchanged. Verified on the on-disk HG002 OptiType TSV: HLA-A → `HLA-A*01:01/HLA-A*01:01`,
+  HLA-B → `HLA-B*35:08/HLA-B*38:01`, HLA-C → `HLA-C*12:03/HLA-C*12:03` from both the legacy and
+  sample-level layouts. Guarded by two new tests (`test_genes_config`, `test_parsers`).
+
+---
+
 ## 2026-07-13 — HLA-C promoted to a first-class typed gene (bug fix)
 
 **OptiType was already typing HLA-C correctly; pgx-suite threw the call away.**

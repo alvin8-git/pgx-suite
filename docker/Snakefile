@@ -2,8 +2,8 @@
 #
 # Wildcard {gene} pipeline covering EVERY gene, routed by genes.tsv support flags:
 #   - standard star-allele genes : bcftools + pypgx/stargazer/aldy/stellarpgx
-#   - HLA-A / HLA-B / HLA-C      : OptiType (pgx-hla.sh) — NB: one full OptiType run per
-#                                  gene, each typing all 3 loci then keeping one. See TODO.
+#   - HLA-A / HLA-B / HLA-C      : OptiType (pgx-hla.sh) — SAMPLE-level: ONE OptiType run
+#                                  types all 3 loci; the three HLA compare steps share it.
 #   - MT-RNR1                    : mutserve (pgx-mt.sh)
 #   - GSTT1 (alt contig)        : pypgx (SV, no VCF) + stellarpgx
 # Then BAM QC (pgx-bamstats.sh) and the HTML report (pgx-report.py).
@@ -151,17 +151,21 @@ rule stellarpgx:
 
 
 # ── Special callers (HLA / MT) — non-fatal ───────────────────────────────────
+# OptiType types all three class-I loci (A, B, C) in ONE ILP run and writes
+# A1/A2/B1/B2/C1/C2 into a single result TSV, so it runs ONCE per sample (like
+# PharmCAT / arcasHLA) — not once per HLA gene. Writes optitype/<sample>_result.tsv;
+# the HLA-A/HLA-B/HLA-C compare steps all parse that one shared TSV (parse_optitype).
+# Previously this rule was keyed on {gene}: HLA-A/-B/-C each launched a full,
+# identical OptiType job (~3-6 min each) and kept only its own locus — ~3x waste.
 rule optitype:
     output:
-        STAT("{gene}", "optitype"),
+        os.path.join(OUT, "optitype", "optitype.status"),
     threads: 2
     resources:
         mem_mb=4000
-    params:
-        outdir=lambda w: G(w.gene),
     shell:
         "mkdir -p $(dirname {output}); rc=0; "
-        "pgx-hla.sh {wildcards.gene} {BAM} {SAMPLE} {params.outdir} || rc=$?; "
+        "pgx-hla.sh {BAM} {SAMPLE} {OUT} || rc=$?; "
         "echo $rc > {output}"
 
 
@@ -337,11 +341,13 @@ rule altcheck:
 def compare_inputs(w):
     g = w.gene
     ins = {"altcheck": os.path.join(OUT, "alt_aware.json")}
-    for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "optitype", "mutserve", "cyrius"):
+    for tool in ("pypgx", "stargazer", "aldy", "stellarpgx", "mutserve", "cyrius"):
         if supports(g, tool):
             ins[tool] = STAT(g, tool)
     if needs_vcf(g) or _flag(g, "vcf_check"):
         ins["bcftools"] = STAT(g, "bcftools")
+    if _flag(g, "optitype"):   # sample-level dependency; OptiType types all HLA class I once
+        ins["optitype"] = os.path.join(OUT, "optitype", "optitype.status")
     if _flag(g, "pharmcat"):   # sample-level dependency; PharmCAT runs once
         ins["pharmcat"] = os.path.join(OUT, "pharmcat", "pharmcat.status")
     if _flag(g, "arcashla"):   # sample-level dependency; arcasHLA types all HLA once
@@ -362,9 +368,12 @@ rule compare:
         names = {"pypgx": "PyPGx", "stargazer": "Stargazer", "aldy": "Aldy",
                  "stellarpgx": "StellarPGx", "optitype": "OptiType", "mutserve": "mutserve",
                  "cyrius": "Cyrius"}
+        # OptiType is sample-level (one run for A/B/C): its status lives at
+        # OUT/optitype/optitype.status, not in the per-gene logs dir.
+        sample_level_status = {"optitype": os.path.join(OUT, "optitype", "optitype.status")}
         failed = []
         for key, name in names.items():
-            sf = os.path.join(params.logdir, f"{key}.status")
+            sf = sample_level_status.get(key, os.path.join(params.logdir, f"{key}.status"))
             if os.path.exists(sf) and open(sf).read().strip() not in ("0", ""):
                 failed.append(name)
         args = (f"--gene {wildcards.gene} --sample {SAMPLE} "
