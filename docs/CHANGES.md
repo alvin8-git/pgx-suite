@@ -5,6 +5,22 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-16 — HG001 HLA class II back-filled (data run, no code change)
+
+**GIAB HG001 / NA12878 gets its missing class II loci.**
+
+- **The gap.** HG001's production run (2026-06-20) predates HLA class II (arcasHLA) support,
+  so it had class I only (OptiType A/B/C) and no `genes/HLA-DQA1|DQB1|DRB1/` or `hla2/`.
+- **The fix.** Ran the same host-side arcasHLA route validated on HG002/HG003 against
+  `HG001.bwa.sortdup.bqsr.bam` (reusing the pre-built IMGT/HLA `hla.idx` from the HG002
+  validation), staged `hla2/HG001.genotype.json`, and regenerated the three class II
+  `genes/HLA-*/*_HG001_comparison.tsv` via `pgx-compare.py parse_arcashla` — identical
+  schema to the class I TSVs. No pipeline code changed; no other gene/sample re-run.
+  - Calls (`ok`): DQA1 `*01:01:01/*05:01:01`, DQB1 `*02:189/*05:01:01`, DRB1 `*01:126/*03:01:01`.
+  - Documented in `docs/ToolsDocumentation.md` §5b ("Back-filled sample: GIAB HG001").
+
+---
+
 ## 2026-07-15 — OptiType runs once per sample, not once per class-I gene (perf)
 
 **Removed ~2-3x redundant OptiType compute (~6-12 min/sample of pure waste).**

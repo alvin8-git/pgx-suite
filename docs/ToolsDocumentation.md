@@ -525,6 +525,39 @@ Typed against Chin et al. 2020 MHC-benchmark truth (Suppl. Table 4, clinical tri
 allele group). Class-I cross-check: A 2/2; B/C allele-group-correct but protein-field
 discordant. Full table in `docs/omnigen-additions-plan.md` Feature 3 §(f).
 
+### Back-filled sample: GIAB HG001 / NA12878 (2026-07-16)
+
+HG001's production pgx run is from **2026-06-20**, which predates HLA class II (arcasHLA)
+support — that run typed class I only (OptiType: `HLA-A/B/C`), so `results/HG001/` had no
+`genes/HLA-DQA1|DQB1|DRB1/` and no `hla2/`. The three class II loci were back-filled on
+2026-07-16 using the **same host-side arcasHLA route validated on HG002/HG003** (no pgx-suite
+pipeline code changed, no other gene or sample re-run):
+
+```
+# extract MHC + chr6 HLA-alt reads → paired FASTQs, then genotype
+samtools view -b HG001.bwa.sortdup.bqsr.bam $(cat regions.txt) | samtools sort -n | \
+  samtools bam2fq -1 HG001.hla.1.fq.gz -2 HG001.hla.2.fq.gz -s HG001.hla.single.fq.gz -0 /dev/null -n
+PATH=<kallisto-0.44.0>:<arcaspy-env>:$PATH \
+  /data/alvin/tmp/arcasHLA/arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 -t 8 \
+    -o arcas_out --temp <tmp> HG001.hla.1.fq.gz HG001.hla.2.fq.gz
+# stage arcas_out/HG001.genotype.json → results/HG001/hla2/HG001.genotype.json, then
+pgx-compare.py --gene HLA-DQA1|HLA-DQB1|HLA-DRB1 --sample HG001 --output-dir results/HG001/genes/<GENE>
+```
+
+Reused the pre-built reference DB at `/data/alvin/tmp/arcasHLA/dat/ref/hla.idx` (the one
+built for the HG002 validation, IMGT/HLA `Reference: 8d77b3dd…`); driver script kept at
+`/data/alvin/tmp/hla2_HG001/run_hla2_HG001.sh`. Note: the biocontainers `arcas-hla:0.6.0`
+image ships `dat/ref/` as git-lfs **pointer stubs** (no real FASTA/index), so it cannot
+genotype as-is — the working DB is the host clone above, not the container image.
+
+Resulting 2-field diplotypes (`Status=ok`, `Tool=arcasHLA`, class-I contract schema):
+
+| Gene | Diplotype |
+|------|-----------|
+| HLA-DQA1 | `HLA-DQA1*01:01:01/HLA-DQA1*05:01:01` |
+| HLA-DQB1 | `HLA-DQB1*02:189/HLA-DQB1*05:01:01` |
+| HLA-DRB1 | `HLA-DRB1*01:126/HLA-DRB1*03:01:01` |
+
 ### Limitations
 
 - **Class I precision weaker than OptiType on WGS** — thin MHC read depth (tens of reads/
