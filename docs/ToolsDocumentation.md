@@ -490,6 +490,20 @@ arcasHLA needs a one-time reference build from the IMGT/HLA `hla.dat` (kallisto 
 `hla.p.json` under `<arcasHLA>/dat/ref/`), via `arcasHLA reference --rebuild`. The DB lives at
 `<arcasHLA>/dat/IMGTHLA/` (symlink it to a shared clone rather than re-downloading).
 
+> **Durable location (2026-07-16).** The host-side arcasHLA clone + its pre-built reference DB
+> now live at **`/data/alvin/ref/omnigen/tools/arcasHLA/`** (moved off scratch `/data/alvin/tmp/`
+> so it survives a port; the 225 MB `dat/ref/hla.idx` is the key artifact). arcasHLA resolves its
+> reference **relative to its own install dir** (`rootDir = dirname(realpath(scripts/*.py)) +
+> '/../'` → `<arcasHLA>/dat/ref/hla.idx`), so the DB travels with the binary — invoke the binary
+> at this path and the reference is found automatically; no env var or config points at it.
+>
+> **Conda envs are rebuild-on-target.** The runtime deps (`arcaspy-env` = python3.10 + numpy/
+> scipy/pandas/biopython; `kallisto-env` = kallisto 0.44.0) remain conda environments at
+> `/data/alvin/tmp/arcaspy-env` and `/data/alvin/tmp/kallisto-env`. Conda bakes absolute prefixes
+> into its envs, so they are **NOT** moved with the reference — on a port, rebuild them on the
+> target host (`conda create` per the versions above) and put both on `PATH` ahead of the arcasHLA
+> invocation. Only the reference DB is durable; the envs are reproducible.
+
 > **Note (2026-07-12):** the ANHIG/IMGTHLA GitHub repo distributes `hla.dat` via git-lfs and
 > its LFS budget is periodically exhausted (the git-lfs pull fails with "repository exceeded
 > its LFS budget"). When that happens, fetch `hla.dat` from the EBI IPD-IMGT/HLA FTP mirror
@@ -538,15 +552,15 @@ pipeline code changed, no other gene or sample re-run):
 samtools view -b HG001.bwa.sortdup.bqsr.bam $(cat regions.txt) | samtools sort -n | \
   samtools bam2fq -1 HG001.hla.1.fq.gz -2 HG001.hla.2.fq.gz -s HG001.hla.single.fq.gz -0 /dev/null -n
 PATH=<kallisto-0.44.0>:<arcaspy-env>:$PATH \
-  /data/alvin/tmp/arcasHLA/arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 -t 8 \
+  /data/alvin/ref/omnigen/tools/arcasHLA/arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 -t 8 \
     -o arcas_out --temp <tmp> HG001.hla.1.fq.gz HG001.hla.2.fq.gz
 # stage arcas_out/HG001.genotype.json → results/HG001/hla2/HG001.genotype.json, then
 pgx-compare.py --gene HLA-DQA1|HLA-DQB1|HLA-DRB1 --sample HG001 --output-dir results/HG001/genes/<GENE>
 ```
 
-Reused the pre-built reference DB at `/data/alvin/tmp/arcasHLA/dat/ref/hla.idx` (the one
-built for the HG002 validation, IMGT/HLA `Reference: 8d77b3dd…`); driver script kept at
-`/data/alvin/tmp/hla2_HG001/run_hla2_HG001.sh`. Note: the biocontainers `arcas-hla:0.6.0`
+Reused the pre-built reference DB at `/data/alvin/ref/omnigen/tools/arcasHLA/dat/ref/hla.idx`
+(the one built for the HG002 validation, IMGT/HLA `Reference: 8d77b3dd…`); driver script kept
+at `/data/alvin/tmp/hla2_HG001/run_hla2_HG001.sh`. Note: the biocontainers `arcas-hla:0.6.0`
 image ships `dat/ref/` as git-lfs **pointer stubs** (no real FASTA/index), so it cannot
 genotype as-is — the working DB is the host clone above, not the container image.
 

@@ -5,6 +5,25 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-07-16 — arcasHLA reference relocated to durable tools dir (port-safety, no code change)
+
+**The host-side arcasHLA clone + reference DB moved off scratch so it survives a port.**
+
+- **The move.** `/data/alvin/tmp/arcasHLA/` → **`/data/alvin/ref/omnigen/tools/arcasHLA/`**
+  (2.1 GB; the key artifact is the 225 MB `dat/ref/hla.idx`). Same filesystem, plain `mv`.
+  Verified `dat/ref/hla.idx` is intact + readable at the new path and that a dry `arcasHLA`
+  invocation there resolves the reference (arcasHLA self-resolves `dat/ref/` relative to its
+  own install dir via `rootDir = dirname(realpath(scripts/*.py)) + '/../'` — the DB travels
+  with the binary; no env var or config points at it).
+- **No pipeline code changed.** No pgx-suite source hardcoded the old path — HLA class II
+  typing is invoked by binary path (the host-side route in `ToolsDocumentation.md` §5b) and
+  the SIF route (`pgx-hla2.sh`) bundles its own DB inside `arcashla.sif`, unaffected. Only the
+  §5b runbook command + the durable-location note in `ToolsDocumentation.md` were repointed.
+- **Conda envs stay put (rebuild-on-target).** `arcaspy-env` / `kallisto-env` remain at
+  `/data/alvin/tmp/` — conda bakes absolute prefixes, so moving breaks them. They are
+  reproducible (python3.10 + numpy/scipy/pandas/biopython; kallisto 0.44.0); rebuild on the
+  target host for a port. See `ToolsDocumentation.md` §5b "Conda envs are rebuild-on-target".
+
 ## 2026-07-16 — HG001 HLA class II back-filled (data run, no code change)
 
 **GIAB HG001 / NA12878 gets its missing class II loci.**
