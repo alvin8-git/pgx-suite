@@ -63,3 +63,6 @@ Axiom.xlsx
 # The committed demo report is an intentional documentation artifact — keep it.
 !docs/demo/
 !docs/demo/**
+
+# graphify knowledge-graph build output (regenerate with /graphify)
+graphify-out/
