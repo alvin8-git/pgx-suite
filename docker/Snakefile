@@ -100,6 +100,7 @@ rule all:
         os.path.join(OUT, "all_genes_summary.tsv"),
         os.path.join(OUT, "provenance.json"),
         os.path.join(OUT, ".sanity_ok"),
+        os.path.join(OUT, "pharmcat", "outside.status"),
 
 
 # ── Standard star-allele callers (non-fatal; output = status sentinel) ────────
@@ -337,6 +338,26 @@ rule altcheck:
         "python3 /opt/pgx/pgx_altcheck.py {BAM} > {output}"
 
 
+# PharmCAT outside calls: pgx-suite's OptiType HLA-A/HLA-B (two-field) and, only when
+# >=2 callers typed it and ALL agree, CYP2D6 are handed to PharmCAT (`-po`; PharmCAT does
+# not type HLA from a VCF and pharmcat_pipeline has no outside-call option). Non-fatal:
+# the rule always succeeds; a gene that cannot be called is omitted and logged, and the
+# stage-1 PharmCAT report stays in place. Writes pharmcat/outside_calls.tsv and adds
+# "pharmcat_outside_calls" to provenance.json.
+rule pharmcat_outside:
+    input:
+        os.path.join(OUT, "pharmcat", "pharmcat.status"),
+        os.path.join(OUT, "provenance.json"),
+        [G(g, f"{g}_{SAMPLE}_detail.json") for g in ("HLA-A", "HLA-B", "CYP2D6") if g in TARGET],
+    output:
+        os.path.join(OUT, "pharmcat", "outside.status"),
+    params:
+        sif="/pgx/containers/pharmcat.sif",
+    shell:
+        "rc=0; PHARMCAT_SIF={params.sif} pgx-pharmcat-outside.sh {OUT} "
+        "> {OUT}/pharmcat/outside.log 2>&1 || rc=$?; echo $rc > {output}"
+
+
 # ── Phase 3: reconcile (single verdict authority; always runs) ───────────────
 def compare_inputs(w):
     g = w.gene
@@ -415,6 +436,7 @@ rule report:
         bamstats=os.path.join(OUT, "bam_stats.json"),
         provenance=os.path.join(OUT, "provenance.json"),
         summary=os.path.join(OUT, "all_genes_summary.tsv"),   # report reads this; make the dep explicit
+        outside=os.path.join(OUT, "pharmcat", "outside.status"),   # PharmCAT outside-call re-run settled
     output:
         os.path.join(OUT, f"{SAMPLE}_pgx_report.html"),
     shell:

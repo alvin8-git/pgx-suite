@@ -348,6 +348,23 @@ back into each gene's `detail.json` (as the verdict for UGT1A1/CYP2B6/CYP4F2, an
 informational cross-check for the rest). **VCF-Check** has no output dir of its own — it
 reads the gene's `<GENE>.vcf.gz` directly against `vcf_check_variants.json`.
 
+**PharmCAT outside calls (HLA-A/HLA-B, CYP2D6).** PharmCAT 3.2.0 does not type HLA from a VCF, and
+`pharmcat_pipeline` has no outside-call option (only the core tool does:
+`java -jar pharmcat.jar -po <file>`, [Outside Call Format](https://pharmcat.clinpgx.org/using/Outside-Call-Format/)).
+After the normal PharmCAT run, rule `pharmcat_outside` (`pgx-pharmcat-outside.sh`) writes a tab-separated
+`pharmcat/outside_calls.pharmcat.tsv` (`gene<TAB>diplotype`) and re-runs PharmCAT on the already
+preprocessed VCF with `-po`:
+- **HLA-A / HLA-B**: the OptiType diplotype at two-field resolution, e.g. `HLA-B	*15:02/*55:01`.
+- **CYP2D6**: only when at least two callers typed it and every caller that typed it reports the
+  same diplotype (alleles sorted, case and spacing ignored; a notation difference such as Aldy's
+  `*10+*10/*36X+*10` vs `*36+*10/*36+*10` counts as disagreement). Otherwise it is omitted.
+- **Fallback**: a missing input or an uncallable gene is omitted and logged; the stage-1 PharmCAT
+  step is unchanged and its report is kept as `pharmcat/pgx.report.no_outside.json`. Nothing is
+  fabricated, and the rule never fails the run.
+- **Record**: `pharmcat/outside_calls.tsv` (gene, diplotype, source tool, passed, reason omitted)
+  and `pharmcat_outside_calls` in `provenance.json`.
+Re-run only this step for an existing sample (inside the image): `pgx-pharmcat-outside.sh /pgx/results/<sample>`.
+
 **`pgx.report.json` as a downstream drug-level contract.** Beyond the three PharmCAT-authority
 genes, `pharmcat/pgx.report.json` carries PharmCAT's **full per-drug CPIC recommendations** for
 the sample — under `drugs["CPIC Guideline Annotation"][<drug>].guidelines[].annotations[]`, each

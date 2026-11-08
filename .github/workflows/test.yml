@@ -41,3 +41,5 @@ jobs:
         run: python3 docker/test_cyrius.py
       - name: PharmCAT integration
         run: python3 docker/test_pharmcat.py
+      - name: PharmCAT outside calls
+        run: python3 docker/test_outside_calls.py
