@@ -118,6 +118,7 @@ See [`ToolsDocumentation.md`](docs/ToolsDocumentation.md) for a detailed compari
 | `StellarPGx/` | Nextflow pipeline, gene databases, resources |
 | `StellarPGx/containers/stellarpgx-dev.sif` | StellarPGx Apptainer SIF (31 MB) |
 | `StellarPGx/containers/optitype.sif` | OptiType Apptainer SIF (~500 MB; pull separately — see below) |
+| `StellarPGx/containers/arcashla.sif` | **Required for HLA class II** (DQA1/DQB1/DRB1): arcasHLA 0.6.0 + baked IMGT/HLA reference + kallisto 0.44.0 (~450 MB; build locally, not on a registry — see below) |
 | `StellarPGx/containers/pharmcat.sif` | PharmCAT v3.2.0 Apptainer SIF (~1.8 GB; pull separately — see below) |
 | `nextflow` | Nextflow binary (pre-downloaded) |
 
@@ -130,6 +131,20 @@ docker run --privileged --rm \
   apptainer pull --name /pgx/containers/optitype.sif \
     docker://quay.io/biocontainers/optitype:1.3.5--hdfd78af_1
 ```
+
+**Building the arcasHLA SIF** (one-time; **required** - without it HLA class II is reported
+`failed`, never clean). It cannot be a plain `apptainer pull`: the biocontainer has no IMGT/HLA
+reference and ships kallisto 0.50.1, which arcasHLA 0.6.0 cannot parse (needs 0.44.0).
+`docker/build-arcashla-sif.sh` pulls the biocontainer, bakes in the reference and kallisto 0.44.0:
+
+```bash
+ARCAS_DIR=/path/to/arcasHLA IMGTHLA_DIR=/path/to/IMGTHLA KALLISTO_ENV=/path/to/kallisto-0.44.0-env \
+  docker/build-arcashla-sif.sh StellarPGx/containers/arcashla.sif
+```
+
+On another machine either copy the finished `arcashla.sif` from this host
+(`StellarPGx/containers/`, ~450 MB) or run the script there (inputs: see
+`docs/ToolsDocumentation.md` 5b; host copies live in `/data/alvin/ref/omnigen/tools/arcasHLA`).
 
 **Pulling the PharmCAT SIF** (one-time). PharmCAT carries its own bcftools ≥1.18 +
 Java 21 + the CPIC reporter; the suite's pharmcat rule runs `pharmcat_pipeline`

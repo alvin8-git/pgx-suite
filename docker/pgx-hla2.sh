@@ -13,8 +13,10 @@
 #
 # Requires: arcasHLA Apptainer SIF at /pgx/containers/arcashla.sif, built with its
 # IMGT/HLA reference DB. Pull once:
-#   apptainer pull --name arcashla.sif docker://quay.io/biocontainers/arcas-hla:0.6.0--hdfd78af_1
-#   apptainer exec arcashla.sif arcasHLA reference --version 3.55.0   # build DB (one-off)
+#   apptainer pull/build the biocontainer, then copy a built IMGT/HLA reference into it
+#   (the biocontainer ships NO usable DB; `arcasHLA reference --version X` needs a git
+#   commit hash + GitHub LFS, which fails). Exact steps: docs/ToolsDocumentation.md
+#   "Building arcashla.sif". The SIF is a required asset: StellarPGx/containers/arcashla.sif.
 
 set -euo pipefail
 
@@ -45,29 +47,31 @@ TMP=$(mktemp -d "${OUTDIR}/tmp_XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
 if [[ ! -f "$SIF" ]]; then
-    log_status "ERROR arcasHLA SIF not found at ${SIF} — see header for pull command"
+    log_status "ERROR arcasHLA SIF not found at ${SIF} -- HLA class II (DQA1/DQB1/DRB1) NOT typed; build it (see docs/ToolsDocumentation.md / README 'Building the arcasHLA SIF')"
     exit 1
 fi
 
-# ── 1. Extract MHC reads (chr6 MHC; arcasHLA re-partitions internally) ────────
-# arcasHLA extract works from a name-sorted / paired BAM of MHC reads.
+# ── 1. MHC + chr6-ALT + HLA-contig reads -> paired FASTQ ─────────────────────
+# Same read set as the validated host-side route (docs/ToolsDocumentation.md §5b):
+# the MHC window plus every chr6 *_alt and HLA-* contig in the BAM header. The raw
+# reads go straight to `arcasHLA genotype` (NOT `arcasHLA extract`: extract keeps too
+# few reads at WGS depth and silently drops DQA1/DQB1, leaving only DRB1).
 MHC="chr6:28510020-33480577"
-log_status "Extracting MHC reads (${MHC})"
-samtools view -b -@ "$THREADS" "$BAM" "$MHC" 2>/dev/null \
-    | samtools sort -n -@ "$THREADS" -o "${TMP}/mhc.bam" - 2>/dev/null
-samtools index -@ "$THREADS" "${TMP}/mhc.bam" 2>/dev/null || true
+log_status "Extracting MHC + alt/HLA-contig reads (${MHC})"
+{ printf '%s\n' "$MHC"
+  samtools view -H "$BAM" | awk -F'\t' '$1=="@SQ"{sub(/^SN:/,"",$2); if ($2 ~ /^chr6_.*_alt$/ || $2 ~ /^HLA-/) print $2}'
+} > "${TMP}/regions.txt"
+# shellcheck disable=SC2046
+samtools view -b -@ "$THREADS" "$BAM" $(cat "${TMP}/regions.txt") 2>/dev/null \
+    | samtools sort -n -@ "$THREADS" -o "${TMP}/mhc.nsort.bam" - 2>/dev/null
+samtools fastq -@ "$THREADS" -n -1 "${TMP}/hla.1.fq.gz" -2 "${TMP}/hla.2.fq.gz" \
+    -s "${TMP}/hla.single.fq.gz" -0 /dev/null "${TMP}/mhc.nsort.bam" 2>/dev/null
 
 APPTAINER_EXEC=(apptainer exec --cleanenv --bind "${TMP}:${TMP}" --bind "${OUTDIR}:${OUTDIR}" "$SIF")
 
-# ── 2. arcasHLA extract (BAM -> FASTQ of HLA reads) ──────────────────────────
-log_status "arcasHLA extract"
-"${APPTAINER_EXEC[@]}" arcasHLA extract "${TMP}/mhc.bam" \
-    -o "${TMP}/extract" -t "$THREADS" --temp "${TMP}/at" \
-    > "${OUTDIR}/arcashla_extract.log" 2>&1 || log_status "WARN arcasHLA extract non-zero"
-
-FASTQS=$(ls "${TMP}/extract"/*.fq.gz 2>/dev/null | tr '\n' ' ' || true)
-if [[ -z "$FASTQS" ]]; then
-    log_status "ERROR arcasHLA extract produced no FASTQ"; exit 1
+FASTQS="${TMP}/hla.1.fq.gz ${TMP}/hla.2.fq.gz"
+if [[ ! -s "${TMP}/hla.1.fq.gz" || ! -s "${TMP}/hla.2.fq.gz" ]]; then
+    log_status "ERROR no paired MHC reads extracted from ${BAM}"; exit 1
 fi
 
 # ── 3. arcasHLA genotype (class I + II) ──────────────────────────────────────

@@ -1425,6 +1425,18 @@ def parse_arcashla(output_dir: str, gene: str, sample: str) -> CallerResult:
     candidates += glob.glob(os.path.join(sample_root, "hla2", "*.genotype.json"))
     path = next((p for p in candidates if os.path.isfile(p)), None)
     if not path:
+        # Distinguish "never ran" from "ran and failed": the Snakefile `hla2` rule
+        # writes hla2/hla2.status (exit code). A non-zero code with no genotype JSON
+        # is a FAILURE, never a silent not_run (failure is not a clean result).
+        for sf in (os.path.join(sample_root, "hla2", "hla2.status"),
+                   os.path.join(output_dir, "hla2", "hla2.status")):
+            if os.path.isfile(sf):
+                rc = open(sf).read().strip()
+                if rc not in ("", "0"):
+                    result.status = "failed"
+                    result.diplotype = (f"arcasHLA typing failed (hla2.status={rc}; "
+                                        "see pgx-hla2.sh log / hla2/arcashla_*.log)")
+                    return result
         return result  # not_run
     try:
         geno = json.load(open(path))

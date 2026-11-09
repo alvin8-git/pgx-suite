@@ -471,8 +471,10 @@ remains the primary class I typer and arcasHLA the class II typer.
 
 Sample-level `hla2` rule (once per sample, like PharmCAT), driven by `docker/pgx-hla2.sh`:
 
-1. **MHC read extraction** — reuses the `pgx-hla.sh` window `chr6:28,510,020-33,480,577`
-   (`samtools` → `bedtools bamtofastq`), producing paired FASTQs.
+1. **MHC read extraction** — the `pgx-hla.sh` window `chr6:28,510,020-33,480,577` plus every
+   chr6 `*_alt` and `HLA-*` contig in the BAM header (`samtools` name-sort -> `samtools fastq`),
+   producing paired FASTQs fed directly to genotype. `arcasHLA extract` is deliberately **not**
+   used: at WGS depth it keeps too few reads and drops DQA1/DQB1 (only DRB1 survives).
 2. **arcasHLA genotype** — `arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 R1 R2 -o hla2/`
    pseudo-aligns with kallisto and runs the EM genotyper, writing
    `hla2/<sample>.genotype.json` (+ `.genes.json`, `.genotype.log`).
@@ -482,7 +484,13 @@ Sample-level `hla2` rule (once per sample, like PharmCAT), driven by `docker/pgx
    so OmniGen needs no new reader logic.
 
 Ship as an Apptainer SIF (`StellarPGx/containers/arcashla.sif`), mounted read-only and run
-`--privileged` like OptiType.
+`--privileged` like OptiType. **The SIF is a required asset**, built locally with
+`docker/build-arcashla-sif.sh` (README "Building the arcasHLA SIF"): it bakes in the IMGT/HLA
+reference (`dat/ref` + `dat/IMGTHLA/hla.dat`) and **kallisto 0.44.0** (the biocontainer's
+kallisto 0.50.1 breaks genotype with "pseudoalignments.tsv not found"). The old header command
+`arcasHLA reference --version 3.55.0` does not work (`--version` takes an IMGTHLA git commit
+hash and needs GitHub LFS). If the SIF is missing or typing fails, `hla2.status` is non-zero,
+the log carries an `ERROR` line and DQA1/DQB1/DRB1 are rendered `failed` (not `not_run`).
 
 ### IMGT/HLA reference database
 

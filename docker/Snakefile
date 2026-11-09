@@ -198,7 +198,9 @@ rule hla2:
     shell:
         "mkdir -p {params.outdir}; rc=0; "
         "pgx-hla2.sh {BAM} {SAMPLE} {params.outdir} --ref {REF} --sif {params.sif} "
-        "|| rc=$?; echo $rc > {output}"
+        "|| rc=$?; echo $rc > {output}; "
+        "if [ $rc -ne 0 ]; then echo \"ERROR: HLA class II (arcasHLA) typing FAILED rc=$rc "
+        "-- DQA1/DQB1/DRB1 will be reported as failed, not clean. See hla2/ logs.\" >&2; fi"
 
 
 # ── SV preprocessing (hard deps — not callers; failure is a real error) ──────

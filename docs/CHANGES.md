@@ -5,6 +5,27 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-09 — arcasHLA SIF restored as a required asset; HLA class II failure now loud
+
+**Cause.** `StellarPGx/containers/arcashla.sif` did not exist on this host (it was never built
+into the container folder; earlier class II results came from the host-side arcasHLA route).
+`pgx-hla2.sh` logged "SIF not found", `rule hla2` wrote `hla2.status=1` and went on, and
+`parse_arcashla` turned the missing JSON into `not_run`, so class II looked merely absent
+(HG003_r2).
+
+- **SIF built** (451 MB, `StellarPGx/containers/arcashla.sif`) with `docker/build-arcashla-sif.sh`:
+  arcas-hla 0.6.0 biocontainer + the host IMGT/HLA reference (`hla.dat` header says 3.64.0;
+  earlier notes said 3.63.0) + kallisto 0.44.0. Plain `apptainer pull` is not enough (no
+  reference; kallisto 0.50.1 incompatible; `reference --version 3.55.0` invalid).
+- **`pgx-hla2.sh` bug fix.** It used `arcasHLA extract` on a name-sorted BAM ("unable to index
+  bam file"), and extract-filtered reads typed only DRB1. Now it uses the validated route
+  (MHC window + chr6 alt + HLA-* contigs -> FASTQ -> `genotype`). Verified on HG003: DQA1,
+  DQB1, DRB1 identical to the earlier results.
+- **Loud failure.** `rule hla2` prints an `ERROR` on non-zero exit; `parse_arcashla` reads
+  `hla2/hla2.status` and reports `failed` (not `not_run`) when it is non-zero with no JSON.
+- Docs: README + `ToolsDocumentation.md` 5b list the SIF as required with the build command.
+- The pgx-suite Docker image bakes in the scripts: rebuild it to pick up these changes.
+
 ## 2026-07-16 — arcasHLA reference relocated to durable tools dir (port-safety, no code change)
 
 **The host-side arcasHLA clone + reference DB moved off scratch so it survives a port.**
