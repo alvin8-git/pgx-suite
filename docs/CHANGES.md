@@ -25,6 +25,9 @@ into the container folder; earlier class II results came from the host-side arca
   `hla2/hla2.status` and reports `failed` (not `not_run`) when it is non-zero with no JSON.
 - Docs: README + `ToolsDocumentation.md` 5b list the SIF as required with the build command.
 - The pgx-suite Docker image bakes in the scripts: rebuild it to pick up these changes.
+- **Empty-FASTQ guard fixed.** The `-s` test on `hla.{1,2}.fq.gz` could never fire (samtools
+  writes a 28-byte BGZF EOF block even for zero reads), so empty FASTQs reached `arcasHLA
+  genotype`. It now fails with the same ERROR when either FASTQ decompresses to zero bytes.
 
 ## 2026-07-16 — arcasHLA reference relocated to durable tools dir (port-safety, no code change)
 

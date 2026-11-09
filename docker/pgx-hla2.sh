@@ -70,7 +70,10 @@ samtools fastq -@ "$THREADS" -n -1 "${TMP}/hla.1.fq.gz" -2 "${TMP}/hla.2.fq.gz" 
 APPTAINER_EXEC=(apptainer exec --cleanenv --bind "${TMP}:${TMP}" --bind "${OUTDIR}:${OUTDIR}" "$SIF")
 
 FASTQS="${TMP}/hla.1.fq.gz ${TMP}/hla.2.fq.gz"
-if [[ ! -s "${TMP}/hla.1.fq.gz" || ! -s "${TMP}/hla.2.fq.gz" ]]; then
+# samtools writes a 28-byte BGZF EOF block even for zero reads, so -s is never false;
+# test for decompressed content instead (|| true: head closing the pipe sends zcat SIGPIPE).
+if [[ -z "$(zcat "${TMP}/hla.1.fq.gz" | head -c1 || true)" \
+   || -z "$(zcat "${TMP}/hla.2.fq.gz" | head -c1 || true)" ]]; then
     log_status "ERROR no paired MHC reads extracted from ${BAM}"; exit 1
 fi
 
