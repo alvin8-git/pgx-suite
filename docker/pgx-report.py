@@ -151,7 +151,7 @@ DIPLOTYPE_CHECKS = {
     "CYP4F2":  lambda d: "*3" in (d or ""),
     "ABCG2":   lambda d: "rs2231142" in (d or ""),
     "HLA-A":   lambda d: "A*31:01" in (d or ""),
-    "HLA-B":   lambda d: any(x in (d or "") for x in ("B*57:01", "B*15:02", "B*58:01", "B*13:01", "B*57:03")),
+    "HLA-B":   lambda d: any(x in (d or "") for x in ("B*57:01", "B*15:02", "B*58:01")),
     "CYP3A4":  lambda d: "*22" in (d or ""),
     "IFNL3":   lambda d: "Reference/Reference" not in (d or "") and bool(d) and d not in ("-", ""),
 }
@@ -195,6 +195,10 @@ def _get_tier(gene: str, pheno_cat: str, diplotype: str,
     """
     entry = CPIC_DB.get(gene)
     if not entry:
+        return None
+    # Only CPIC Level A/B gene-drug pairs are flagged; a gene with no listed
+    # pair is still typed and shown, never raised as a finding.
+    if not entry.get("drugs"):
         return None
     dc = entry.get("diplotype_check")
     if dc:
@@ -390,9 +394,11 @@ def build_gene_cpic_section(gene: str, phenotype: str, diplotype: str,
     drug_rows = ""
     for d in entry.get("drugs", []):
         lvl_cls = f'cpic-level-{d["level"].lower()}'
+        drug_link = (f'<a href="{d["url"]}" target="_blank" class="cpic-link">{d["name"]}</a>'
+                     if d.get("url") else d["name"])
         drug_rows += f"""
             <tr>
-                <td><a href="{d['url']}" target="_blank" class="cpic-link">{d['name']}</a></td>
+                <td>{drug_link}</td>
                 <td><span class="cpic-level-badge {lvl_cls}">{d['level']}</span></td>
                 <td>{d['rec']}</td>
             </tr>"""

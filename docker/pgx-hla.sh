@@ -19,7 +19,11 @@
 # Method:
 #   1. samtools view extracts reads from the full MHC region (chr6:28,510,020-33,480,577)
 #      covering HLA-A (chr6:29,910,247-29,913,661), HLA-B (chr6:31,321,649-31,324,666)
-#      and HLA-C (chr6:31,268,749-31,272,130).
+#      and HLA-C (chr6:31,268,749-31,272,130), PLUS every HLA-* contig in the BAM header
+#      (the IMGT allele contigs of GRCh38 alt-aware references, ~500 of them). Reads that
+#      aligned to those contigs are real class I reads; dropping them halves OptiType's
+#      input and produced false homozygotes. A BAM with no HLA-* contigs gets the MHC
+#      window only. chr6 *_alt contigs make no difference and are not used.
 #   2. samtools fastq converts extracted reads to FASTQ (R1+R2 for paired, single for SE).
 #   3. OptiType (Apptainer container) types HLA Class I (A, B, C) via ILP optimisation.
 #      Internally OptiType runs razers3 against its bundled IMGT/HLA reference.
@@ -54,8 +58,10 @@
 #     result TSV. It is now a SAMPLE-level rule: one run writes OUTPUT_DIR/optitype/
 #     <SAMPLE>_result.tsv and all three loci parse that one TSV (parse_optitype is
 #     locus-agnostic). Saves ~6-12 min/sample of pure redundant compute.
-#   - MHC extraction uses the primary assembly region. HLA-A, HLA-B and HLA-C are
-#     all within chr6:28.5 Mb-33.5 Mb (GRCh38).
+#   - MHC extraction uses the chr6 MHC window plus the HLA-* contigs (see Method 1).
+#     HLA-A, HLA-B and HLA-C are all within chr6:28.5 Mb-33.5 Mb (GRCh38).
+#     HISTORY (fixed 2026-11): the HLA-* contigs were previously left out, so OptiType
+#     saw about half the informative reads, producing false homozygotes at HLA-A and HLA-C.
 
 set -uo pipefail
 
@@ -68,8 +74,9 @@ BAM="$1"
 SAMPLE="$2"
 OUTPUT_DIR="$3"
 
-# Full MHC primary-assembly region — covers HLA-A, HLA-B, HLA-C
+# Full MHC region on chr6 — covers HLA-A, HLA-B, HLA-C
 MHC_REGION="chr6:28510020-33480577"
+MHC_REGION_NOCHR="6:28510020-33480577"
 NCPU=$(nproc 2>/dev/null || echo 4)
 OPTITYPE_SIF="/pgx/containers/optitype.sif"
 OPTITYPE_OUT="${OUTPUT_DIR}/optitype"
@@ -99,7 +106,17 @@ fi
 
 echo "[hla] Loci:   HLA-A / HLA-B / HLA-C (class I, one OptiType run)"
 echo "[hla] BAM:    ${BAM}"
-echo "[hla] Region: ${MHC_REGION}"
+
+# Region list: the MHC window plus every HLA-* contig named in the BAM header. Built as
+# an array (contig names such as HLA-A*01:01:01:01 contain ':' and '*').
+# A failed header read must not silently fall back to MHC-only.
+HLA_CONTIGS=$(samtools view -H "$BAM" | awk -F'\t' '$1=="@SQ"{n=$2; sub(/^SN:/,"",n); if (n ~ /^HLA-/) print n}'; exit "${PIPESTATUS[0]}") || {
+    echo "ERROR: could not read the BAM header of ${BAM}" >&2; exit 1; }
+HLA_CONTIG_ARR=()
+if [[ -n "$HLA_CONTIGS" ]]; then mapfile -t HLA_CONTIG_ARR <<< "$HLA_CONTIGS"; fi
+REGIONS=("$MHC_REGION" "${HLA_CONTIG_ARR[@]}")
+REGIONS_NOCHR=("$MHC_REGION_NOCHR" "${HLA_CONTIG_ARR[@]}")
+echo "[hla] Region: ${MHC_REGION} + ${#HLA_CONTIG_ARR[@]} HLA-* contigs"
 
 # ── Step 1: Extract MHC reads ─────────────────────────────────────────────────
 echo "[hla] Extracting reads from MHC region …"
@@ -110,11 +127,11 @@ FASTQ_2="${TMP}/mhc_2.fastq"
 FASTQ_S="${TMP}/mhc_s.fastq"
 
 # Detect paired-end by checking flag 0x1 (paired read) in MHC region
-paired_count=$(samtools view -f 0x1 -c -@ "$NCPU" "$BAM" "$MHC_REGION" 2>/dev/null || echo 0)
+paired_count=$(samtools view -f 0x1 -c -@ "$NCPU" "$BAM" "${REGIONS[@]}" 2>/dev/null || echo 0)
 
 if [[ "$paired_count" -gt 0 ]]; then
     # Paired-end: extract, name-sort, then split to R1/R2
-    samtools view -b -@ "$NCPU" "$BAM" "$MHC_REGION" 2>/dev/null \
+    samtools view -b -@ "$NCPU" "$BAM" "${REGIONS[@]}" 2>/dev/null \
         | samtools sort -n -@ "$NCPU" \
         | samtools fastq -@ "$NCPU" \
             -1 "$FASTQ_1" \
@@ -126,7 +143,7 @@ if [[ "$paired_count" -gt 0 ]]; then
     OPTITYPE_INPUT="-i $FASTQ_1 $FASTQ_2"
 else
     # Single-end: stream directly to FASTQ
-    samtools view -b -@ "$NCPU" "$BAM" "$MHC_REGION" 2>/dev/null \
+    samtools view -b -@ "$NCPU" "$BAM" "${REGIONS[@]}" 2>/dev/null \
         | samtools fastq -@ "$NCPU" - > "$FASTQ_S" 2>/dev/null
     echo "[hla] MHC extraction (single-end): $(_elapsed $_T)"
     OPTITYPE_INPUT="-i $FASTQ_S"
@@ -139,8 +156,7 @@ echo "[hla] MHC reads extracted: ${n_reads}"
 if [[ "$n_reads" -eq 0 ]]; then
     echo "[hla] WARN: No reads extracted from ${MHC_REGION} — BAM may not have chr-prefix contigs" >&2
     # Try without chr prefix
-    MHC_REGION_NOCHR="6:28510020-33480577"
-    samtools view -b -@ "$NCPU" "$BAM" "$MHC_REGION_NOCHR" 2>/dev/null \
+    samtools view -b -@ "$NCPU" "$BAM" "${REGIONS_NOCHR[@]}" 2>/dev/null \
         | samtools sort -n -@ "$NCPU" \
         | samtools fastq -@ "$NCPU" \
             -1 "$FASTQ_1" -2 "$FASTQ_2" -s "$FASTQ_S" -0 /dev/null -n 2>/dev/null \

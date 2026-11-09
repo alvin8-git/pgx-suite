@@ -385,9 +385,12 @@ ILP genotyping is performed.
 
 `pgx-hla.sh` handles the full workflow:
 
-1. **MHC read extraction** — `samtools view` extracts reads from the primary MHC region
-   (`chr6:28,510,020-33,480,577`) plus any chr6 unmapped reads. These are written to a
-   temporary FASTQ pair via `samtools fastq`.
+1. **MHC read extraction** — `samtools view` extracts reads from the MHC region
+   (`chr6:28,510,020-33,480,577`) plus every `HLA-*` contig named in the BAM header
+   (the IMGT allele contigs of alt-aware GRCh38 references; a BAM without them gets the
+   MHC window only). Reads aligned to the `HLA-*` contigs are real class I reads: leaving
+   them out halves OptiType's input and gave false homozygotes (fixed 2026-11). These are
+   written to a temporary FASTQ pair via `samtools fastq`.
 2. **OptiType Apptainer call** — the SIF at `/pgx/containers/optitype.sif` is invoked
    with `--rna` disabled and `--dna` mode. The two FASTQ files are passed via
    `--input`.

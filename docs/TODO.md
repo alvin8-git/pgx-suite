@@ -292,8 +292,7 @@ Class II alleles require a dedicated tool (HLA-HD or arcasHLA) and are not yet i
 
 ### 9a. Annotation-only additions (OptiType already calls these — DONE ✅)
 
-- [x] `pgx-report.py` CPIC_DB — HLA-B entry: add **HLA-B\*13:01** (dapsone → DRESS/HSS, CPIC Level B, Asian ancestry)
-- [x] `pgx-report.py` CPIC_DB — HLA-B entry: add **HLA-B\*57:03** (flucloxacillin → DILI, CPIC Level B, European ancestry)
+- [x] ~~HLA-B\*13:01 (dapsone) and HLA-B\*57:03 (flucloxacillin)~~ — **removed 2026-11-09**: dapsone/HLA-B is CPIC Level C (no guideline) and flucloxacillin is not a CPIC pair; only Level A/B pairs are flagged (see CHANGES.md)
 
 ### 9b. New tool required — HLA Class II typing (HLA-HD or arcasHLA)
 
@@ -326,7 +325,7 @@ methaemoglobinaemia and exacerbates dapsone-induced methaemoglobinaemia.
 - [ ] Assess gene size (chr22:42,511,583-42,556,659, ~45 kb) — bcftools lookup is feasible
 - [ ] Determine PyPGx / Aldy support (likely no star-allele support; custom bcftools genotyper)
 - [ ] Implement variant-level lookup for key CYB5R3 variants (rs1799931)
-- [ ] Add to CPIC_DB with cross-reference to HLA-B\*13:01 + dapsone context
+- [ ] Add to CPIC_DB (HLA-B\*13:01/dapsone is no longer listed: CPIC Level C)
 
 ### 9d. HLA-C clinical reporting (OptiType already genotypes internally)
 

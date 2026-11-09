@@ -17,9 +17,9 @@ This pipeline performs star-allele calling and diplotype assignment across 38 ge
 gene's exact level is in its **CPIC Level** subsection below:
 **CACNA1S, CYP2B6, CYP2C9, CYP2C19, CYP2D6, CYP3A5, DPYD, G6PD, HLA-A, HLA-B, IFNL3,
 MT-RNR1, NAT2, NUDT15, RYR1, SLCO1B1, TPMT, UGT1A1, VKORC1**.
-The remaining entries are CPIC Level B (e.g. ABCG2, CYP1A2, CYP2A6, CYP2C8, CYP4F2),
-the CYP3A4 tacrolimus co-marker, the warfarin **CYP2C-CLUSTER** locus, or research-grade
-genes (CYP1A1, CYP2E1, GSTM1/P1/T1, NAT1, POR, SLC15A2, SLC22A2, SLCO2B1, UGT2B15).
+The remaining entries are CPIC Level B (e.g. ABCG2), the warfarin **CYP2C-CLUSTER**
+locus, genes that are typed but have no CPIC Level A/B pair listed (CYP1A2, CYP2A6, CYP2C8,
+CYP3A4, IFNL3, NAT2), or research-grade genes (CYP1A1, CYP2E1, GSTM1/P1/T1, NAT1, POR, SLC15A2, SLC22A2, SLCO2B1, UGT2B15).
 
 1. [ABCG2](#abcg2)
 2. [CACNA1S](#cacna1s) — **Level A**
@@ -286,7 +286,7 @@ CYP1A2 *1F (rs762551 -163C>A) is the most common functional variant, with minor 
 
 ### CPIC Level
 
-**CPIC Level B** — Clozapine, fluvoxamine, and olanzapine. The evidence supports genotype-guided dose adjustment but with moderate confidence. CPIC Level C for theophylline.
+**No CPIC Level A/B pair listed.** CPIC lists no CYP1A2 gene-drug pair at Level A or B (fluvoxamine is not a CPIC CYP1A2 pair), so CYP1A2 is typed and shown but never flagged.
 
 ### Tool Support in pgx-suite
 
@@ -327,7 +327,7 @@ CYP2A6 loss-of-function alleles are substantially more frequent in East Asians (
 
 ### CPIC Level
 
-**CPIC Level B** — Smoking cessation pharmacotherapy (nicotine replacement therapy, varenicline). Moderate evidence for NMR-guided pharmacotherapy selection.
+**No CPIC Level A/B pair listed.** CPIC lists no CYP2A6 gene-drug pair (nicotine is not a CPIC CYP2A6 pair), so CYP2A6 is typed and shown but never flagged.
 
 ### Tool Support in pgx-suite
 
@@ -406,7 +406,7 @@ CYP2C8*3 is most prevalent in Europeans (~13% allele frequency) and much rarer i
 
 ### CPIC Level
 
-**CPIC Level B** — Paclitaxel (neuropathy risk) and rosiglitazone. Evidence is actionable but the guideline confidence is classified below Level A.
+**No CPIC Level A/B pair listed.** CPIC rates CYP2C8 pairs (ibuprofen, diclofenac, rosiglitazone) Level C, and amodiaquine is not a CPIC pair, so CYP2C8 is typed and shown but never flagged.
 
 ### Tool Support in pgx-suite
 
@@ -653,7 +653,7 @@ CYP3A4*22 allele frequency is ~5–7% in Europeans and rare (<2%) in East Asians
 
 ### CPIC Level
 
-**Not assigned as standalone** — CYP3A4 is included as a modifier in tacrolimus (via CYP3A5), simvastatin, and other guidelines but does not have a dedicated Level A CPIC guideline. CYP3A5 is the primary actionable gene in the CYP3A locus.
+**No CPIC Level A/B pair listed.** CPIC rates the CYP3A4 pairs (including tacrolimus and the statins) Level C, so CYP3A4 is typed and shown but never flagged. CYP3A5 is the primary actionable gene in the CYP3A locus.
 
 ### Tool Support in pgx-suite
 
@@ -730,7 +730,7 @@ CYP4F2*3 allele frequency is approximately 26–28% in Europeans, 18–25% in Ea
 
 ### CPIC Level
 
-**Incorporated in CPIC Level A warfarin guideline** — CYP4F2 is included as a tertiary modifier in the CPIC/IWPC warfarin dosing algorithm. It is not classified independently but modifies dose predictions when included alongside CYP2C9 and VKORC1.
+**Incorporated in CPIC Level A warfarin guideline** — CYP4F2 is included as a tertiary modifier in the CPIC/IWPC warfarin dosing algorithm. CPIC rates the CYP4F2-warfarin pair Level A. It modifies dose predictions when included alongside CYP2C9 and VKORC1.
 
 ### Tool Support in pgx-suite
 
@@ -993,7 +993,7 @@ HLA-A*31:01 has allele frequency ~5% in Japanese, ~3–5% in Northern Europeans,
 | OptiType | Yes (4-digit typing) |
 | mutserve | No |
 
-> OptiType performs HLA-A 4-digit typing from WGS reads extracted from the MHC region (chr6:28510020–33480577).
+> OptiType performs HLA-A 4-digit typing from WGS reads extracted from the MHC region (chr6:28510020–33480577) plus the `HLA-*` contigs of the BAM.
 
 ---
 
@@ -1014,8 +1014,8 @@ HLA-B*57:01 is essentially the sole genetic determinant of abacavir (ABC) hypers
 | *57:01 | Abacavir | Hypersensitivity syndrome | ~900–1800 | All (freq ~8% Europeans) |
 | *58:01 | Allopurinol | SJS/TEN, DRESS | >100 | Han Chinese, Thai, Korean |
 | *15:02 | Carbamazepine | SJS/TEN | ~80 | Southeast Asian, Han Chinese |
+| *15:02 | Oxcarbazepine | SJS/TEN | | Southeast Asian, Han Chinese |
 | *15:02 | Phenytoin | SJS/TEN | ~10 | Southeast Asian |
-| *57:03 | Flucloxacillin | DILI | ~80 | Europeans |
 
 ### Population Frequencies
 
@@ -1023,7 +1023,7 @@ HLA-B*57:01 allele frequency is ~5–8% in Europeans, ~6% in Africans, and ~2–
 
 ### CPIC Level
 
-**CPIC Level A** — Abacavir (B*57:01), allopurinol (B*58:01), carbamazepine (B*15:02), and phenytoin/fosphenytoin (B*15:02).
+**CPIC Level A** — Abacavir (B*57:01), allopurinol (B*58:01), carbamazepine and oxcarbazepine (B*15:02), and phenytoin/fosphenytoin (B*15:02). Dapsone (B*13:01) is CPIC Level C with no guideline, and flucloxacillin (B*57:03) is not a CPIC pair, so neither is flagged.
 
 ### Tool Support in pgx-suite
 
@@ -1088,7 +1088,7 @@ The favourable rs12979860 C allele (non-IFNL4-expressing) is highly prevalent in
 
 ### CPIC Level
 
-**CPIC Level A** — Peginterferon alfa-2a and alfa-2b (for HCV treatment). Clinical utility is now predominantly restricted to settings where direct-acting antivirals are unavailable.
+**No CPIC Level A/B pair listed.** CPIC has retired the peginterferon alfa-2a and alfa-2b pairs, so IFNL3 is typed and shown but never flagged.
 
 ### Tool Support in pgx-suite
 
@@ -1212,7 +1212,7 @@ Slow acetylator phenotype is highly prevalent across all populations: ~50–60% 
 
 ### CPIC Level
 
-**CPIC Level A** — Isoniazid and hydralazine. CPIC provides specific recommendations for NAT2-guided dosing and toxicity monitoring.
+**CPIC Level A: hydralazine** ([guideline](https://www.clinpgx.org/guideline/PA166416361)). CPIC recommends a lower starting dose in poor metabolizers (40-75 mg/day total, caution at 200 mg/day or more; higher drug-induced lupus risk) and a higher dose in intermediate and rapid metabolizers (start at least 75 mg/day, titrate up to 300 mg/day). A poor/slow, intermediate or rapid NAT2 phenotype is flagged moderate. Isoniazid is CPIC Level C (no guideline) and is not flagged.
 
 ### Tool Support in pgx-suite
 

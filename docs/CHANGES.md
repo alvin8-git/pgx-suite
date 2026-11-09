@@ -5,6 +5,37 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-09 — cpic.json is strictly CPIC Level A/B; Level C pairs are not flagged
+
+`docker/cpic.json` is the single source of flagging rules, so only CPIC Level A or B gene-drug
+pairs may be listed. Checked against CPIC's live pair table; stale entries corrected.
+
+- **Removed** (Level C, retired, or not a CPIC pair): HLA-B dapsone and B\*13:01; HLA-B
+  flucloxacillin and B\*57:03; HLA-A oxcarbazepine (A\*31:01 text now names carbamazepine
+  only); NAT2 isoniazid; both IFNL3 peginterferon entries (Retired); CYP3A4 "Tacrolimus (with
+  CYP3A5)" (CYP3A5 tacrolimus stays); CYP1A2 fluvoxamine; CYP2A6 nicotine; CYP2C8 amodiaquine.
+- **Changed:** CYP4F2 warfarin level B to A.
+- **Added:** HLA-B oxcarbazepine (Level A; B\*15:02 text now names it); CYP2D6 aripiprazole
+  (Level B). CPIC has no guideline URL for aripiprazole, so its `url` is empty, the report shows
+  the drug name unlinked, and `rec` points to DPWG guideline annotation PA166104937.
+- **Genes with no listed pair** (IFNL3, CYP3A4, CYP1A2, CYP2A6, CYP2C8) stay in the file
+  and are still typed and shown. `_get_tier()` in `pgx-report.py` now returns "not flagged" for
+  any gene whose `drugs` list is empty; their phenotype triggers and drug-specific notes were
+  cleared. `pgx-report.py` `DIPLOTYPE_CHECKS["HLA-B"]` no longer includes B\*13:01 and B\*57:03.
+- **Added:** NAT2 hydralazine (Level A, CPIC guideline PA166416361). NAT2 is flagged moderate for
+  poor/slow, intermediate and rapid phenotypes, with CPIC's dosing text; this corrects the
+  "typed but not flagged" note above for NAT2.
+- Historical entries below are left as written.
+
+## 2026-11-09 — OptiType class I now reads the HLA-* contigs too
+
+**Cause.** `pgx-hla.sh` extracted only `chr6:28,510,020-33,480,577`, so reads aligned to the
+`HLA-*` contigs of the GRCh38 alt-aware BAM were dropped and OptiType saw about half the
+informative reads, giving false homozygotes (and one missing HLA-C). chr6 `*_alt` contigs make
+no difference. **Fix.** The region list is the MHC window plus every `HLA-*` contig in the BAM
+header, in the paired, single-end and no-chr branches and in the paired-read count. A BAM with
+no `HLA-*` contigs behaves as before. Existing class I results must be re-run.
+
 ## 2026-11-09 — arcasHLA SIF restored as a required asset; HLA class II failure now loud
 
 **Cause.** `StellarPGx/containers/arcashla.sif` did not exist on this host (it was never built

@@ -38,6 +38,12 @@
         "level": "A",
         "url": "https://cpicpgx.org/guidelines/guideline-for-atomoxetine-and-cyp2d6/",
         "rec": "PM: initiate at 50% standard dose; titrate slowly. UM: standard dose may be sub-therapeutic."
+      },
+      {
+        "name": "Aripiprazole",
+        "level": "B",
+        "url": "",
+        "rec": "CPIC rates this gene-drug pair Level B but has not published a guideline for it. For genotype-guided recommendations see the DPWG guideline annotation PA166104937 (ClinPGx)."
       }
     ]
   },
@@ -331,25 +337,27 @@
     ]
   },
   "NAT2": {
-    "desc": "N-acetyltransferase 2 metabolises isoniazid and hydralazine. Slow acetylators accumulate isoniazid, increasing peripheral neuropathy and hepatotoxicity risk.",
+    "desc": "N-acetyltransferase 2 is a phase II acetylating enzyme that metabolises hydralazine. CPIC rates hydralazine Level A: dose to NAT2 phenotype (poor metabolizers need a lower starting dose and carry a higher risk of drug-induced lupus; rapid and intermediate metabolizers need a higher dose). Isoniazid is CPIC Level C and is not flagged.",
     "pharmvar_url": null,
     "high_pheno": [],
     "moderate_pheno": [
-      "slow",
       "poor",
-      "intermediate"
+      "slow",
+      "intermediate",
+      "rapid"
     ],
     "landing_notes": {
-      "slow": "NAT2 slow acetylator: isoniazid accumulates — supplement with pyridoxine (vitamin B6) 25–50 mg/day and monitor for peripheral neuropathy.",
-      "poor": "NAT2 slow acetylator phenotype. Isoniazid dose adjustment or pyridoxine supplementation may be required.",
-      "intermediate": "Intermediate NAT2 activity. Monitor isoniazid tolerability."
+      "poor": "NAT2 poor metabolizer (slow acetylator): hydralazine exposure is increased, with higher efficacy and adverse-effect risk including drug-induced lupus. CPIC: start at a total daily dose of 40-75 mg and titrate carefully.",
+      "slow": "NAT2 poor metabolizer (slow acetylator): hydralazine exposure is increased, with higher efficacy and adverse-effect risk including drug-induced lupus. CPIC: start at a total daily dose of 40-75 mg and titrate carefully.",
+      "intermediate": "NAT2 intermediate metabolizer: reduced hydralazine exposure and efficacy compared with poor metabolizers. CPIC: consider a starting total daily dose of at least 75 mg and titrate up to 300 mg as tolerated.",
+      "rapid": "NAT2 rapid metabolizer: reduced hydralazine exposure and efficacy compared with poor metabolizers. CPIC: consider a starting total daily dose of at least 75 mg and titrate up to 300 mg as tolerated."
     },
     "drugs": [
       {
-        "name": "Isoniazid",
+        "name": "Hydralazine",
         "level": "A",
-        "url": "https://cpicpgx.org/guidelines/guideline-for-isoniazid-and-nat2/",
-        "rec": "Slow acetylator: supplement with pyridoxine 25–50 mg/day; monitor for neuropathy and hepatotoxicity. Consider dose adjustment if standard dose not tolerated."
+        "url": "https://www.clinpgx.org/guideline/PA166416361",
+        "rec": "PM: start at a total daily dose of 40-75 mg and titrate carefully to clinical effect; use caution at 200 mg/day or more (higher exposure, drug-induced lupus risk). IM and RM: consider a starting total daily dose of at least 75 mg and titrate up to 300 mg/day as tolerated; they typically need a 50-100% higher maintenance dose than PMs."
       }
     ]
   },
@@ -443,7 +451,7 @@
     "drugs": [
       {
         "name": "Warfarin",
-        "level": "B",
+        "level": "A",
         "url": "https://cpicpgx.org/guidelines/guideline-for-warfarin-and-cyp2c9-and-vkorc1/",
         "rec": "*3 carriers may require slightly higher warfarin doses. Incorporate into multi-gene CPIC dosing algorithm alongside CYP2C9 and VKORC1."
       }
@@ -477,11 +485,11 @@
     "moderate_pheno": [],
     "min_tools": 1,
     "risk_alleles": {
-      "A*31:01": "carbamazepine/oxcarbazepine: increased DRESS/SJS/TEN risk across all ancestries"
+      "A*31:01": "carbamazepine: increased DRESS/SJS/TEN risk across all ancestries"
     },
     "no_risk_note": "No CPIC Level A high-risk HLA-A alleles (A*31:01) detected.",
     "landing_notes": {
-      "_diplotype": "HLA-A*31:01 detected — carbamazepine and oxcarbazepine associated with severe cutaneous adverse reactions (DRESS, SJS, TEN) across all ancestries. Avoid if clinically feasible."
+      "_diplotype": "HLA-A*31:01 detected — carbamazepine associated with severe cutaneous adverse reactions (DRESS, SJS, TEN) across all ancestries. Avoid if clinically feasible."
     },
     "drugs": [
       {
@@ -489,29 +497,21 @@
         "level": "A",
         "url": "https://cpicpgx.org/guidelines/guideline-for-carbamazepine-and-hla-b/",
         "rec": "HLA-A*31:01 positive: avoid carbamazepine — significantly increased risk of DRESS, SJS, TEN in all ancestries. Use alternative anticonvulsant."
-      },
-      {
-        "name": "Oxcarbazepine",
-        "level": "B",
-        "url": "https://cpicpgx.org/guidelines/guideline-for-oxcarbazepine-and-hla-b-and-hla-a/",
-        "rec": "HLA-A*31:01 positive: consider alternatives to oxcarbazepine; increased SCAR risk."
       }
     ]
   },
   "HLA-B": {
-    "desc": "Major histocompatibility complex class I gene. Multiple HLA-B alleles are associated with severe drug hypersensitivity: HLA-B*57:01 (abacavir), HLA-B*58:01 (allopurinol), HLA-B*15:02 (carbamazepine/phenytoin in Asian ancestry), HLA-B*13:01 (dapsone-induced DRESS/HSS, prevalent in Asian populations), HLA-B*57:03 (flucloxacillin-induced DILI, prevalent in European populations).",
+    "desc": "Major histocompatibility complex class I gene. Multiple HLA-B alleles are associated with severe drug hypersensitivity: HLA-B*57:01 (abacavir), HLA-B*58:01 (allopurinol), HLA-B*15:02 (carbamazepine/oxcarbazepine/phenytoin in Asian ancestry).",
     "pharmvar_url": null,
     "high_pheno": [],
     "moderate_pheno": [],
     "min_tools": 1,
     "risk_alleles": {
       "B*57:01": "abacavir: contraindicated — high hypersensitivity risk",
-      "B*15:02": "carbamazepine / phenytoin: avoid — high SJS/TEN risk (esp. Asian ancestry)",
-      "B*58:01": "allopurinol: avoid — high SJS/TEN risk",
-      "B*13:01": "dapsone: avoid — high risk of DRESS/HSS (esp. Asian ancestry)",
-      "B*57:03": "flucloxacillin: use with caution — increased DILI risk (esp. European ancestry)"
+      "B*15:02": "carbamazepine / oxcarbazepine / phenytoin: avoid — high SJS/TEN risk (esp. Asian ancestry)",
+      "B*58:01": "allopurinol: avoid — high SJS/TEN risk"
     },
-    "no_risk_note": "No high-risk HLA-B alleles (B*57:01, B*15:02, B*58:01 [CPIC Level A]; B*13:01, B*57:03 [CPIC Level B]) detected.",
+    "no_risk_note": "No high-risk HLA-B alleles (B*57:01, B*15:02, B*58:01 [CPIC Level A]) detected.",
     "landing_notes": {
       "_diplotype": "High-risk HLA-B allele detected — see detail page for drug-specific recommendations."
     },
@@ -535,22 +535,16 @@
         "rec": "HLA-B*15:02 positive: avoid carbamazepine — high SJS/TEN risk especially in Han Chinese and Southeast Asian ancestry. Use alternative anticonvulsant."
       },
       {
+        "name": "Oxcarbazepine",
+        "level": "A",
+        "url": "https://www.clinpgx.org/guideline/PA166251448",
+        "rec": "HLA-B*15:02 positive: avoid oxcarbazepine — high SJS/TEN risk especially in Han Chinese and Southeast Asian ancestry. Use alternative anticonvulsant."
+      },
+      {
         "name": "Phenytoin / Fosphenytoin",
         "level": "A",
         "url": "https://cpicpgx.org/guidelines/guideline-for-phenytoin-and-cyp2c9-and-hla-b/",
         "rec": "HLA-B*15:02 positive: increased SJS risk. Avoid or use with extreme caution; consider alternative anticonvulsant."
-      },
-      {
-        "name": "Dapsone",
-        "level": "B",
-        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-dapsone-and-hla-b/",
-        "rec": "HLA-B*13:01 positive: dapsone associated with high risk of DRESS (drug reaction with eosinophilia and systemic symptoms) and HSS (hypersensitivity syndrome), particularly in Asian populations. Consider alternative antimicrobial (e.g., trimethoprim-sulfamethoxazole, atovaquone)."
-      },
-      {
-        "name": "Flucloxacillin",
-        "level": "B",
-        "url": "https://www.pharmgkb.org/chemical/PA10001/clinicalAnnotation",
-        "rec": "HLA-B*57:03 positive: flucloxacillin associated with increased risk of drug-induced liver injury (DILI), predominantly reported in individuals of European ancestry. Use with caution and monitor liver function; consider an alternative narrow-spectrum beta-lactam if available."
       }
     ]
   },
@@ -563,68 +557,28 @@
     "drugs": []
   },
   "CYP1A2": {
-    "desc": "CYP1A2 is the primary enzyme metabolising fluvoxamine and accounts for ~13% of total hepatic CYP activity. Ultra-rapid metabolisers may require higher fluvoxamine doses; poor metabolisers are at risk of toxicity.",
+    "desc": "CYP1A2 is a major hepatic CYP enzyme (~13% of total hepatic CYP activity). CPIC has no CYP1A2 gene-drug pair, so the gene is typed but no pair is listed or flagged.",
     "pharmvar_url": "https://www.pharmvar.org/gene/CYP1A2",
     "high_pheno": [],
-    "moderate_pheno": [
-      "poor",
-      "intermediate"
-    ],
-    "landing_notes": {
-      "poor": "CYP1A2 poor metaboliser: fluvoxamine plasma levels may be markedly elevated — start at lowest effective dose and titrate carefully.",
-      "intermediate": "CYP1A2 intermediate metaboliser: consider dose reduction for narrow-therapeutic-index CYP1A2 substrates.",
-      "ultra-rapid": "CYP1A2 ultra-rapid metaboliser: standard fluvoxamine doses may be subtherapeutic."
-    },
-    "drugs": [
-      {
-        "name": "Fluvoxamine",
-        "level": "A",
-        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-fluvoxamine-and-cyp1a2/",
-        "rec": "Poor metaboliser: initiate at lowest available dose; titrate with close monitoring. Ultra-rapid: may need higher doses or alternative SSRI."
-      }
-    ]
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
   },
   "CYP2A6": {
-    "desc": "CYP2A6 is the principal enzyme catalysing nicotine C-oxidation to cotinine. Poor and intermediate metabolisers smoke fewer cigarettes but may have lower quit rates with standard nicotine replacement therapy.",
+    "desc": "CYP2A6 is the principal enzyme catalysing nicotine C-oxidation to cotinine. CPIC has no CYP2A6 gene-drug pair, so the gene is typed but no pair is listed or flagged.",
     "pharmvar_url": "https://www.pharmvar.org/gene/CYP2A6",
     "high_pheno": [],
-    "moderate_pheno": [
-      "poor",
-      "intermediate"
-    ],
-    "landing_notes": {
-      "poor": "CYP2A6 poor metaboliser: nicotine clearance is reduced — may smoke fewer cigarettes per day. Standard NRT patch may be sufficient; monitor for over-replacement.",
-      "intermediate": "CYP2A6 intermediate metaboliser: slightly reduced nicotine metabolism. Standard cessation therapy is appropriate."
-    },
-    "drugs": [
-      {
-        "name": "Nicotine / Tobacco cessation",
-        "level": "A",
-        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-nicotine-and-cyp2a6/",
-        "rec": "Poor metaboliser: nicotine elimination is slow. Patch-based NRT is preferred over short-acting forms. Dose reduction may be needed to prevent adverse effects."
-      }
-    ]
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
   },
   "CYP2C8": {
-    "desc": "CYP2C8 metabolises amodiaquine, pioglitazone, paclitaxel and other drugs. Poor metabolisers are at increased risk of amodiaquine-induced agranulocytosis.",
+    "desc": "CYP2C8 metabolises pioglitazone, paclitaxel and other drugs. CPIC rates its pairs Level C, so the gene is typed but no pair is listed or flagged.",
     "pharmvar_url": "https://www.pharmvar.org/gene/CYP2C8",
     "high_pheno": [],
-    "moderate_pheno": [
-      "poor",
-      "intermediate"
-    ],
-    "landing_notes": {
-      "poor": "CYP2C8 poor metaboliser: avoid amodiaquine — increased risk of agranulocytosis. Use alternative antimalarial.",
-      "intermediate": "CYP2C8 intermediate metaboliser: monitor for amodiaquine toxicity."
-    },
-    "drugs": [
-      {
-        "name": "Amodiaquine",
-        "level": "B",
-        "url": "https://cpicpgx.org/guidelines/cpic-guideline-for-amodiaquine-and-cyp2c8/",
-        "rec": "Poor metaboliser: avoid amodiaquine due to increased agranulocytosis risk. Use alternative antimalarial (e.g. artemisinin-based combination therapy)."
-      }
-    ]
+    "moderate_pheno": [],
+    "landing_notes": {},
+    "drugs": []
   },
   "CYP2E1": {
     "desc": "CYP2E1 metabolises ethanol, paracetamol (acetaminophen), and industrial solvents. No CPIC guideline with actionable recommendations currently exists.",
@@ -635,21 +589,12 @@
     "drugs": []
   },
   "CYP3A4": {
-    "desc": "CYP3A4 is the most abundant hepatic CYP enzyme, metabolising ~50% of drugs. The *22 allele (rs35599367) reduces CYP3A4 expression and is relevant to tacrolimus dosing. No standalone high-evidence CPIC guideline for CYP3A4 genotyping alone.",
+    "desc": "CYP3A4 is the most abundant hepatic CYP enzyme, metabolising ~50% of drugs. The *22 allele (rs35599367) reduces CYP3A4 expression. CPIC rates CYP3A4 pairs Level C, so the gene is typed but no gene-drug pair is listed or flagged.",
     "pharmvar_url": "https://www.pharmvar.org/gene/CYP3A4",
     "high_pheno": [],
     "moderate_pheno": [],
-    "landing_notes": {
-      "_diplotype": "CYP3A4 *22 allele detected — reduced CYP3A4 expression. May contribute to altered tacrolimus and other CYP3A4 substrate metabolism. Interpret alongside CYP3A5 genotype."
-    },
-    "drugs": [
-      {
-        "name": "Tacrolimus (with CYP3A5)",
-        "level": "A",
-        "url": "https://cpicpgx.org/guidelines/guideline-for-tacrolimus-and-cyp3a5/",
-        "rec": "CYP3A4 *22 in a CYP3A5 non-expresser: combined poor CYP3A metaboliser — consider lower tacrolimus starting dose and target lower initial trough concentrations."
-      }
-    ]
+    "landing_notes": {},
+    "drugs": []
   },
   "GSTM1": {
     "desc": "GSTM1 (glutathione S-transferase mu 1) is commonly deleted (*0/*0 null genotype), reducing glutathione conjugation capacity. The null genotype is present in ~50% of Europeans and ~35% of Asians. No CPIC Level A/B guideline with dose-adjustment recommendations currently exists.",
@@ -668,27 +613,12 @@
     "drugs": []
   },
   "IFNL3": {
-    "desc": "IFNL3 (IL28B) encodes interferon lambda-3. The rs12979860 C/C genotype strongly predicts favourable response to pegylated interferon alfa + ribavirin therapy for chronic hepatitis C (HCV). Relevant primarily for genotype 1 and 4 HCV where interferon-based therapy is still considered.",
+    "desc": "IFNL3 (IL28B) encodes interferon lambda-3 (rs12979860). The peginterferon pairs are Retired in CPIC, so the gene is typed but no gene-drug pair is listed or flagged.",
     "pharmvar_url": null,
     "high_pheno": [],
     "moderate_pheno": [],
-    "landing_notes": {
-      "_diplotype": "Non-reference IFNL3 genotype detected — reduced likelihood of sustained virological response (SVR) with pegylated interferon alfa + ribavirin for HCV."
-    },
-    "drugs": [
-      {
-        "name": "Peginterferon alfa-2a",
-        "level": "A",
-        "url": "https://cpicpgx.org/guidelines/guideline-for-peg-interferon-alpha-based-regimens-and-ifnl3/",
-        "rec": "Non-CC genotype (CT or TT at rs12979860): significantly reduced SVR rate with peg-IFN + RBV. Prefer direct-acting antiviral (DAA) regimens where available."
-      },
-      {
-        "name": "Peginterferon alfa-2b + Ribavirin",
-        "level": "A",
-        "url": "https://cpicpgx.org/guidelines/guideline-for-peg-interferon-alpha-based-regimens-and-ifnl3/",
-        "rec": "Non-CC genotype: lower SVR probability. DAA therapy is strongly preferred. If interferon-based therapy must be used, counsel patient on reduced efficacy."
-      }
-    ]
+    "landing_notes": {},
+    "drugs": []
   },
   "NAT1": {
     "desc": "NAT1 (N-acetyltransferase 1) acetyltransferase with activity toward aromatic and heterocyclic amines. No CPIC Level A/B guideline with actionable dose recommendations currently exists.",
