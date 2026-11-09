@@ -27,6 +27,15 @@ pairs may be listed. Checked against CPIC's live pair table; stale entries corre
   "typed but not flagged" note above for NAT2.
 - Historical entries below are left as written.
 
+## 2026-11-09 — NAT2 phenotype now computed from CPIC allele function values
+
+NAT2 was "Indeterminate" for every sample: PyPGx has no NAT2 diplotype table and, on a tie with
+Stargazer's non-CPIC label, the consensus picked "Indeterminate". `pgx-compare.py` now derives the
+phenotype from CPIC's NAT2 allele functions (`nat2_cpic_phenotype`, applied in `compute_verdict` to
+the agreed diplotype): increased+increased Rapid, increased+decreased Intermediate,
+decreased+decreased Poor Metabolizer. Alleles CPIC marks uncertain/unknown, or does not list, stay
+Indeterminate. Covered by `docker/test_cpic.py`.
+
 ## 2026-11-09 — OptiType class I now reads the HLA-* contigs too
 
 **Cause.** `pgx-hla.sh` extracted only `chr6:28,510,020-33,480,577`, so reads aligned to the

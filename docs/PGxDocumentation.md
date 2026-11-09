@@ -1206,6 +1206,10 @@ Slow NAT2 acetylators have impaired hepatic acetylation of isoniazid (first-line
 
 Slow acetylator phenotype requires homozygosity for two slow-allele haplotypes.
 
+### Phenotype assignment
+
+No caller emits a CPIC phenotype for NAT2: PyPGx has no NAT2 diplotype table (it reports "Indeterminate") and Stargazer's label is not a CPIC term. `pgx-compare.py` therefore computes the phenotype itself (`nat2_cpic_phenotype`) from CPIC's own NAT2 allele function values, applied to the agreed (concordant or majority) diplotype, and this overrides the callers' phenotype strings. CPIC lists only *1 and *4 as increased function; the other listed alleles with a definite call (*5, *6, *7, *14 and the rarer *15-*75 decreased-function alleles) are decreased function. Pairing follows CPIC's diplotype table: two increased-function alleles give Rapid Metabolizer, one increased and one decreased give Intermediate Metabolizer, two decreased give Poor Metabolizer (for example *4/*5, *4/*6 and *4/*7 are Intermediate; *5/*6 is Poor). An allele CPIC marks uncertain or unknown function (for example *10, *41, *60), or does not list at all, leaves the phenotype Indeterminate; it is never guessed.
+
 ### Population Frequencies
 
 Slow acetylator phenotype is highly prevalent across all populations: ~50–60% of Europeans and Africans, ~10–15% of East Asians (lower due to lower *5/*6/*7 frequencies), and ~40–50% of South Asians. Middle Eastern populations show some of the highest slow acetylator rates (~80–90% in some cohorts). NAT2 demonstrates one of the widest documented population-frequency variations of any pharmacogene.

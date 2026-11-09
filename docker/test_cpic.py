@@ -61,6 +61,31 @@ def main():
     assert db["CYP4F2"]["diplotype_check"]("*1/*1") is False
     assert db["CYP2D6"].get("diplotype_check") is None  # phenotype-driven, no predicate
 
+    # 5) NAT2: CPIC phenotype from CPIC allele functions, overriding the callers.
+    spec = importlib.util.spec_from_file_location("pgxcompare", os.path.join(HERE, "pgx-compare.py"))
+    comp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(comp)
+    ph = comp.nat2_cpic_phenotype
+    assert ph("*4/*4") == "Rapid Metabolizer"
+    for d in ("*4/*5", "*4/*6", "*4/*7", "*6/*4"):
+        assert ph(d) == "Intermediate Metabolizer", d
+    for d in ("*5/*6", "*6/*6", "*7/*14"):
+        assert ph(d) == "Poor Metabolizer", d
+    for d in ("*4/*10", "*4/*60", "*4/*999", "*4/*5B", "garbage", "-"):
+        assert ph(d) == "Indeterminate", d
+    # the strings must land in the categories cpic.json's NAT2 keys expect
+    assert m._pheno_cat("Poor Metabolizer") == "poor"
+    assert m._pheno_cat("Intermediate Metabolizer") == "intermediate"
+    assert m._pheno_cat("Rapid Metabolizer") == "rapid"
+    assert m._pheno_cat("Indeterminate") not in db["NAT2"]["moderate_pheno"]
+    CR = comp.CallerResult
+    def _r(tool, dip, phe="-"):
+        c = CR(tool=tool); c.status, c.diplotype, c.phenotype = "ok", dip, phe; return c
+    v = comp.compute_verdict([_r("PyPGx", "*4/*6", "Indeterminate"),
+                              _r("Stargazer", "*4/*6", "normal_function"),
+                              _r("Aldy", "*4/*6")], no_call=False, gene="NAT2")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer"
+
     print("all cpic.json schema + registry checks passed")
 
 

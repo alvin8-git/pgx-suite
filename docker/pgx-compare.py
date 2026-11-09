@@ -1547,7 +1547,38 @@ def _phenotype_consensus(results: list[CallerResult]):
     return pheno_disp, len(voting), dip_disp
 
 
-def compute_verdict(results: list[CallerResult], no_call: bool,
+# ── NAT2: CPIC phenotype from CPIC's own allele function values ───────────────
+# PyPGx has no NAT2 diplotype table (reports "Indeterminate") and Stargazer's
+# label is not a CPIC term, so no caller yields a CPIC phenotype. Derived here
+# from the CPIC NAT2 allele function table and diplotype->phenotype pairing:
+# increased+increased = Rapid, increased+decreased = Intermediate,
+# decreased+decreased = Poor. An allele CPIC marks uncertain/unknown, or does
+# not list, leaves the phenotype Indeterminate (never a guess).
+_NAT2_INCREASED = frozenset({"*1", "*4"})
+_NAT2_DECREASED = frozenset({"*5", "*6", "*7", "*14", "*15", "*16", "*19", "*29", "*30", "*31", "*32", "*33", "*34", "*35", "*36", "*37", "*38", "*39", "*40", "*46", "*47", "*48", "*49", "*50", "*52", "*53", "*56", "*58", "*59", "*62", "*63", "*64", "*66", "*67", "*68", "*69", "*70", "*72", "*73", "*75"})
+
+
+def nat2_cpic_phenotype(diplotype: str) -> str:
+    """CPIC NAT2 phenotype for an 'a/b' star diplotype, else 'Indeterminate'."""
+    parts = [p.strip() for p in (diplotype or "").split("/")]
+    if len(parts) != 2:
+        return "Indeterminate"
+    fn = []
+    for p in parts:
+        if p in _NAT2_INCREASED:
+            fn.append("inc")
+        elif p in _NAT2_DECREASED:
+            fn.append("dec")
+        else:
+            return "Indeterminate"
+    if fn == ["inc", "inc"]:
+        return "Rapid Metabolizer"
+    if fn == ["dec", "dec"]:
+        return "Poor Metabolizer"
+    return "Intermediate Metabolizer"
+
+
+def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                     gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
 
@@ -1631,6 +1662,15 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
     return {"consensus_diplotype": top_dip, "consensus_phenotype": pheno,
             "n_agree": n_agree, "n_called": n_called, "status": status,
             "reconciled": reconciled}
+
+
+def compute_verdict(results: list[CallerResult], no_call: bool,
+                    gene: str | None = None) -> dict[str, Any]:
+    """Gene-level verdict; NAT2's phenotype is overridden by the CPIC lookup."""
+    v = _compute_verdict_core(results, no_call, gene)
+    if gene == "NAT2" and v.get("status") in ("concordant", "majority"):
+        v["consensus_phenotype"] = nat2_cpic_phenotype(v["consensus_diplotype"])
+    return v
 
 
 def pharmcat_cross_check(output_dir: str, gene: str, sample: str,
