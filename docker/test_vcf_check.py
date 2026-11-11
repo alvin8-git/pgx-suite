@@ -114,6 +114,9 @@ def main():
     # a record at a CPIC site that cannot be matched is never ignored: no negative over it
     c = comp.g6pd_call([(154532055, "CTCT", ["CA"], [1], 50.0, 20)], g6, full, "MALE")
     assert c["phenotype"].startswith("Indeterminate") and "No G6PD deficiency" not in c["phenotype"], c
+    # unknown sex + haploid chrX GT ("1") is hemizygous, never "Variable if female"
+    c = comp.g6pd_call([(154546061, "T", ["C"], [1], 50.0, 20)], g6, full, None)
+    assert c["phenotype"].startswith("G6PD Deficient") and "Variable" not in c["phenotype"], c
     # a low-quality record is never a Deficient call, and never a clean negative
     c = comp.g6pd_call([(154546061, "T", ["C"], [1, 1], 4.0, 1)], g6, full, "MALE")
     assert c["phenotype"].startswith("Indeterminate") and "low-quality" in c["phenotype"], c

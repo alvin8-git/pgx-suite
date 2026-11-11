@@ -149,7 +149,7 @@ for c in calls:
         filtered.append((v, c))
     if v and c["filter"] == "PASS":
         found.append({"pos": c["pos"], "ref": c["ref"], "alt": c["alt"], "label": v["label"],
-                      "af": round(c["level"], 4), "coverage": c["cov"] or depth.get(c["pos"]),
+                      "af": round(c["level"], 4), "coverage": c["cov"] if c["cov"] is not None else depth.get(c["pos"]),
                       "type": "homoplasmic" if c["level"] >= 0.90 else "heteroplasmic",
                       "cpic_class": v["cpic_class"]})
 found.sort(key=lambda x: x["pos"])

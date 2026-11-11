@@ -1025,6 +1025,7 @@ def g6pd_call(records: list[tuple], table: dict, depth: dict[int, int] | None,
     obs: dict[tuple, int] = {}
     qc: list[str] = []
     male_het: list[str] = []
+    haploid = False   # a haploid chrX GT ("1") can only come from a hemizygous male
     for rec in records:
         pos, ref, alts, gts = rec[:4]
         qual, dp = (rec[4], rec[5]) if len(rec) >= 6 else (None, None)
@@ -1046,6 +1047,7 @@ def g6pd_call(records: list[tuple], table: dict, depth: dict[int, int] | None,
                 male_het.append(f"{pos}{a2}")
                 qc.append(f"{pos}{a2} heterozygous on chrX in a male (artifact, contamination or wrong sex)")
                 continue
+            haploid = haploid or len(gts) == 1
             obs[(pos, a2)] = 1 if male else c
 
     matched = []
@@ -1132,7 +1134,7 @@ def g6pd_call(records: list[tuple], table: dict, depth: dict[int, int] | None,
         elif sex == "MALE":
             pheno = f"G6PD Deficient {cn}".strip() + " (hemizygous male)"
         else:  # sex unknown
-            hom = n_def >= 2
+            hom = n_def >= 2 or haploid
             pheno = (f"G6PD Deficient {cn}".strip() + " (1/1 call: hemizygous male or homozygous female)") \
                 if hom else ("G6PD Variable if female / Deficient if male (sex not determined, "
                              "single deficient allele copy)")
@@ -1202,7 +1204,7 @@ def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
             qual = None
         dp = int(fmt["DP"]) if fmt.get("DP", "").isdigit() else None
         records.append((int(f[1]), f[3], f[4].split(","), gts, qual, dp))
-        fmt_by_pos[int(f[1])] = (fmt, f[4].split(","))
+        fmt_by_pos[int(f[1])] = (fmt, [_trim_common_suffix(f[3], a)[1] for a in f[4].split(",")])
 
     sex = (_RUN_CTX.get("sex") or "").upper() or None
     if sex not in ("MALE", "FEMALE"):
