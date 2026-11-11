@@ -89,7 +89,11 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 **VCF-Check** (in-house, no third-party dependency) is the verdict authority for
 single-SNP / variant-list genes — **RYR1, VKORC1, IFNL3, G6PD, CACNA1S** — reading
 the genotype directly from the CPIC variant table (`docker/vcf_check_variants.json`)
-where a star-allele call is the wrong model.
+where a star-allele call is the wrong model. G6PD is typed against the full CPIC allele
+table (171 sites, sex-aware); a negative from any finite-list checker is worded "not found
+among the N sites checked", never "Normal". MT-RNR1 (mutserve) reports the CPIC
+increased-risk variants m.1095T>C, m.1494C>T and m.1555A>G with heteroplasmy level, and
+`not typed` when chrM depth is insufficient.
 
 See [`ToolsDocumentation.md`](docs/ToolsDocumentation.md) for a detailed comparison of each tool's capabilities, gene lists, SV handling, and limitations, and [`PGxDocumentation.md`](docs/PGxDocumentation.md#reconciliation--verdict-authority) for how the verdict is reconciled across them.
 

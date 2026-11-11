@@ -696,10 +696,19 @@ def parse_mutserve(output_dir: str, gene: str, sample: str) -> CallerResult:
         result.status     = "ok"
         variants = data.get("variants", [])
         if variants:
-            af_strs = [f"{v['label']}(AF={v['af']:.2f},{v['type']})" for v in variants]
+            af_strs = [f"{v['label']}(AF={v['af']:.2f},{v['type']},{v.get('cpic_class', 'CPIC')})"
+                       for v in variants]
             result.allele_score = "; ".join(af_strs)
+            result.supporting_variants = [
+                {"allele": v["label"], "chrom": "chrM", "pos": str(v.get("pos", "-")),
+                 "ref": v.get("ref", "-"), "alt": v.get("alt", "-"), "af": f"{v['af']:.4f}",
+                 "depth": str(v.get("coverage", "-")),
+                 "effect": f"{v.get('cpic_class', '')} ({v['type']})", "rsid": "-"}
+                for v in variants]
+        elif data.get("diplotype") == "not typed":
+            result.allele_score = "not typed (insufficient chrM coverage)"
         else:
-            result.allele_score = "No CPIC Level A variants detected"
+            result.allele_score = "No CPIC increased-risk MT-RNR1 variant detected"
     except Exception as exc:
         result.status    = "failed"
         result.diplotype = f"parse error: {exc}"
@@ -875,7 +884,8 @@ def parse_cacna1s_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
 
     if not alleles_found:
         result.diplotype = "*1/*1"
-        result.phenotype = "No CPIC-listed CACNA1S MHS variants detected"
+        result.phenotype = ("No CPIC-listed CACNA1S MHS variant found among the "
+                            f"{len(_CACNA1S_SNP_ALLELES)} sites checked (c.520C>T, c.3257G>A)")
         return result
 
     def _sort_key(name: str) -> int:
@@ -892,143 +902,335 @@ def parse_cacna1s_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     return result
 
 
-# ── Parser: G6PD VCF-Check (deficiency alleles including Southeast Asian) ─────
-# PyPGx, Stargazer, and Aldy call G6PD but their allele databases are built
-# primarily around the African A- and Mediterranean variants.  The Viangchan
-# (Class II, Southeast Asia) and Mahidol (Class III, Myanmar/Thailand) alleles
-# are common in the TTSH population and may be absent from tool databases.
-# G6PD is X-linked (negative strand, chrX).  REF/ALT below are positive-strand
-# genomic alleles (reverse complement of the coding-strand HGVS c. notation).
-# A376G (rs1050829) alone does NOT cause deficiency — it is meaningful only
-# when co-occurring with G202A (together they form the G6PD A- haplotype).
-_G6PD_SNP_ALLELES: list[dict] = [
-    {"pos": 154536002, "ref": "C", "alt": "T", "allele": "G202A",         "rsid": "rs1050828",
-     "g6pd_class": "III",
-     "note": "p.Val68Met (c.202G>A); G6PD A- primary variant; moderate deficiency in isolation; "
-             "severe when combined with A376G — common in African ancestry"},
-    {"pos": 154535277, "ref": "T", "alt": "C", "allele": "A376G",         "rsid": "rs1050829",
-     "g6pd_class": "IV",
-     "note": "p.Asn126Asp (c.376A>G); normal function alone (G6PD A); "
-             "co-occurs with G202A in the G6PD A- deficiency haplotype"},
-    {"pos": 154534419, "ref": "G", "alt": "A", "allele": "Mediterranean", "rsid": "rs5030868",
-     "g6pd_class": "II",
-     "note": "p.Ser188Phe (c.563C>T); severe deficiency (<10% activity); "
-             "common in Mediterranean, Middle East, South Asian ancestry"},
-    {"pos": 154533122, "ref": "C", "alt": "T", "allele": "Viangchan",     "rsid": "rs137852327",
-     "g6pd_class": "II",
-     "note": "p.Val291Met (c.871G>A); severe deficiency (<10% activity); "
-             "common in Southeast Asian ancestry (Lao, Thai, Cambodian, Singapore Malay/Chinese)"},
-    {"pos": 154534495, "ref": "C", "alt": "T", "allele": "Mahidol",       "rsid": "rs137852314",
-     "g6pd_class": "III",
-     "note": "p.Gly163Ser (c.487G>A); moderate deficiency (10–60% activity); "
-             "common in Myanmar/Thailand ancestry"},
-]
+# ── Parser: G6PD VCF-Check (full CPIC/ClinPGx allele table) ───────────────────
+# G6PD is typed against the complete CPIC G6PD allele definition table that
+# PharmCAT 3.2.0 ships (171 allele-defining sites, 184 non-reference named
+# alleles, GRCh38; stored in vcf_check_variants.json["G6PD"]). An allele is
+# called when ALL of its defining sites carry the alt allele; nested calls are
+# resolved to the most specific allele (A- 202A_376G beats A 376G). The CPIC
+# function class of each allele (I/II/III Deficient, IV Normal, Uncertain) and
+# the sample's sex give the CPIC phenotype: hemizygous male with a deficient
+# allele = Deficient; female with two deficient alleles = Deficient; female with
+# one = Variable (CPIC G6PD guideline, Gammal et al. 2023).
+# Governing rule: ERROR is never NEGATIVE. "No allele found" is only ever worded
+# "no deficiency variant among the N sites checked" - never "Normal" - and
+# sites without enough depth are counted as not typed, not as reference.
+# The compare CLI sets _RUN_CTX (bam/ref/sex) so site depth and sex can be read.
+_RUN_CTX: dict = {"bam": None, "ref": None, "sex": None}
+
+
+def _infer_sex_from_bam(bam: str) -> str | None:
+    """MALE/FEMALE from the chrX:chrY idxstats read ratio (same rule as pgx-bamstats.sh)."""
+    try:
+        out = subprocess.run(["samtools", "idxstats", bam], capture_output=True, text=True,
+                             timeout=120).stdout
+    except Exception:
+        return None
+    x = y = xl = yl = 0
+    for ln in out.splitlines():
+        f = ln.split("\t")
+        if len(f) < 4:
+            continue
+        if f[0] in ("chrX", "X"):
+            xl, x = int(f[1]), int(f[2])
+        elif f[0] in ("chrY", "Y"):
+            yl, y = int(f[1]), int(f[2])
+    if not xl or not yl or (x + y) == 0:
+        return None
+    xd, yd = x / xl, y / yl
+    if yd <= 0:
+        return None   # no chrY reads at all: stripped/extracted BAM as likely as female
+    return "FEMALE" if xd / yd > 5 else "MALE"
+
+
+def _site_depths(bam: str, ref: str | None, chrom: str, positions: list[int]) -> dict[int, int] | None:
+    """Per-position depth (BQ>=13, as bcftools mpileup) at the table sites; None if unavailable.
+
+    One indexed region query spanning the sites (samtools depth -b would scan the whole BAM).
+    """
+    if not bam or not os.path.exists(bam) or not positions:
+        return None
+    reg = f"{chrom}:{min(positions)}-{max(positions)}"
+    if ref:   # same read filters as bcftools mpileup (BAQ, BQ>=13, orphans/dups dropped): depth = evidence used
+        cmd = ["samtools", "mpileup", "-a", "-Q", "13", "-d", "500", "-f", ref, "-r", reg]
+    else:
+        cmd = ["samtools", "depth", "-a", "-q", "13", "-r", reg]
+    try:
+        proc = subprocess.run(cmd + [bam], capture_output=True, text=True, timeout=600)
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    want = set(positions)
+    d = {}
+    for ln in proc.stdout.splitlines():
+        f = ln.split("\t")
+        col = 3 if ref else 2
+        if len(f) > col and int(f[1]) in want:
+            d[int(f[1])] = int(f[col])
+    return d
+
+
+# CPIC alleles whose defining sites must be covered before a G6PD negative is reported:
+# A- (202A/376G), Mediterranean c.563C>T, Viangchan c.871G>A, Mahidol c.487G>A,
+# Canton c.1376G>T, Kaiping c.1388G>A, Union c.1360C>T, Chinese-5 c.1024C>T.
+_G6PD_KEY_ALLELES = (("A- 202A_376G", "A-"), ("Mediterranean", "c.563C>T"),
+                     ("Viangchan", "c.871G>A"), ("Mahidol", "c.487G>A"),
+                     ("Canton", "c.1376G>T"), ("Kaiping", "c.1388G>A"),
+                     ("Union", "c.1360C>T"), ("Chinese-5", "c.1024C>T"))
+
+
+def _g6pd_key_sites(table: dict) -> dict[int, str]:
+    """pos -> label of the sites defining the common deficient alleles."""
+    out: dict[int, str] = {}
+    for a in table["alleles"]:
+        for prefix, label in _G6PD_KEY_ALLELES:
+            if a["name"].startswith(prefix):
+                for p in a["sites"]:
+                    out[int(p)] = f"{label} (pos {p})" if label == "A-" else label
+    return out
+
+
+G6PD_MIN_QUAL, G6PD_MIN_DP = 20, 3   # a single-read / low-QUAL record is never a Deficient call
+
+
+def _trim_common_suffix(ref: str, alt: str) -> tuple[str, str]:
+    while len(ref) > 1 and len(alt) > 1 and ref[-1] == alt[-1]:
+        ref, alt = ref[:-1], alt[:-1]
+    return ref, alt
+
+
+def g6pd_call(records: list[tuple], table: dict, depth: dict[int, int] | None,
+              sex: str | None) -> dict[str, Any]:
+    """Pure G6PD typing. records: (pos, ref, [alts], gt_alleles_list) from the VCF.
+
+    Returns dict(diplotype, phenotype, alleles, unassigned, n_sites, n_typed, untyped, sex).
+    """
+    # >= 5 reads per X copy: a hemizygous male needs half the depth of a female (or unknown sex),
+    # whose heterozygous allele is in only ~half the reads (P(no alt read) = 0.5^n).
+    min_cov = int(table.get("min_cov", 10))
+    if sex == "MALE":
+        min_cov = int(table.get("min_cov_male", max(1, min_cov // 2)))
+    sites = {s["pos"]: s for s in table["sites"]}
+    n_sites = len(sites)
+    if depth is None:
+        untyped, n_typed = [], None
+    else:
+        untyped = sorted(p for p in sites if depth.get(p, 0) < min_cov)
+        n_typed = n_sites - len(untyped)
+    male = sex == "MALE"
+
+    # observed alt copies at table sites, keyed (pos, alt). A call that cannot be trusted is never
+    # counted (no positive from it) and never ignored (no negative over it): it goes to `qc`.
+    obs: dict[tuple, int] = {}
+    qc: list[str] = []
+    male_het: list[str] = []
+    for rec in records:
+        pos, ref, alts, gts = rec[:4]
+        qual, dp = (rec[4], rec[5]) if len(rec) >= 6 else (None, None)
+        s = sites.get(pos)
+        if not s:
+            continue
+        for i, alt in enumerate(alts, start=1):
+            c = sum(1 for g in gts if g == i)
+            if not c:
+                continue
+            r2, a2 = _trim_common_suffix(ref, alt)   # bcftools may pad REF/ALT with trailing context
+            if r2 != s["ref"] or a2 not in s["alts"]:
+                qc.append(f"{pos}{ref}>{alt} does not match the CPIC site {s['ref']}>{'/'.join(s['alts'])}")
+                continue
+            if (qual is not None and qual < G6PD_MIN_QUAL) or (dp is not None and dp < G6PD_MIN_DP):
+                qc.append(f"{pos}{a2} low-quality call (QUAL {qual}, DP {dp})")
+                continue
+            if male and c < len(gts):
+                male_het.append(f"{pos}{a2}")
+                qc.append(f"{pos}{a2} heterozygous on chrX in a male (artifact, contamination or wrong sex)")
+                continue
+            obs[(pos, a2)] = 1 if male else c
+
+    matched = []
+    for a in table["alleles"]:
+        keys = {(int(p), alt) for p, alt in a["sites"].items()}
+        if keys <= obs.keys():
+            matched.append((a, keys))
+    # most specific allele first; each takes the copies still left at all its sites, so a
+    # nested allele is called only on leftover copies (1/1 202A + 0/1 376G = A- + Asahi).
+    left = dict(obs)
+    best = []
+    for a, k in sorted(matched, key=lambda m: -len(m[1])):
+        n = min(left[x] for x in k)
+        if n:
+            best.append((a, k, n))
+            for x in k:
+                left[x] -= n
+    unassigned = sorted(x for x, n in left.items() if n)
+
+    def fclass(a):
+        f = a["function"]
+        return "CNSHA" if f.startswith("I/") else "Deficient" if "Deficient" in f else \
+            "Normal" if f.endswith("Normal") else "Uncertain"
+
+    called = []
+    for a, k, copies in best:
+        called.append({"name": a["name"], "function": a["function"], "copies": copies,
+                       "cls": fclass(a), "sites": sorted(p for p, _ in k), "keys": sorted(k)})
+
+    out = {"alleles": called, "unassigned": [f"{p}{a}" for p, a in unassigned], "male_het": male_het, "qc": qc,
+           "n_sites": n_sites, "n_typed": n_typed, "untyped": untyped,
+           "sex": sex or "unknown"}
+    sex_txt = {"MALE": "male (hemizygous)", "FEMALE": "female"}.get(sex or "", "sex not determined")
+    cov_txt = (f"{n_typed} of {n_sites} CPIC G6PD allele-defining sites typed at >= {min_cov}x"
+               if n_typed is not None else f"{n_sites} CPIC G6PD sites queried, depth not verified")
+
+    if n_typed == 0:
+        out["diplotype"] = "not typed"
+        out["phenotype"] = f"G6PD not typed - no CPIC site reached {min_cov}x"
+        return out
+
+    # ERROR is never NEGATIVE: a negative needs verified depth, incl. at the key sites.
+    negative = not unassigned and not qc and all(x["cls"] in ("Normal",) for x in called)
+    if negative and depth is None:
+        out["diplotype"] = "not typed"
+        out["phenotype"] = ("G6PD not typed - read depth at the CPIC sites could not be checked "
+                            "(BAM unavailable or samtools depth failed)")
+        return out
+    if negative:
+        keys = _g6pd_key_sites(table)
+        low = [f"{lab} {depth.get(p, 0)}x" for p, lab in sorted(keys.items()) if depth.get(p, 0) < min_cov]
+        if low:
+            out["diplotype"] = "not typed"
+            out["phenotype"] = (f"G6PD not typed (key site(s) below {min_cov}x: " + "; ".join(low) + ")")
+            out["low_key_sites"] = low
+            return out
+
+    if qc and not called and not unassigned:
+        out["diplotype"] = "not typed"
+        out["phenotype"] = "Indeterminate - G6PD call(s) failed QC: " + "; ".join(qc)
+        return out
+    if not called and not unassigned:
+        out["diplotype"] = "Reference (no CPIC G6PD allele-defining variant at typed sites)"
+        out["phenotype"] = (f"No G6PD deficiency variant found among the sites checked ({cov_txt}; "
+                            f"{sex_txt}); not a measurement of enzyme activity")
+        return out
+
+    tot = {c: sum(x["copies"] for x in called if x["cls"] == c)
+           for c in ("CNSHA", "Deficient", "Normal", "Uncertain")}
+    n_def = tot["CNSHA"] + tot["Deficient"]
+    names = [f"{x['name']} ({x['function']})" for x in called]
+    if unassigned and not n_def:
+        pheno = ("Indeterminate - variant(s) at CPIC G6PD site(s) not forming a defined allele: "
+                 + ", ".join(out["unassigned"]))
+    elif tot["Uncertain"] and not n_def:
+        pheno = "Indeterminate - allele of uncertain function: " + "; ".join(names)
+    elif n_def:
+        cn = "with CNSHA" if tot["CNSHA"] else ""
+        if sex == "FEMALE":
+            two = n_def >= 2
+            pheno = (f"G6PD Deficient {cn}".strip() + " (female, two deficient alleles)") if two else \
+                    ("G6PD Variable (female heterozygous for a deficient allele; "
+                     "CPIC: enzyme activity test recommended)")
+        elif sex == "MALE":
+            pheno = f"G6PD Deficient {cn}".strip() + " (hemizygous male)"
+        else:  # sex unknown
+            hom = n_def >= 2
+            pheno = (f"G6PD Deficient {cn}".strip() + " (1/1 call: hemizygous male or homozygous female)") \
+                if hom else ("G6PD Variable if female / Deficient if male (sex not determined, "
+                             "single deficient allele copy)")
+        pheno += "; " + "; ".join(names) + " - rasburicase/pegloticase contraindicated; avoid primaquine, dapsone"
+    else:  # only normal-function alleles (e.g. A, class IV)
+        pheno = ("No G6PD deficiency variant found among the sites checked (" + cov_txt +
+                 f"); allele(s) of normal function: " + "; ".join(names))
+    if unassigned and n_def:
+        pheno += f"; additional unassigned CPIC-site variant(s): {', '.join(out['unassigned'])}"
+    parts = []
+    for x in called:
+        z = "hemizygous" if sex == "MALE" else {1: "het", 2: "hom"}.get(x["copies"], str(x["copies"]))
+        parts.append(f"{x['name']}({z})")
+    out["diplotype"] = "+".join(parts) if parts else "unassigned: " + ", ".join(out["unassigned"])
+    out["diplotype"] += " [X-linked, unphased]"
+    if qc:
+        if n_def:   # a confident deficiency stays the leading phrase (actionable); QC is a note
+            pheno += "; QC: " + "; ".join(qc)
+        else:       # no confident deficiency: a negative or normal-only call cannot stand over a failed site
+            pheno = "Indeterminate - G6PD call(s) failed QC: " + "; ".join(qc) + "; " + pheno
+    out["phenotype"] = pheno
+    return out
 
 
 def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
-    """Query G6PD.vcf.gz for deficiency alleles including Southeast Asian-prevalent variants.
-
-    Checks five positions: G202A/A376G (African A-), Mediterranean, Viangchan, Mahidol.
-    Reports zygosity; notes X-linkage — hemizygous males show GT without '/' in bcftools output.
-    """
+    """Type G6PD from <gene>.vcf.gz against the full CPIC allele table (see above)."""
     result = CallerResult(
         tool="VCF-Check",
-        phasing_method="bcftools mpileup — direct variant query (unphased, X-linked)",
+        phasing_method="bcftools mpileup/call + CPIC G6PD allele table (171 sites, unphased, X-linked)",
     )
-
+    table = _VCF_CHECK_VARIANTS.get("G6PD")
+    if not table:
+        result.status = "failed"
+        result.diplotype = "G6PD allele table missing"
+        return result
     vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
     if not os.path.exists(vcf):
         result.status = "failed"
         result.diplotype = "VCF not found"
         return result
-
-    # Single region spanning all five target positions
-    region = "chrX:154533122-154536002"
+    lo = min(s["pos"] for s in table["sites"])
+    hi = max(s["pos"] for s in table["sites"])
     try:
-        proc = subprocess.run(
-            ["bcftools", "view", "-r", region, vcf],
-            capture_output=True, text=True, timeout=30,
-        )
+        proc = subprocess.run(["bcftools", "view", "-H", "-r", f"{table['chrom']}:{lo}-{hi}", vcf],
+                              capture_output=True, text=True, timeout=60)
     except FileNotFoundError:
-        result.status = "failed"
-        result.diplotype = "bcftools not in PATH"
+        result.status, result.diplotype = "failed", "bcftools not in PATH"
         return result
     except subprocess.TimeoutExpired:
-        result.status = "failed"
-        result.diplotype = "bcftools timed out"
+        result.status, result.diplotype = "failed", "bcftools timed out"
+        return result
+    if proc.returncode != 0:
+        result.status, result.diplotype = "failed", "bcftools view failed"
         return result
 
-    alleles_found: dict[str, tuple] = {}
-    variants_list: list[dict] = []
-
+    records, fmt_by_pos = [], {}
     for line in proc.stdout.splitlines():
-        if line.startswith("#"):
+        f = line.split("\t")
+        if len(f) < 10:
             continue
-        fields = line.split("\t")
-        if len(fields) < 10:
-            continue
-        pos = int(fields[1])
-        ref, alt_str = fields[3], fields[4]
-        fmt_keys = fields[8].split(":")
-        fmt_vals = fields[9].split(":")
-        fmt = dict(zip(fmt_keys, fmt_vals))
-        gt_raw = fmt.get("GT", "./.")
-        gt = gt_raw.replace("|", "/")
-        dp  = fmt.get("DP", "-")
-        ad  = fmt.get("AD", "-")
-        # Detect hemizygosity: bcftools may output GT="1" (no slash) for chrX in males
-        is_hemizygous = "/" not in gt and gt not in (".", "0")
-        alt_copies = (1 if is_hemizygous else
-                      sum(1 for g in gt.split("/") if g not in ("0", ".")))
-        if alt_copies == 0:
-            continue
-        alts = alt_str.split(",")
-        for adef in _G6PD_SNP_ALLELES:
-            if adef["pos"] != pos or adef["alt"] not in alts:
-                continue
-            alleles_found[adef["allele"]] = (
-                gt, dp, alt_copies, is_hemizygous, adef["rsid"],
-                adef["note"], adef["g6pd_class"],
-            )
-            variants_list.append({
-                "allele": adef["allele"], "chrom": "chrX", "pos": str(pos),
-                "ref": ref, "alt": adef["alt"],
-                "af": ad, "depth": dp, "effect": adef["note"],
-                "rsid": adef["rsid"],
-            })
+        fmt = dict(zip(f[8].split(":"), f[9].split(":")))
+        gts = [int(g) for g in re.split(r"[/|]", fmt.get("GT", "."))
+               if g.isdigit()]
+        try:
+            qual = float(f[5])
+        except ValueError:
+            qual = None
+        dp = int(fmt["DP"]) if fmt.get("DP", "").isdigit() else None
+        records.append((int(f[1]), f[3], f[4].split(","), gts, qual, dp))
+        fmt_by_pos[int(f[1])] = (fmt, f[4].split(","))
+
+    sex = (_RUN_CTX.get("sex") or "").upper() or None
+    if sex not in ("MALE", "FEMALE"):
+        sex = _infer_sex_from_bam(_RUN_CTX["bam"]) if _RUN_CTX.get("bam") else None
+    depth = _site_depths(_RUN_CTX.get("bam"), _RUN_CTX.get("ref"), table["chrom"],
+                         [s["pos"] for s in table["sites"]])
+    call = g6pd_call(records, table, depth, sex)
 
     result.status = "ok"
-    result.supporting_variants = variants_list
-
-    if not alleles_found:
-        result.diplotype = "Reference (no deficiency variants at checked positions)"
-        result.phenotype = "No G6PD deficiency variants detected (checked: G202A, A376G, Mediterranean, Viangchan, Mahidol)"
-        return result
-
-    # Classify severity — A376G alone is not deficiency-causing
-    has_a376g_only = set(alleles_found) == {"A376G"}
-    has_class_ii   = any(v[6] == "II"  for v in alleles_found.values())
-    has_class_iii  = any(v[6] == "III" for v in alleles_found.values() if v[0] != "A376G")
-
-    # Build diplotype string
-    parts = []
-    for aname, (gt, dp, copies, hemi, rsid, note, cls) in alleles_found.items():
-        if hemi:
-            zygosity = "hemi"
-        elif copies >= 2:
-            zygosity = "hom"
-        else:
-            zygosity = "het"
-        parts.append(f"{aname}({zygosity})")
-    result.diplotype = "+".join(parts) + " [X-linked, unphased]"
-
-    if has_a376g_only:
-        result.phenotype = "G6PD A376G only — normal function in isolation (G6PD A, not deficient)"
-    elif has_class_ii:
-        result.phenotype = "Severe G6PD deficiency allele detected (Class II, <10% activity) — rasburicase contraindicated; avoid primaquine/dapsone"
-    else:
-        result.phenotype = "Moderate G6PD deficiency allele detected (Class III, 10–60% activity) — rasburicase risk; monitor with oxidant drugs"
-
+    result.diplotype = call["diplotype"]
+    result.phenotype = call["phenotype"]
+    result.haplotype1 = call["alleles"][0]["name"] if call["alleles"] else "-"
+    site_by_pos = {s["pos"]: s for s in table["sites"]}
+    for x in call["alleles"]:
+        for p, alt in x["keys"]:
+            fm, alts = fmt_by_pos.get(p, ({}, []))
+            try:
+                ad = [int(v) for v in fm["AD"].split(",")]
+                af = f"{ad[alts.index(alt) + 1] / sum(ad):.3f}"
+            except (KeyError, ValueError, IndexError, ZeroDivisionError):
+                af = "-"
+            result.supporting_variants.append({
+                "allele": x["name"], "chrom": "chrX", "pos": str(p),
+                "ref": site_by_pos[p]["ref"],
+                "alt": alt, "af": af, "depth": fm.get("DP", "-"),
+                "effect": x["function"], "rsid": site_by_pos[p].get("rsid") or "-"})
+    result.allele_score = (f"sex={call['sex']}; sites typed "
+                           f"{call['n_typed'] if call['n_typed'] is not None else '?'}/{call['n_sites']}")
     return result
 
 
@@ -1112,7 +1314,8 @@ def parse_ryr1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     result.supporting_variants = variants_list
     if not found:
         result.diplotype = "*1/*1"
-        result.phenotype = f"No CPIC MH-associated RYR1 variant detected (checked {len(table)} positions)"
+        result.phenotype = (f"No CPIC MH-associated RYR1 variant found among the {len(table)} substitution "
+                            "sites checked (non-substitution alleles are not checked)")
         return result
 
     parts = [f"{h}({z})" for h, z, _ in found]
@@ -1227,7 +1430,8 @@ def parse_ugt1a1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
 
     if not alleles_found:
         result.diplotype = "*1/*1"
-        result.phenotype = "Normal Function"
+        result.phenotype = ("No UGT1A1 variant found among the sites checked "
+                            "(*28 TA-repeat, *60, *80, *6); not a Normal Function call")
         return result
 
     # Report as compound allele list with genotype (unphased; phasing requires LRS).
@@ -1251,8 +1455,8 @@ def parse_ugt1a1_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
         result.phenotype = "Poor Function (Gilbert's — *28/*28)"
     elif risk:
         result.phenotype = "Reduced Function (variant allele(s) detected)"
-    else:
-        result.phenotype = "Normal Function"
+    else:  # unreachable: alleles_found is non-empty here
+        result.phenotype = "No UGT1A1 variant found among the sites checked"
 
     return result
 
@@ -1578,6 +1782,21 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                   and r.diplotype not in ("-", "")), None)
         if a is not None:
             n_called = sum(1 for r in results if r.status == "ok" and r.diplotype not in ("-", ""))
+            # G6PD safety net: a "no deficiency" authority call must not stand when an
+            # independent caller (PyPGx/Stargazer/Aldy/PharmCAT) reports deficiency.
+            if gene == "G6PD" and not re.match(r"G6PD (Deficient|Variable|not typed)|Indeterminate|not typed",
+                                               a.phenotype or ""):
+                dissent = [r.tool for r in results if r is not a and r.status == "ok"
+                           and re.search(r"\bdeficient\b|decreased|\bvariable\b", r.phenotype or "", re.I)]
+                if dissent:
+                    # never leave the authority's negative text as the phenotype consumers read
+                    return {"consensus_diplotype": "DISCORDANT",
+                            "consensus_phenotype": (f"Indeterminate - discordant: {a.tool} found no G6PD "
+                                                    f"deficiency allele but {', '.join(dissent)} report(s) "
+                                                    "deficiency or variable activity; confirm by enzyme assay"),
+                            "n_agree": 0, "n_called": n_called, "status": "discordant",
+                            "reconciled": False, "reason": f"{a.tool} found no deficiency allele but "
+                            f"{', '.join(dissent)} report(s) deficiency"}
             return {"consensus_diplotype": a.diplotype,
                     "consensus_phenotype": a.phenotype if a.phenotype not in ("-", "") else "-",
                     "n_agree": 1, "n_called": n_called, "status": "concordant",
@@ -1797,7 +2016,15 @@ def main() -> None:
     parser.add_argument("--alt-aware", default="yes", choices=["yes", "no", "unknown"],
                         help="Whether the BAM was aligned ALT-aware. 'no'/'unknown' forces "
                              "NO_CALL for paralog/SV genes (CYP2D6, CYP2A6/2B6, GSTM1/T1, …).")
+    parser.add_argument("--bam", default=None,
+                        help="Input BAM/CRAM (lets VCF-Check genes verify per-site depth and infer sex)")
+    parser.add_argument("--ref", default=None, help="Reference FASTA (needed to read depth from CRAM)")
+    parser.add_argument("--sex", default=None,
+                        help="Sample sex M/MALE or F/FEMALE (any case) overrides the chrX/chrY "
+                             "inference for X-linked G6PD; any other value (unknown, NA) = infer")
     args = parser.parse_args()
+    _RUN_CTX.update(bam=args.bam, ref=args.ref, sex={"M": "MALE", "MALE": "MALE", "F": "FEMALE",
+                                                 "FEMALE": "FEMALE"}.get((args.sex or "").strip().upper()))
 
     gene = args.gene.upper()
     support = GENE_SUPPORT.get(gene, {})

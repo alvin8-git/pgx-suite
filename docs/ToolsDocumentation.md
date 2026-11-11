@@ -763,25 +763,37 @@ the MT-RNR1 (12S rRNA) gene.
    and indexed into a temporary BAM.
 2. **chrM reference extraction** — `samtools faidx /pgx/ref/hg38.fa chrM` produces a
    minimal FASTA for the rCRS-based GRCh38 chrM contig (~16 KB).
-3. **mutserve call** — invoked as:
+3. **mutserve call** — invoked as (BAM/CRAM inputs are **positional**; mutserve 2.x has
+   no `--input` option and exits with "Unknown option" if given one):
    ```
-   java -Xmx2g -jar mutserve.jar call \
-       --input  chrM_sorted.bam \
+   java -Xmx2g -jar mutserve.jar call chrM_sorted.bam \
        --output variants.txt \
        --reference chrM_ref.fa \
        --level  0.01 \
        --threads N
    ```
-   `--level 0.01` sets the minimum allele fraction to report (1%); CPIC uses ≥2% as the
-   clinical carrier threshold but 1% captures very low-level heteroplasmy for information.
-4. **Parsing** — `pgx-mt.sh` reads the tab-delimited output and checks positions 1555
-   and 1494 for the A→G and C→T substitutions respectively.
-5. **JSON result** — written to `<output>/mt-rnr1/<sample>_mtrna1_result.json` with
-   fields: `diplotype`, `phenotype`, `classification` (carrier / non-carrier), `variants`
-   (position, AF, homoplasmic/heteroplasmic), `notes`.
-6. **Parsing in `pgx-compare.py`** — `parse_mutserve()` reads the JSON and emits a
-   `CallerResult` with diplotype (e.g. `m.1555A>G`) and allele score
-   (`m.1555A>G(AF=0.98,homoplasmic)`).
+   `--level 0.01` sets the minimum heteroplasmy level to report (1%). A non-zero mutserve
+   exit, or a missing/empty output file, aborts `pgx-mt.sh` with exit 1 and **no result JSON**
+   (the Snakemake sentinel records the failure; MT-RNR1 reads "failed", never "Reference").
+4. **Per-site coverage** — `samtools depth` (MQ>=20, BQ>=20, same as mutserve) at every
+   table position.
+5. **Parsing** — the raw table is read **by column name** (`Pos, Ref, Variant,
+   VariantLevel, Coverage, Filter`; mutserve 2.0.3 prepends `ID, Filter`) and matched
+   against the CPIC MT-RNR1 allele table in `vcf_check_variants.json["MT-RNR1"]`:
+   increased risk = **m.1095T>C, m.1494C>T, m.1555A>G**; 18 further CPIC SNV alleles are
+   "uncertain risk" (listed, never escalated) and m.827A>G is "normal risk"
+   (source: CPIC allele table, `api.cpicpgx.org/v1/allele?genesymbol=eq.MT-RNR1`, and the
+   CPIC guideline for aminoglycosides and MT-RNR1, Mc Mahon et al., *Clin Pharmacol Ther*
+   2021;109:1458; ref bases verified against GRCh38 chrM = rCRS). Three CPIC deletion
+   alleles (m.960C>del, m.961T>del, m.961T>del+Cn) are not typed.
+6. **JSON result** — `<output>/mt-rnr1/<sample>_mtrna1_result.json` with `diplotype`,
+   `phenotype`, `classification` (carrier / non-carrier / not_typed), `variants`
+   (position, heteroplasmy level `af`, homoplasmic/heteroplasmic, coverage, CPIC class),
+   `site_depth`, `notes`. **If depth at any increased-risk site is below 100x and no
+   increased-risk variant was seen, the result is `not typed`, never `Reference`.**
+7. **Parsing in `pgx-compare.py`** — `parse_mutserve()` reads the JSON and emits a
+   `CallerResult` with diplotype (e.g. `m.1494C>T`) and allele score
+   (`m.1494C>T(AF=1.00,homoplasmic,increased risk)`).
 
 ### Input requirements
 
@@ -796,7 +808,7 @@ the MT-RNR1 (12S rRNA) gene.
 
 | Gene | CPIC Level | Key variants | Clinical significance |
 |------|-----------|--------------|----------------------|
-| MT-RNR1 | A | m.1555A>G (~1/500 Europeans), m.1494C>T | Ribosomal hypersensitivity to aminoglycosides → permanent bilateral hearing loss |
+| MT-RNR1 | A | m.1555A>G (~1/500 Europeans), m.1494C>T, m.1095T>C (CPIC increased risk) | Ribosomal hypersensitivity to aminoglycosides → permanent bilateral hearing loss |
 
 ### Output
 
@@ -807,8 +819,9 @@ The per-gene output directory (`<output>/MT-RNR1/mt-rnr1/`) contains:
 - `mutserve.log` — tool stderr/stdout for debugging
 
 The `pgx-compare.py` parser emits a single comparison row formatted as:
-- Diplotype: `m.1555A>G` (carrier) or `Reference` (non-carrier)
-- Allele score: `m.1555A>G(AF=0.98,homoplasmic)` or `No CPIC Level A variants detected`
+- Diplotype: `m.1555A>G` / `m.1494C>T` / `m.1095T>C` (carrier), `Reference` (all three
+  increased-risk sites typed at >=100x, none found) or `not typed` (insufficient chrM depth)
+- Allele score: `m.1494C>T(AF=1.00,homoplasmic,increased risk)`
 
 ### Key differences from standard diplotype callers
 
@@ -956,7 +969,36 @@ directly from the gene-region VCF against the curated CPIC variant table.
 ### Output
 
 - The reported genotype/zygosity at the CPIC position(s), e.g. VKORC1 `G/A`, IFNL3 `C/T`,
-  RYR1 `Normal` / a named pathogenic variant. Feeds the `VCF-Check authoritative` badge.
+  RYR1 `*1/*1` / a named pathogenic variant. Feeds the `VCF-Check authoritative` badge.
+- **Partial-list wording rule.** These checkers test a finite variant list, so a negative is
+  worded "no variant found among the N sites checked" and never as a "Normal"/"Reference"
+  phenotype (CACNA1S: 2 CPIC sites; RYR1: 93 substitution sites, the 1 non-substitution
+  allele is not checked; UGT1A1: *28/*60/*80/*6; G6PD: see below).
+
+### G6PD (full CPIC allele table)
+
+G6PD is typed against the complete CPIC/ClinPGx allele definition table that PharmCAT 3.2.0
+ships (171 allele-defining sites, 184 non-reference named alleles, stored in
+`vcf_check_variants.json["G6PD"]`). An allele is called when **all** of its defining sites
+carry the alt; nested matches resolve to the most specific allele (A- 202A_376G over A).
+Function classes come from the CPIC table (I/II/III Deficient, IV Normal, Uncertain).
+Sex (`--config sex=MALE|FEMALE`, else inferred from chrX/chrY idxstats) gives the CPIC
+phenotype (Gammal et al., *Clin Pharmacol Ther* 2023): hemizygous male + deficient allele =
+Deficient; female with two = Deficient; female with one = Variable. Per-site depth
+(`samtools depth`, BQ>=13) must reach 10x or the site counts as *not typed*: the negative
+reads "No G6PD deficiency variant found among the sites checked (N of 171 ...)", all sites
+untyped reads `not typed`, and a variant at a CPIC site that completes no allele reads
+Indeterminate. If VCF-Check reports no deficiency while PyPGx/Stargazer/Aldy report
+deficiency, the verdict is `discordant`, not `concordant`.
+(An earlier 5-site check - G202A, A376G, Mediterranean, Viangchan, Mahidol - called
+c.95A>G/Gaohe "Reference / G6PD Normal" and overrode three callers that had it right.)
+
+**Negatives need verified depth (ERROR is never NEGATIVE).** If per-site depth could not be
+obtained the result is `not typed`; if any key site of the common deficient alleles (A-
+202A/376G, Mediterranean c.563C>T, Viangchan c.871G>A, Mahidol c.487G>A, Canton c.1376G>T,
+Kaiping c.1388G>A, Union c.1360C>T, Chinese-5 c.1024C>T) is below `min_cov`, a negative becomes
+`not typed (key site(s) ... below Nx)`. A positive call stays positive. The MT-RNR1 mutserve
+parser aborts on any unparseable data row.
 
 ### Limitations
 

@@ -1085,9 +1085,2858 @@
       "note": "rs12777823 CYP2C cluster; A allele associated with reduced warfarin dose requirement in patients of African ancestry (CPIC warfarin guideline). GRCh38 chr10:94645745 G>A, plus strand (Ensembl).",
       "phenotypes": {
         "ref": "Normal warfarin dose requirement (G/G)",
-        "het": "Reduced warfarin dose requirement (G/A) — CYP2C cluster (African-ancestry guidance)",
-        "hom": "Reduced warfarin dose requirement (A/A) — CYP2C cluster (African-ancestry guidance)"
+        "het": "Reduced warfarin dose requirement (G/A) \u2014 CYP2C cluster (African-ancestry guidance)",
+        "hom": "Reduced warfarin dose requirement (A/A) \u2014 CYP2C cluster (African-ancestry guidance)"
       }
     }
+  },
+  "MT-RNR1": {
+    "chrom": "chrM",
+    "provenance": "CPIC MT-RNR1 allele table (api.cpicpgx.org/v1/allele, 2026-11-11), CPIC guideline for aminoglycosides and MT-RNR1 (Mc Mahon et al., Clin Pharmacol Ther 2021;109:1458); positions rCRS = GRCh38 chrM, ref bases verified against GRCh38 chrM. Non-substitution alleles excluded (not typed): m.960C>del, m.961T>del, m.961T>del+Cn",
+    "min_cov": 100,
+    "variants": [
+      {
+        "pos": 663,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.663A>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 669,
+        "ref": "T",
+        "alt": "C",
+        "label": "m.669T>C",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 747,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.747A>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 786,
+        "ref": "G",
+        "alt": "A",
+        "label": "m.786G>A",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 807,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.807A>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 807,
+        "ref": "A",
+        "alt": "C",
+        "label": "m.807A>C",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 827,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.827A>G",
+        "cpic_class": "normal risk"
+      },
+      {
+        "pos": 839,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.839A>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 896,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.896A>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 930,
+        "ref": "G",
+        "alt": "A",
+        "label": "m.930G>A",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 951,
+        "ref": "G",
+        "alt": "A",
+        "label": "m.951G>A",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 961,
+        "ref": "T",
+        "alt": "G",
+        "label": "m.961T>G",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 988,
+        "ref": "G",
+        "alt": "A",
+        "label": "m.988G>A",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 1095,
+        "ref": "T",
+        "alt": "C",
+        "label": "m.1095T>C",
+        "cpic_class": "increased risk"
+      },
+      {
+        "pos": 1189,
+        "ref": "T",
+        "alt": "C",
+        "label": "m.1189T>C",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 1243,
+        "ref": "T",
+        "alt": "C",
+        "label": "m.1243T>C",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 1494,
+        "ref": "C",
+        "alt": "T",
+        "label": "m.1494C>T",
+        "cpic_class": "increased risk"
+      },
+      {
+        "pos": 1520,
+        "ref": "T",
+        "alt": "C",
+        "label": "m.1520T>C",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 1537,
+        "ref": "C",
+        "alt": "T",
+        "label": "m.1537C>T",
+        "cpic_class": "uncertain risk"
+      },
+      {
+        "pos": 1555,
+        "ref": "A",
+        "alt": "G",
+        "label": "m.1555A>G",
+        "cpic_class": "increased risk"
+      },
+      {
+        "pos": 1556,
+        "ref": "C",
+        "alt": "T",
+        "label": "m.1556C>T",
+        "cpic_class": "uncertain risk"
+      }
+    ]
+  },
+  "G6PD": {
+    "chrom": "chrX",
+    "provenance": "PharmCAT 3.2.0 bundled G6PD allele definitions (ClinPGx/CPIC, definition version 2026-02-09-10-28, GRCh38) and CPIC G6PD guideline (Gammal et al., Clin Pharmacol Ther 2023;113:973). Alleles are matched by exact POS/REF/ALT; B (reference) = no allele-defining variant.",
+    "min_cov": 10,
+    "sites": [
+      {
+        "pos": 154532046,
+        "ref": "A",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532055,
+        "ref": "CTCT",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532082,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532083,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532085,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532086,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532203,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852348"
+      },
+      {
+        "pos": 154532231,
+        "ref": "T",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532245,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852344"
+      },
+      {
+        "pos": 154532257,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs72554664"
+      },
+      {
+        "pos": 154532258,
+        "ref": "G",
+        "alts": [
+          "A",
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532264,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs782608284"
+      },
+      {
+        "pos": 154532265,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532269,
+        "ref": "C",
+        "alts": [
+          "A",
+          "G"
+        ],
+        "rsid": "rs72554665"
+      },
+      {
+        "pos": 154532278,
+        "ref": "T",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532279,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532389,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852324"
+      },
+      {
+        "pos": 154532390,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs398123546"
+      },
+      {
+        "pos": 154532392,
+        "ref": "A",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532403,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532408,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532411,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852317"
+      },
+      {
+        "pos": 154532432,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532434,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852337"
+      },
+      {
+        "pos": 154532458,
+        "ref": "A",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532459,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs782098548"
+      },
+      {
+        "pos": 154532570,
+        "ref": "G",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532590,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532608,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532623,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532625,
+        "ref": "C",
+        "alts": [
+          "G",
+          "T"
+        ],
+        "rsid": "rs137852336"
+      },
+      {
+        "pos": 154532626,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852323"
+      },
+      {
+        "pos": 154532628,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532629,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532634,
+        "ref": "T",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532639,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532649,
+        "ref": "G",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532661,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532662,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852325"
+      },
+      {
+        "pos": 154532667,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532674,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852335"
+      },
+      {
+        "pos": 154532676,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852316"
+      },
+      {
+        "pos": 154532677,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532679,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532688,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532692,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532694,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852321"
+      },
+      {
+        "pos": 154532695,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852334"
+      },
+      {
+        "pos": 154532698,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852320"
+      },
+      {
+        "pos": 154532699,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532700,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532701,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852322"
+      },
+      {
+        "pos": 154532713,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532715,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532716,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532722,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs371489738"
+      },
+      {
+        "pos": 154532752,
+        "ref": "CGGCCTTGCGCTCGTTCAG",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532758,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532765,
+        "ref": "G",
+        "alts": [
+          "C",
+          "T"
+        ],
+        "rsid": "rs137852329"
+      },
+      {
+        "pos": 154532772,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852345"
+      },
+      {
+        "pos": 154532773,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532797,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852333"
+      },
+      {
+        "pos": 154532802,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532945,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs34193178"
+      },
+      {
+        "pos": 154532956,
+        "ref": "T",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs398123544"
+      },
+      {
+        "pos": 154532969,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852342"
+      },
+      {
+        "pos": 154532987,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532989,
+        "ref": "G",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154532990,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs5030869"
+      },
+      {
+        "pos": 154533004,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533012,
+        "ref": "CGTGGGGTCGTCCAGGTACCCTTTG",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533016,
+        "ref": "G",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533025,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs76723693"
+      },
+      {
+        "pos": 154533029,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852347"
+      },
+      {
+        "pos": 154533031,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533044,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852339"
+      },
+      {
+        "pos": 154533064,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533072,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533077,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533083,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533122,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852327"
+      },
+      {
+        "pos": 154533586,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs74575103"
+      },
+      {
+        "pos": 154533587,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533589,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533591,
+        "ref": "G",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533592,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533596,
+        "ref": "C",
+        "alts": [
+          "A",
+          "G"
+        ],
+        "rsid": "rs137852318"
+      },
+      {
+        "pos": 154533605,
+        "ref": "T",
+        "alts": [
+          "A",
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533607,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533608,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533614,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533615,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533619,
+        "ref": "T",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533620,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533629,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154533634,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852346"
+      },
+      {
+        "pos": 154534036,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534074,
+        "ref": "TCAGTGC",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534092,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534102,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs782757170"
+      },
+      {
+        "pos": 154534110,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534116,
+        "ref": "ATGT",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534125,
+        "ref": "C",
+        "alts": [
+          "A",
+          "T"
+        ],
+        "rsid": "rs137852328"
+      },
+      {
+        "pos": 154534126,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534157,
+        "ref": "A",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852319"
+      },
+      {
+        "pos": 154534345,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852326"
+      },
+      {
+        "pos": 154534348,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs782754619"
+      },
+      {
+        "pos": 154534387,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs781865768"
+      },
+      {
+        "pos": 154534389,
+        "ref": "C",
+        "alts": [
+          "G",
+          "T"
+        ],
+        "rsid": "rs137852332"
+      },
+      {
+        "pos": 154534390,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs137852330"
+      },
+      {
+        "pos": 154534409,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534414,
+        "ref": "GGGA",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534419,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs5030868"
+      },
+      {
+        "pos": 154534438,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs267606836"
+      },
+      {
+        "pos": 154534440,
+        "ref": "T",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs5030872"
+      },
+      {
+        "pos": 154534447,
+        "ref": "T",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534455,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534463,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534465,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852343"
+      },
+      {
+        "pos": 154534468,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534485,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534486,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534489,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852331"
+      },
+      {
+        "pos": 154534494,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154534495,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852314"
+      },
+      {
+        "pos": 154535176,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs370918918"
+      },
+      {
+        "pos": 154535180,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs782487723"
+      },
+      {
+        "pos": 154535187,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852313"
+      },
+      {
+        "pos": 154535190,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535211,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535244,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535247,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535249,
+        "ref": "T",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs782322505"
+      },
+      {
+        "pos": 154535261,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535269,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535270,
+        "ref": "A",
+        "alts": [
+          "C",
+          "G"
+        ],
+        "rsid": "rs78365220"
+      },
+      {
+        "pos": 154535274,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535277,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs1050829"
+      },
+      {
+        "pos": 154535278,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535301,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535316,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs5030870"
+      },
+      {
+        "pos": 154535330,
+        "ref": "A",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535336,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs267606835"
+      },
+      {
+        "pos": 154535342,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs181277621"
+      },
+      {
+        "pos": 154535367,
+        "ref": "GCTT",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535379,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535962,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs782308266"
+      },
+      {
+        "pos": 154535963,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": "rs138687036"
+      },
+      {
+        "pos": 154535980,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154535995,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs782090947"
+      },
+      {
+        "pos": 154535996,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs137852349"
+      },
+      {
+        "pos": 154536002,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs1050828"
+      },
+      {
+        "pos": 154536008,
+        "ref": "A",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536019,
+        "ref": "G",
+        "alts": [
+          "A",
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536021,
+        "ref": "CAGA",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536025,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536032,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": "rs137852315"
+      },
+      {
+        "pos": 154536034,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536035,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536045,
+        "ref": "C",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536151,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154536156,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": "rs76645461"
+      },
+      {
+        "pos": 154536168,
+        "ref": "G",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs78478128"
+      },
+      {
+        "pos": 154536169,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154546045,
+        "ref": "CATG",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852338"
+      },
+      {
+        "pos": 154546046,
+        "ref": "A",
+        "alts": [
+          "G"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154546057,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154546061,
+        "ref": "T",
+        "alts": [
+          "C"
+        ],
+        "rsid": "rs137852340"
+      },
+      {
+        "pos": 154546116,
+        "ref": "C",
+        "alts": [
+          "T"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154546122,
+        "ref": "C",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      },
+      {
+        "pos": 154546131,
+        "ref": "G",
+        "alts": [
+          "A"
+        ],
+        "rsid": null
+      }
+    ],
+    "alleles": [
+      {
+        "name": "202G>A_376A>G_1264C>G",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532590": "C",
+          "154535277": "C",
+          "154536002": "T"
+        }
+      },
+      {
+        "name": "A",
+        "function": "IV/Normal",
+        "sites": {
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "A- 202A_376G",
+        "function": "III/Deficient",
+        "sites": {
+          "154535277": "C",
+          "154536002": "T"
+        }
+      },
+      {
+        "name": "A- 680T_376G",
+        "function": "III/Deficient",
+        "sites": {
+          "154534125": "A",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "A- 968C_376G",
+        "function": "III/Deficient",
+        "sites": {
+          "154533025": "G",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "Aachen",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532765": "C"
+        }
+      },
+      {
+        "name": "Abeno",
+        "function": "II/Deficient",
+        "sites": {
+          "154532634": "G"
+        }
+      },
+      {
+        "name": "Acrokorinthos",
+        "function": "II/Deficient",
+        "sites": {
+          "154535190": "C",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "Alhambra",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532674": "G"
+        }
+      },
+      {
+        "name": "Amazonia",
+        "function": "II/Deficient",
+        "sites": {
+          "154536019": "T"
+        }
+      },
+      {
+        "name": "Amiens",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532278": "A"
+        }
+      },
+      {
+        "name": "Amsterdam",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154536021": "C"
+        }
+      },
+      {
+        "name": "Anadia",
+        "function": "II/Deficient",
+        "sites": {
+          "154532661": "C"
+        }
+      },
+      {
+        "name": "Ananindeua",
+        "function": "II/Deficient",
+        "sites": {
+          "154533122": "T",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "Andalus",
+        "function": "II/Deficient",
+        "sites": {
+          "154532389": "T"
+        }
+      },
+      {
+        "name": "Arakawa",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532082": "A"
+        }
+      },
+      {
+        "name": "Asahi",
+        "function": "III/Deficient",
+        "sites": {
+          "154536002": "T"
+        }
+      },
+      {
+        "name": "Asahikawa",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534110": "T"
+        }
+      },
+      {
+        "name": "Aures",
+        "function": "III/Deficient",
+        "sites": {
+          "154536156": "G"
+        }
+      },
+      {
+        "name": "Aveiro",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533634": "T"
+        }
+      },
+      {
+        "name": "Bajo Maumere",
+        "function": "III/Deficient",
+        "sites": {
+          "154533596": "A"
+        }
+      },
+      {
+        "name": "Bangkok",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533615": "G"
+        }
+      },
+      {
+        "name": "Bangkok Noi",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532046": "C",
+          "154532269": "A"
+        }
+      },
+      {
+        "name": "Bao Loc",
+        "function": "II/Deficient",
+        "sites": {
+          "154535301": "G"
+        }
+      },
+      {
+        "name": "Bari",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532667": "A"
+        }
+      },
+      {
+        "name": "Belem",
+        "function": "II/Deficient",
+        "sites": {
+          "154535244": "A"
+        }
+      },
+      {
+        "name": "Beverly Hills, Genova, Iwate, Niigata, Yamaguchi",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532694": "T"
+        }
+      },
+      {
+        "name": "Brighton",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532055": "C"
+        }
+      },
+      {
+        "name": "Buenos Aires",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532083": "A"
+        }
+      },
+      {
+        "name": "Cairo",
+        "function": "II/Deficient",
+        "sites": {
+          "154535249": "G"
+        }
+      },
+      {
+        "name": "Calvo Mackenna",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532716": "C"
+        }
+      },
+      {
+        "name": "Campinas",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532085": "A"
+        }
+      },
+      {
+        "name": "Canton, Taiwan-Hakka, Gifu-like, Agrigento-like",
+        "function": "II/Deficient",
+        "sites": {
+          "154532269": "A"
+        }
+      },
+      {
+        "name": "Cassano",
+        "function": "II/Deficient",
+        "sites": {
+          "154532403": "G"
+        }
+      },
+      {
+        "name": "Chatham",
+        "function": "II/Deficient",
+        "sites": {
+          "154532990": "T"
+        }
+      },
+      {
+        "name": "Chikugo",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534447": "A"
+        }
+      },
+      {
+        "name": "Chinese-1",
+        "function": "II/Deficient",
+        "sites": {
+          "154533605": "A"
+        }
+      },
+      {
+        "name": "Chinese-5",
+        "function": "III/Deficient",
+        "sites": {
+          "154532969": "A"
+        }
+      },
+      {
+        "name": "Cincinnati",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532956": "A",
+          "154534345": "A"
+        }
+      },
+      {
+        "name": "Cleveland Corum",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533620": "T"
+        }
+      },
+      {
+        "name": "Clinic",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532639": "T"
+        }
+      },
+      {
+        "name": "Coimbra Shunde",
+        "function": "II/Deficient",
+        "sites": {
+          "154534390": "A"
+        }
+      },
+      {
+        "name": "Cosenza",
+        "function": "II/Deficient",
+        "sites": {
+          "154532269": "G"
+        }
+      },
+      {
+        "name": "Costanzo",
+        "function": "II/Deficient",
+        "sites": {
+          "154536025": "G"
+        }
+      },
+      {
+        "name": "Covao do Lobo",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532649": "T"
+        }
+      },
+      {
+        "name": "Crispim",
+        "function": "II/Deficient",
+        "sites": {
+          "154535269": "A",
+          "154535270": "G",
+          "154535274": "A",
+          "154535278": "A"
+        }
+      },
+      {
+        "name": "Dagua",
+        "function": "Uncertain function",
+        "sites": {
+          "154534387": "C"
+        }
+      },
+      {
+        "name": "Durham",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534092": "C"
+        }
+      },
+      {
+        "name": "Farroupilha",
+        "function": "II/Deficient",
+        "sites": {
+          "154533016": "T"
+        }
+      },
+      {
+        "name": "Figuera da Foz",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532279": "G"
+        }
+      },
+      {
+        "name": "Flores",
+        "function": "II/Deficient",
+        "sites": {
+          "154532258": "T"
+        }
+      },
+      {
+        "name": "Fukaya",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532086": "T"
+        }
+      },
+      {
+        "name": "Fushan",
+        "function": "II/Deficient",
+        "sites": {
+          "154532989": "T"
+        }
+      },
+      {
+        "name": "Gaohe",
+        "function": "III/Deficient",
+        "sites": {
+          "154546061": "C"
+        }
+      },
+      {
+        "name": "Georgia",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532570": "T"
+        }
+      },
+      {
+        "name": "Gidra",
+        "function": "Uncertain function",
+        "sites": {
+          "154546046": "G"
+        }
+      },
+      {
+        "name": "Gond",
+        "function": "Uncertain function",
+        "sites": {
+          "154535176": "G"
+        }
+      },
+      {
+        "name": "Guadalajara",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532695": "A"
+        }
+      },
+      {
+        "name": "Guangzhou",
+        "function": "III/Deficient",
+        "sites": {
+          "154535379": "A"
+        }
+      },
+      {
+        "name": "Haikou",
+        "function": "II/Deficient",
+        "sites": {
+          "154533605": "C"
+        }
+      },
+      {
+        "name": "Hammersmith",
+        "function": "III/Deficient",
+        "sites": {
+          "154535330": "T"
+        }
+      },
+      {
+        "name": "Harilaou",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534157": "C"
+        }
+      },
+      {
+        "name": "Harima",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532392": "T"
+        }
+      },
+      {
+        "name": "Hartford",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532692": "C"
+        }
+      },
+      {
+        "name": "Hechi",
+        "function": "II/Deficient",
+        "sites": {
+          "154533122": "T",
+          "154536002": "T"
+        }
+      },
+      {
+        "name": "Hermoupolis",
+        "function": "II/Deficient",
+        "sites": {
+          "154532390": "A",
+          "154532403": "G"
+        }
+      },
+      {
+        "name": "Honiara",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532390": "A",
+          "154546057": "C"
+        }
+      },
+      {
+        "name": "Ierapetra",
+        "function": "II/Deficient",
+        "sites": {
+          "154532797": "A"
+        }
+      },
+      {
+        "name": "Ilesha",
+        "function": "III/Deficient",
+        "sites": {
+          "154535187": "T"
+        }
+      },
+      {
+        "name": "Insuli",
+        "function": "IV/Normal",
+        "sites": {
+          "154533004": "T"
+        }
+      },
+      {
+        "name": "Iowa, Walter Reed, Springfield",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532698": "C"
+        }
+      },
+      {
+        "name": "Iwatsuki",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532773": "T"
+        }
+      },
+      {
+        "name": "Japan, Shinagawa",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532625": "T"
+        }
+      },
+      {
+        "name": "Kaiping, Anant, Dhon, Sapporo-like, Wosera",
+        "function": "II/Deficient",
+        "sites": {
+          "154532257": "T"
+        }
+      },
+      {
+        "name": "Kalyan-Kerala, Jamnaga, Rohini",
+        "function": "III/Deficient",
+        "sites": {
+          "154533044": "T"
+        }
+      },
+      {
+        "name": "Kambos",
+        "function": "III/Deficient",
+        "sites": {
+          "154536151": "A"
+        }
+      },
+      {
+        "name": "Kamiube, Keelung",
+        "function": "III/Deficient",
+        "sites": {
+          "154532258": "A"
+        }
+      },
+      {
+        "name": "Kamogawa",
+        "function": "II/Deficient",
+        "sites": {
+          "154536035": "A"
+        }
+      },
+      {
+        "name": "Kawasaki",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532625": "G"
+        }
+      },
+      {
+        "name": "Kozukata",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154536045": "G"
+        }
+      },
+      {
+        "name": "Krakow",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532679": "G"
+        }
+      },
+      {
+        "name": "La Jolla",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533608": "G"
+        }
+      },
+      {
+        "name": "Lages",
+        "function": "III/Deficient",
+        "sites": {
+          "154546116": "T"
+        }
+      },
+      {
+        "name": "Lagosanto",
+        "function": "III/Deficient",
+        "sites": {
+          "154535962": "T"
+        }
+      },
+      {
+        "name": "Laibin",
+        "function": "Uncertain function",
+        "sites": {
+          "154532231": "G"
+        }
+      },
+      {
+        "name": "Lille",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533619": "A"
+        }
+      },
+      {
+        "name": "Liuzhou",
+        "function": "II/Deficient",
+        "sites": {
+          "154535211": "T"
+        }
+      },
+      {
+        "name": "Loma Linda",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532765": "T"
+        }
+      },
+      {
+        "name": "Ludhiana",
+        "function": "II/Deficient",
+        "sites": {
+          "154533064": "T"
+        }
+      },
+      {
+        "name": "Lynwood",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532700": "A"
+        }
+      },
+      {
+        "name": "Madrid",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532699": "C"
+        }
+      },
+      {
+        "name": "Mahidol",
+        "function": "III/Deficient",
+        "sites": {
+          "154534495": "T"
+        }
+      },
+      {
+        "name": "Malaga",
+        "function": "III/Deficient",
+        "sites": {
+          "154534440": "A"
+        }
+      },
+      {
+        "name": "Manhattan",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533031": "T"
+        }
+      },
+      {
+        "name": "Mediterranean, Dallas, Panama, Sassari, Cagliari, Birmingham",
+        "function": "II/Deficient",
+        "sites": {
+          "154534419": "A"
+        }
+      },
+      {
+        "name": "Metaponto",
+        "function": "III/Deficient",
+        "sites": {
+          "154536032": "T"
+        }
+      },
+      {
+        "name": "Mexico City",
+        "function": "III/Deficient",
+        "sites": {
+          "154534125": "T"
+        }
+      },
+      {
+        "name": "Miaoli",
+        "function": "II/Deficient",
+        "sites": {
+          "154534463": "C"
+        }
+      },
+      {
+        "name": "Minnesota, Marion, Gastonia, LeJeune",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534345": "A"
+        }
+      },
+      {
+        "name": "Mira d'Aire",
+        "function": "IV/Normal",
+        "sites": {
+          "154532945": "G"
+        }
+      },
+      {
+        "name": "Mizushima",
+        "function": "II/Deficient",
+        "sites": {
+          "154533592": "C"
+        }
+      },
+      {
+        "name": "Montalbano",
+        "function": "III/Deficient",
+        "sites": {
+          "154533586": "T"
+        }
+      },
+      {
+        "name": "Montpellier",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532722": "T"
+        }
+      },
+      {
+        "name": "Mt Sinai",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532695": "A",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "Munich",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532623": "C"
+        }
+      },
+      {
+        "name": "Murcia Oristano",
+        "function": "III/Deficient",
+        "sites": {
+          "154535995": "C"
+        }
+      },
+      {
+        "name": "Musashino",
+        "function": "III/Deficient",
+        "sites": {
+          "154536019": "A"
+        }
+      },
+      {
+        "name": "Namouru",
+        "function": "II/Deficient",
+        "sites": {
+          "154535996": "G"
+        }
+      },
+      {
+        "name": "Nankang",
+        "function": "II/Deficient",
+        "sites": {
+          "154534465": "G"
+        }
+      },
+      {
+        "name": "Nanning",
+        "function": "III/Deficient",
+        "sites": {
+          "154534102": "A"
+        }
+      },
+      {
+        "name": "Naone",
+        "function": "II/Deficient",
+        "sites": {
+          "154534485": "T"
+        }
+      },
+      {
+        "name": "Nara",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533012": "C"
+        }
+      },
+      {
+        "name": "Nashville, Anaheim, Portici",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532676": "T"
+        }
+      },
+      {
+        "name": "Neapolis",
+        "function": "III/Deficient",
+        "sites": {
+          "154532245": "C"
+        }
+      },
+      {
+        "name": "Nice",
+        "function": "III/Deficient",
+        "sites": {
+          "154532265": "G"
+        }
+      },
+      {
+        "name": "Nilgiri",
+        "function": "II/Deficient",
+        "sites": {
+          "154534389": "T"
+        }
+      },
+      {
+        "name": "No name",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154546131": "A"
+        }
+      },
+      {
+        "name": "North Dallas",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534116": "A"
+        }
+      },
+      {
+        "name": "Olomouc",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532713": "G"
+        }
+      },
+      {
+        "name": "Omiya",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533072": "G"
+        }
+      },
+      {
+        "name": "Orissa",
+        "function": "III/Deficient",
+        "sites": {
+          "154536168": "C"
+        }
+      },
+      {
+        "name": "Osaka",
+        "function": "II/Deficient",
+        "sites": {
+          "154533587": "A"
+        }
+      },
+      {
+        "name": "Palestrina",
+        "function": "III/Deficient",
+        "sites": {
+          "154536034": "T"
+        }
+      },
+      {
+        "name": "Papua",
+        "function": "Uncertain function",
+        "sites": {
+          "154533591": "T"
+        }
+      },
+      {
+        "name": "Partenope",
+        "function": "II/Deficient",
+        "sites": {
+          "154532802": "A"
+        }
+      },
+      {
+        "name": "Pawnee",
+        "function": "II/Deficient",
+        "sites": {
+          "154532434": "G"
+        }
+      },
+      {
+        "name": "Pedoplis-Ckaro",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534409": "C"
+        }
+      },
+      {
+        "name": "Piotrkow",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533589": "G"
+        }
+      },
+      {
+        "name": "Plymouth",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534494": "T"
+        }
+      },
+      {
+        "name": "Praha",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532688": "C"
+        }
+      },
+      {
+        "name": "Puerto Limon",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532662": "T"
+        }
+      },
+      {
+        "name": "Quing Yan",
+        "function": "III/Deficient",
+        "sites": {
+          "154535261": "A"
+        }
+      },
+      {
+        "name": "Radlowo",
+        "function": "II/Deficient",
+        "sites": {
+          "154534126": "A"
+        }
+      },
+      {
+        "name": "Rehevot",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533029": "G"
+        }
+      },
+      {
+        "name": "Rignano",
+        "function": "III/Deficient",
+        "sites": {
+          "154536169": "T"
+        }
+      },
+      {
+        "name": "Riley",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532715": "G"
+        }
+      },
+      {
+        "name": "Riverside",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532626": "A"
+        }
+      },
+      {
+        "name": "Roubaix",
+        "function": "II/Deficient",
+        "sites": {
+          "154533629": "G"
+        }
+      },
+      {
+        "name": "S. Antioco",
+        "function": "II/Deficient",
+        "sites": {
+          "154532408": "C"
+        }
+      },
+      {
+        "name": "Salerno Pyrgos",
+        "function": "III/Deficient",
+        "sites": {
+          "154535270": "C"
+        }
+      },
+      {
+        "name": "Santa Maria",
+        "function": "II/Deficient",
+        "sites": {
+          "154534440": "A",
+          "154535277": "C"
+        }
+      },
+      {
+        "name": "Santiago",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534389": "G"
+        }
+      },
+      {
+        "name": "Santiago de Cuba, Morioka",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532411": "T"
+        }
+      },
+      {
+        "name": "Sao Borja",
+        "function": "IV/Normal",
+        "sites": {
+          "154535316": "T"
+        }
+      },
+      {
+        "name": "Seattle, Lodi, Modena, Ferrara II, Athens-like",
+        "function": "III/Deficient",
+        "sites": {
+          "154533596": "G"
+        }
+      },
+      {
+        "name": "Seoul",
+        "function": "II/Deficient",
+        "sites": {
+          "154533077": "T"
+        }
+      },
+      {
+        "name": "Serres",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532772": "A"
+        }
+      },
+      {
+        "name": "Shenzen",
+        "function": "II/Deficient",
+        "sites": {
+          "154535180": "T"
+        }
+      },
+      {
+        "name": "Shinshu",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534455": "C"
+        }
+      },
+      {
+        "name": "Sibari",
+        "function": "III/Deficient",
+        "sites": {
+          "154534348": "C"
+        }
+      },
+      {
+        "name": "Sierra Leone",
+        "function": "III/Deficient",
+        "sites": {
+          "154535277": "C",
+          "154535342": "T"
+        }
+      },
+      {
+        "name": "Sinnai",
+        "function": "III/Deficient",
+        "sites": {
+          "154546122": "A"
+        }
+      },
+      {
+        "name": "Songklanagarind",
+        "function": "II/Deficient",
+        "sites": {
+          "154536008": "T"
+        }
+      },
+      {
+        "name": "Split",
+        "function": "III/Deficient",
+        "sites": {
+          "154532203": "C"
+        }
+      },
+      {
+        "name": "Stonybrook",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534074": "T"
+        }
+      },
+      {
+        "name": "Sugao",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533614": "A"
+        }
+      },
+      {
+        "name": "Sumare",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532458": "C"
+        }
+      },
+      {
+        "name": "Sunderland",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154546045": "C"
+        }
+      },
+      {
+        "name": "Surabaya",
+        "function": "II/Deficient",
+        "sites": {
+          "154532459": "T"
+        }
+      },
+      {
+        "name": "Suwalki",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532628": "C"
+        }
+      },
+      {
+        "name": "Swansea",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154535980": "G"
+        }
+      },
+      {
+        "name": "Taipei, Chinese-3",
+        "function": "II/Deficient",
+        "sites": {
+          "154534489": "C"
+        }
+      },
+      {
+        "name": "Telti, Kobe",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532432": "A"
+        }
+      },
+      {
+        "name": "Tenri",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532758": "C"
+        }
+      },
+      {
+        "name": "Tokyo, Fukushima",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532608": "T"
+        }
+      },
+      {
+        "name": "Toledo",
+        "function": "II/Deficient",
+        "sites": {
+          "154534486": "A"
+        }
+      },
+      {
+        "name": "Tomah",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532701": "G"
+        }
+      },
+      {
+        "name": "Tondela",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532752": "C"
+        }
+      },
+      {
+        "name": "Torun",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532987": "C"
+        }
+      },
+      {
+        "name": "Tsukui",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534414": "G"
+        }
+      },
+      {
+        "name": "Ube Konan",
+        "function": "III/Deficient",
+        "sites": {
+          "154535963": "A"
+        }
+      },
+      {
+        "name": "Union,Maewo, Chinese-2, Kalo",
+        "function": "II/Deficient",
+        "sites": {
+          "154532390": "A"
+        }
+      },
+      {
+        "name": "Urayasu",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154535367": "G"
+        }
+      },
+      {
+        "name": "Utrecht",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532629": "A"
+        }
+      },
+      {
+        "name": "Valladolid",
+        "function": "II/Deficient",
+        "sites": {
+          "154535247": "A"
+        }
+      },
+      {
+        "name": "Vancouver",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534390": "A",
+          "154534438": "A",
+          "154535336": "C"
+        }
+      },
+      {
+        "name": "Vanua Lava",
+        "function": "II/Deficient",
+        "sites": {
+          "154535270": "G"
+        }
+      },
+      {
+        "name": "Viangchan, Jammu",
+        "function": "II/Deficient",
+        "sites": {
+          "154533122": "T"
+        }
+      },
+      {
+        "name": "Volendam",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534468": "A"
+        }
+      },
+      {
+        "name": "Wayne",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154534036": "C"
+        }
+      },
+      {
+        "name": "West Virginia",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533083": "A"
+        }
+      },
+      {
+        "name": "Wexham",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154533607": "A"
+        }
+      },
+      {
+        "name": "Wisconsin",
+        "function": "I/Deficient with CNSHA",
+        "sites": {
+          "154532677": "C"
+        }
+      },
+      {
+        "name": "Yunan",
+        "function": "Uncertain function",
+        "sites": {
+          "154532264": "T"
+        }
+      }
+    ]
   }
 }

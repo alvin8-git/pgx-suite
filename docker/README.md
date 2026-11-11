@@ -46,7 +46,7 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | PharmCAT outside calls | 3.2.0 | `pharmcat_outside` rule → `pgx-pharmcat-outside.sh`: OptiType HLA-A/B (two-field) and unanimous-only CYP2D6 passed via `pharmcat.jar -po`; omitted genes logged in `pharmcat/outside_calls.tsv`; stage-1 report kept on any failure |
 | OptiType | 1.3.5 | `optitype` rule — Apptainer SIF; **sample-level** (one run types HLA-A/B/C; the three loci share one result TSV) |
 | mutserve | 2.0.3 | `mutserve` rule (baked-in JAR, MT-RNR1) |
-| VCF-Check | in-house | `pgx-compare.py` direct genotype from `vcf_check_variants.json` (RYR1/VKORC1/IFNL3/G6PD/CACNA1S; authority) |
+| VCF-Check | in-house | `pgx-compare.py` direct genotype from `vcf_check_variants.json` (RYR1/VKORC1/IFNL3/G6PD/CACNA1S; authority; G6PD = full CPIC allele table) |
 | Snakemake | orchestrator | `snakemake -s /opt/pgx/Snakefile` |
 
 ## Volume Mounts (at runtime)

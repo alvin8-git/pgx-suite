@@ -5,6 +5,58 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-11 — MT-RNR1 and G6PD false negatives fixed (ERROR is never NEGATIVE)
+
+Two false negatives found on commercial reference standards (a homoplasmic MT-RNR1
+m.1494C>T sample and a hemizygous G6PD c.95A>G / Gaohe sample).
+
+- **MT-RNR1**: `pgx-mt.sh` called mutserve with `--input`, which mutserve 2.x rejects
+  ("Unknown option"); the failure was downgraded to a warning, no raw file was written, and
+  the empty parse reported `Reference / Standard aminoglycoside risk`. Even with a working
+  call the parser indexed the wrong columns (mutserve 2.0.3 inserts a `Filter` column).
+  Fixed: positional input, hard failure on mutserve error (no result JSON), header-driven
+  parsing, full CPIC MT-RNR1 table (m.1095T>C, m.1494C>T, m.1555A>G increased risk; uncertain
+  alleles listed), heteroplasmy level, per-site depth, `not typed` when chrM depth < 100x.
+- **G6PD**: the VCF-Check authority tested only 5 sites and outranked PyPGx, Stargazer and
+  Aldy, which all called Gaohe/deficient; PharmCAT also called Gaohe/Gaohe Deficient (shown
+  only as an informational cross-check). Fixed: typing against the full 171-site CPIC table,
+  sex-aware CPIC phenotype, per-site depth, never "Normal" on a partial list, and a
+  discordant verdict when the authority sees no deficiency but another caller does.
+- Wording fixes (no logic change) for the other partial-list checkers: CACNA1S, RYR1,
+  UGT1A1 now say "not found among the N sites checked".
+- Follow-up: a G6PD negative now requires verified depth. Depth unavailable (BAM missing,
+  `samtools depth` failed) -> `not typed`; any key site of the common deficient alleles (A-
+  202A/376G, Mediterranean, Viangchan, Mahidol, Canton, Kaiping, Union, Chinese-5) below
+  `min_cov` -> `not typed (key site(s) below Nx)`. Positive calls are unaffected. `pgx-mt.sh`
+  now aborts on an unparseable mutserve data row instead of skipping it. `test_vcf_check.py`
+  is pytest-collectable (`test_vcf_check`) and covers both.
+- `pgx-compare.py` gained `--bam/--ref/--sex`; Snakefile passes them (`sex=` config key).
+- Review fixes: G6PD site depth filters on base quality (`samtools depth -q 13`, as
+  `bcftools mpileup`), not mapping quality; nested alleles are assigned copy-aware (1/1 c.202A +
+  0/1 c.376G in a female = A- + Asahi = Deficient, not Variable); a 0/1 chrX call in a male is
+  `Indeterminate` (QC flag), never promoted to hemizygous Deficient; the G6PD safety net
+  recognises `G6PD not typed`; supporting variants carry the alt base and an allele fraction;
+  `--sex` accepts M/F/MALE/FEMALE in any case and treats anything else as "infer".
+  MT-RNR1: table lookup keyed on (pos, ref, alt) so m.807A>G and m.807A>C are both reportable;
+  the result JSON is written atomically (a parser abort leaves none).
+- G6PD key-site depth is sex-aware (>= 5 reads per X copy): 10x for females and unknown sex,
+  5x for hemizygous males (`min_cov_male`, default min_cov/2). At 30x WGS a male chrX averages
+  ~15x, so a flat 10x left GIAB males HG002/HG003 `not typed`; a female carrier allele is in only
+  ~half the reads, so 10x stays for females. Validated: HG001-HG005 all typed reference; a
+  hemizygous Gaohe reference standard stays Deficient; a homoplasmic m.1494C>T standard is called.
+- Second review round (ERROR is never NEGATIVE). G6PD: a VCF record at a CPIC site whose REF/ALT
+  cannot be matched (after trimming bcftools' trailing context) is a QC failure, not skipped; a
+  record with QUAL < 20 or DP < 3 never makes a Deficient call; QC failures (unmatched record, low
+  quality, male 0/1) make a negative `Indeterminate`, while a confident deficiency stays the leading
+  phrase with a `QC:` note; site depth is read with `samtools mpileup` (same BAQ/orphan filters as
+  the caller) when a reference is given; another caller's "Variable" counts as dissent and a
+  discordant verdict's phenotype reads `Indeterminate - discordant ...`, never the authority's
+  negative; no chrY reads infers unknown sex, not female. MT-RNR1: a filtered mutserve call at an
+  increased-risk site makes the result `not typed` and is named in the notes; observed
+  uncertain-risk variants are always listed.
+
+---
+
 ## 2026-11-09 — cpic.json is strictly CPIC Level A/B; Level C pairs are not flagged
 
 `docker/cpic.json` is the single source of flagging rules, so only CPIC Level A or B gene-drug

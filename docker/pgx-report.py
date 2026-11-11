@@ -147,7 +147,7 @@ DIPLOTYPE_CHECKS = {
     "VKORC1":  lambda d: any(x in (d or "") for x in ("rs9923231", "*S1", "*H1", "*H2")),
     "RYR1":    lambda d: bool(d) and d not in (None, "-", "Reference/Reference", "*1/*1", "*ference/*ference", ""),
     "CACNA1S": lambda d: bool(d) and d not in (None, "-", "Reference/Reference", "*1/*1", ""),
-    "MT-RNR1": lambda d: bool(d) and d not in (None, "-", "Reference", ""),
+    "MT-RNR1": lambda d: bool(d) and d not in (None, "-", "Reference", "not typed", ""),
     "CYP4F2":  lambda d: "*3" in (d or ""),
     "ABCG2":   lambda d: "rs2231142" in (d or ""),
     "HLA-A":   lambda d: "A*31:01" in (d or ""),

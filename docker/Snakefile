@@ -429,6 +429,11 @@ rule compare:
         except Exception:
             pass
         args += f" --alt-aware {alt_aware}"
+        # BAM/ref let VCF-Check genes (G6PD) verify per-site depth; sex (config `sex=MALE|FEMALE`,
+        # else inferred from chrX/chrY reads) selects hemizygous vs heterozygous G6PD calls.
+        args += f" --bam {BAM} --ref {REF}"
+        if config.get("sex"):
+            args += f" --sex {config['sex']}"
         shell(f"python3 /opt/pgx/pgx-compare.py {args}")
 
 
