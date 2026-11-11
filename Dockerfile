@@ -48,6 +48,16 @@ RUN pip install --no-cache-dir "ortools>=9.6,<10"
 # Aldy
 RUN pip install --no-cache-dir aldy==4.8.3
 
+# T1K v1.0.10 (MIT) -- second, independent HLA typer (class II consensus with arcasHLA).
+# Pinned to an exact commit; the IMGT/HLA index is NOT baked in (built once from hla.dat,
+# mounted at /pgx/containers/t1k_hlaidx -- see docs/ToolsDocumentation.md).
+RUN curl -fsSL https://github.com/mourisl/T1K/archive/9f09f4dccee4e7501b98a4e822943c0fb26a4e25.tar.gz \
+        -o /tmp/t1k.tar.gz \
+    && mkdir -p /opt/t1k && tar -xzf /tmp/t1k.tar.gz -C /opt/t1k --strip-components=1 \
+    && make -C /opt/t1k -j4 \
+    && rm -rf /tmp/t1k.tar.gz /opt/t1k/*.o /opt/t1k/hprc_database /opt/t1k/example /opt/t1k/CFTR \
+    && /opt/t1k/run-t1k --help 2>&1 | head -2
+
 # PyPGx (from local source; .dockerignore strips build/ docs/ *.rst to keep context lean)
 COPY pypgx/ /opt/pypgx/
 RUN pip install --no-cache-dir /opt/pypgx/
@@ -125,6 +135,8 @@ RUN curl -fsSL https://github.com/seppinho/mutserve/releases/download/v2.0.3/mut
 # ── 5. Copy compiled Python environment from builder ─────────────────────────
 # The venv contains pypgx, aldy, pysam, ortools, pandas, numpy, matplotlib, etc.
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /opt/t1k /opt/t1k
+ENV PATH="/opt/t1k:${PATH}"
 ENV PATH="/opt/venv/bin:/usr/local/bin:${PATH}"
 
 # ── 6. Nextflow ──────────────────────────────────────────────────────────────
@@ -156,6 +168,8 @@ COPY docker/pgx-mt.sh             /opt/pgx/pgx-mt.sh
 COPY docker/omnigen_addons.py     /opt/pgx/omnigen_addons.py
 COPY docker/pgx-hla2.sh           /opt/pgx/pgx-hla2.sh
 COPY docker/abo_allele_defs.json  /opt/pgx/abo_allele_defs.json
+COPY docker/abo_pileup.py         /opt/pgx/abo_pileup.py
+COPY docker/hla2_consensus.py     /opt/pgx/hla2_consensus.py
 COPY docker/pgx_cram_regions.bed  /opt/pgx/pgx_cram_regions.bed
 COPY docker/genes.tsv             /opt/pgx/genes.tsv
 COPY docker/cpic.json             /opt/pgx/cpic.json

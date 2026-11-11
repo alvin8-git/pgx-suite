@@ -1323,17 +1323,15 @@ def parse_single_snp_vcf(output_dir: str, gene: str, sample: str) -> CallerResul
     return result
 
 
-# ── Parser: ABO blood type (SNP + indel; VCF-Check-style) ** PROVISIONAL ** ───
-# Models the classic 3-site ABO*O.01/A1/B call: the rs8176719 frameshift deletion
-# defines O; rs8176746 + rs8176747 discriminate A vs B among non-O haplotypes.
-# Reads ABO.vcf.gz (the generic vcf_check bcftools rule) and delegates the pure
-# assignment to omnigen_addons.abo_assign_type (unit-tested). Also writes the
-# top-level OmniGen contract results/<S>/abo/abo_type.tsv (+ .json).
-# ABO output is UNVALIDATED — see omnigen_addons.ABO_VALIDATION_STATUS.
+# ── Parser: ABO blood type (BAM pileup at the defining sites) ─────────────────
+# abo_pileup.py (run by the bcftools rule for ABO) writes genes/ABO/abo_pileup.json
+# with read counts at the c.261delG O site and four A/B SNPs. GRCh38 carries the O
+# allele, so hom-ref at c.261 is O/O. No pileup file or no coverage -> "Not typed".
+# Also writes results/<S>/abo/abo_type.tsv (+ .json, with per-site evidence).
 def parse_abo_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     result = CallerResult(
         tool="ABO-Typer",
-        phasing_method="bcftools mpileup (indel-aware) — 3-site SNP+indel assignment (unphased)",
+        phasing_method="BAM pileup at c.261delG + 4 A/B SNPs (unphased; GRCh38 ref = O)",
     )
     try:
         defs = _oa.load_abo_defs()
@@ -1342,49 +1340,18 @@ def parse_abo_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
         result.diplotype = f"ABO defs missing: {exc}"
         return result
 
-    vcf = os.path.join(output_dir, f"{gene}.vcf.gz")
-    sites: dict = {v["rsid"]: None for v in defs["variants"]}
-    depth_by_rs: dict = {}
-    if os.path.exists(vcf):
-        for v in defs["variants"]:
-            pos = v.get("pos_grch38_provisional")
-            chrom = v.get("chrom", "chr9")
-            if not pos:
-                continue
-            try:
-                proc = subprocess.run(
-                    ["bcftools", "view", "-r", f"{chrom}:{pos}-{pos}", vcf],
-                    capture_output=True, text=True, timeout=30,
-                )
-            except FileNotFoundError:
-                result.status = "failed"
-                result.diplotype = "bcftools not in PATH"
-                return result
-            except subprocess.TimeoutExpired:
-                continue
-            for line in proc.stdout.splitlines():
-                if line.startswith("#"):
-                    continue
-                f = line.split("\t")
-                if len(f) < 10 or int(f[1]) != pos:
-                    continue
-                ref, alt = f[3], f[4]
-                fmt = dict(zip(f[8].split(":"), f[9].split(":")))
-                gt = fmt.get("GT", "./.").replace("|", "/")
-                dp = fmt.get("DP", "-")
-                copies = sum(1 for g in gt.split("/") if g not in ("0", "."))
-                if copies == 0:
-                    continue
-                is_indel = any(len(a) != len(ref) for a in alt.split(","))
-                sites[v["rsid"]] = {"alt_copies": copies, "gt": gt,
-                                    "depth": int(dp) if dp.isdigit() else 0,
-                                    "is_indel": is_indel}
-                depth_by_rs[v["rsid"]] = dp
-                break
+    pileup = None
+    pj = os.path.join(output_dir, "abo_pileup.json")
+    if os.path.exists(pj):
+        try:
+            with open(pj) as fh:
+                pileup = json.load(fh)
+        except Exception:  # noqa: BLE001
+            pileup = None
+    call = _oa.abo_assign_type(pileup, defs)
+    if pileup is None:
+        call["flags"].append("abo_pileup.json missing/unreadable (ABO read-level step did not run)")
 
-    call = _oa.abo_assign_type(sites, defs)
-
-    # Top-level OmniGen contract: results/<S>/abo/abo_type.tsv (+ .json).
     sample_root = os.path.dirname(os.path.dirname(output_dir))  # .../genes/ABO -> sample root
     abo_dir = os.path.join(sample_root, "abo")
     try:
@@ -1394,16 +1361,19 @@ def parse_abo_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
     except Exception:  # noqa: BLE001  (contract write is best-effort)
         pass
 
-    result.diplotype = call["alleles"]
-    result.phenotype = f"ABO blood group {call['ABO_type']}"
-    result.allele_score = f"confidence={call['confidence']} (UNVALIDATED — do not use clinically)"
+    typed = call["ABO_type"] != "Not typed"
+    result.diplotype = call["alleles"] if typed else "not typed"
+    result.phenotype = f"ABO blood group {call['ABO_type']}" if typed else "ABO not typed"
+    result.allele_score = f"confidence={call['confidence']}; sites_observed={call['n_sites_observed']}" + (
+        "; " + "; ".join(call["flags"]) if call["flags"] else "")
     result.supporting_variants = [
-        {"allele": s["rsid"], "chrom": "chr9", "pos": "-", "ref": "-", "alt": "-",
-         "af": "-", "depth": s.get("depth"), "effect": "ABO defining site",
+        {"allele": s["rsid"], "chrom": "chr9", "pos": s.get("pos", "-"), "ref": "-", "alt": "-",
+         "af": s.get("af") if s.get("af") is not None else "-", "depth": s.get("depth"),
+         "effect": f"{s.get('cdna', '')} ({s.get('role', '')}) alt={s.get('n_alt')}/ref={s.get('n_ref')}",
          "rsid": s["rsid"]}
         for s in call["per_site"]
     ]
-    result.status = "ok"
+    result.status = "ok" if typed else "failed"
     return result
 
 

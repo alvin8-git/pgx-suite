@@ -1016,19 +1016,22 @@ def build_hla2_abo_section(out_dir: str) -> str:
         body += (
             '<div style="border:1px dashed #f6ad55;background:#fffaf0;border-radius:8px;'
             'padding:0.8rem;font-size:0.9rem">'
-            f'<strong>ABO blood group (PROVISIONAL): {escape(str(abo.get("ABO_type","?")))}</strong> '
+            f'<strong>ABO blood group: {escape(str(abo.get("ABO_type","?")))}</strong> '
             f'&nbsp;<span style="color:#718096">alleles {escape(str(abo.get("alleles","-")))}, '
-            f'confidence {escape(str(abo.get("confidence","low")))}</span>'
-            '<div style="color:#9c4221;font-size:0.8rem;margin-top:0.3rem">&#9888; UNVALIDATED '
-            '&mdash; ABO typer not yet validated against a known-type control and the GRCh38 '
-            'reference-allele / coordinates are unconfirmed. Do NOT use clinically.</div></div>')
+            f'confidence {escape(str(abo.get("confidence","-")))}, '
+            f'O-site depth {escape(str(abo.get("o_site_depth","-")))}</span>'
+            '<div style="color:#9c4221;font-size:0.8rem;margin-top:0.3rem">Research output: read-level '
+            'call at c.261delG + 4 B SNPs; A1/A2 and O subtypes are not resolved. '
+            + (f'Flags: {escape(str(abo.get("flags")))}. ' if abo.get("flags") else '')
+            + ('NOT TYPED (no coverage at the defining sites).' if abo.get("ABO_type") == "Not typed" else '')
+            + '</div></div>')
 
     return f"""
     <div class="section">
         <h2>HLA Class II &amp; Blood Group</h2>
         <p style="font-size:0.85rem;color:#718096;margin:0 0 0.8rem">
             Disease-association haplotypes are <strong>susceptibility markers, not
-            diagnostic</strong>. ABO typing is provisional research output.</p>
+            diagnostic</strong>. ABO typing is research output.</p>
         {body}
     </div>"""
 

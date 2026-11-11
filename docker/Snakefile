@@ -114,7 +114,17 @@ rule bcftools:
         "mkdir -p $(dirname {output}); rc=0; "
         "( bcftools mpileup -r {params.region} -f {REF} -a AD,DP --max-depth 500 -o - {BAM} "
         "| bcftools call -m -v --output-type z -o {params.vcf} && tabix -p vcf {params.vcf} ) "
-        "|| rc=$?; echo $rc > {output}"
+        "|| rc=$?; "
+        "echo $rc > {output}"
+
+
+# ABO is typed from read-level evidence (a variants-only VCF cannot tell hom-ref from
+# no data). abo_pileup.json is the declared input of the ABO compare (parse_abo_vcf).
+rule abo_pileup:
+    output:
+        G("ABO", "abo_pileup.json"),
+    shell:
+        "mkdir -p $(dirname {output}); python3 /opt/pgx/abo_pileup.py {BAM} {REF} {output}"
 
 
 rule aldy:
@@ -369,6 +379,8 @@ def compare_inputs(w):
             ins[tool] = STAT(g, tool)
     if needs_vcf(g) or _flag(g, "vcf_check"):
         ins["bcftools"] = STAT(g, "bcftools")
+    if g == "ABO":             # ABO type comes from the read pileup, not the VCF
+        ins["abo_pileup"] = G("ABO", "abo_pileup.json")
     if _flag(g, "optitype"):   # sample-level dependency; OptiType types all HLA class I once
         ins["optitype"] = os.path.join(OUT, "optitype", "optitype.status")
     if _flag(g, "pharmcat"):   # sample-level dependency; PharmCAT runs once
@@ -454,18 +466,37 @@ rule all_genes_summary:
     output:
         os.path.join(OUT, "all_genes_summary.tsv"),
     run:
-        import json
+        import json, glob
+        # HLA class II two-typer consensus (hla2/<S>.hla2_consensus.json), appended as
+        # NEW trailing columns; the first seven columns are unchanged.
+        h2 = {}   # "-" columns only when class II was not run
+        cj = os.path.join(OUT, "hla2", f"{SAMPLE}.hla2_consensus.json")
+        sp = os.path.join(OUT, "hla2", "hla2.status")
+        hla2_ran = os.path.exists(sp) and open(sp).read().strip() == "0"  # rc!=0: typer failed, reported as failed per gene
+        if os.path.exists(cj):
+            try:
+                h2 = json.load(open(cj))["genes"]
+                assert isinstance(h2, dict)
+            except Exception as exc:
+                raise Exception(f"malformed HLA class II consensus {cj}: {exc!r}")
+        elif hla2_ran:
+            raise Exception(f"HLA class II ran but {cj} is missing")
         with open(output[0], "w") as out:
             out.write("Gene\tStatus\tConsensusDiplotype\tConsensusPhenotype\t"
-                      "nAgree\tnCalled\tMeanDepth\n")
+                      "nAgree\tnCalled\tMeanDepth\t"
+                      "HLA2Agreement\tHLA2Consensus\tHLA2Flags\n")
             for f in sorted(input):
                 d = json.load(open(f))
                 v = d.get("verdict", {})
                 cov = d.get("coverage", {})
+                hc = h2.get(d["gene"].replace("HLA-", ""), {}) if d["gene"].startswith("HLA-D") else {}
                 out.write("\t".join(str(x) for x in [
                     d["gene"], v.get("status", "?"), v.get("consensus_diplotype", "-"),
                     v.get("consensus_phenotype", "-"), v.get("n_agree", 0),
                     v.get("n_called", 0), cov.get("mean_depth", "-"),
+                    hc.get("agreement", "-"),
+                    "/".join(hc["consensus"]) if hc.get("consensus") else "-",
+                    "; ".join(hc.get("flags", [])) or "-",
                 ]) + "\n")
 
 

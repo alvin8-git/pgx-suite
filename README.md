@@ -84,6 +84,7 @@ Orchestration is a **[Snakemake](https://snakemake.readthedocs.io/) DAG** driven
 | [OptiType](https://github.com/FRED-2/OptiType) | 1.3.5 | ILP on HLA-ref-filtered reads | HLA-A/B/C | MIT |
 | [mutserve](https://github.com/seppinho/mutserve) | 2.0.3 | Allele-fraction pileup (chrM) | MT-RNR1 | MIT |
 | [arcasHLA](https://github.com/RabadanLab/arcasHLA) | 0.6.0 | Read-partitioned HLA typing | HLA class II (DQA1/DQB1/DRB1) | GPL-3.0 |
+| [T1K](https://github.com/mourisl/T1K) | 1.0.10 (`9f09f4d`) | Read-to-allele EM; second, independent HLA typer | HLA class II consensus partner for arcasHLA (DQA1/DQB1/DRB1) | MIT |
 
 **VCF-Check** (in-house, no third-party dependency) is the verdict authority for
 single-SNP / variant-list genes — **RYR1, VKORC1, IFNL3, G6PD, CACNA1S** — reading
@@ -119,6 +120,7 @@ See [`ToolsDocumentation.md`](docs/ToolsDocumentation.md) for a detailed compari
 | `StellarPGx/containers/stellarpgx-dev.sif` | StellarPGx Apptainer SIF (31 MB) |
 | `StellarPGx/containers/optitype.sif` | OptiType Apptainer SIF (~500 MB; pull separately — see below) |
 | `StellarPGx/containers/arcashla.sif` | **Required for HLA class II** (DQA1/DQB1/DRB1): arcasHLA 0.6.0 + baked IMGT/HLA reference + kallisto 0.44.0 (~450 MB; build locally, not on a registry — see below) |
+| `t1k_hlaidx/` (mount at `/pgx/containers/t1k_hlaidx`) | T1K IPD-IMGT/HLA index (~110 MB) built from the arcasHLA `hla.dat` with `docker/build-t1k-index.sh`; optional but without it class II is `single_typer` (see ToolsDocumentation 5c) |
 | `StellarPGx/containers/pharmcat.sif` | PharmCAT v3.2.0 Apptainer SIF (~1.8 GB; pull separately — see below) |
 | `nextflow` | Nextflow binary (pre-downloaded) |
 
@@ -397,8 +399,8 @@ same aligned GRCh38 BAM; no germline caller is required.
 
 | Add-on | Tool | Contract file | Status |
 |--------|------|---------------|--------|
-| **HLA class II** (DQA1/DQB1/DRB1) | arcasHLA (once per sample) | `genes/HLA-{DQA1,DQB1,DRB1}/*_comparison.tsv` (+`detail.json`) — **same schema as class-I HLA** | celiac (DQ2.5/DQ8), narcolepsy (DQB1\*06:02), T1D susceptibility |
-| **ABO blood type** | SNP+indel VCF-Check (rs8176719/746/747) | `results/<S>/abo/abo_type.tsv` (`sample, ABO_type, alleles, confidence`) + `genes/ABO/*_comparison.tsv` | **PROVISIONAL / UNVALIDATED** — GRCh38 reference-allele + coordinates unconfirmed; do NOT use clinically until validated against a known-type control |
+| **HLA class II** (DQA1/DQB1/DRB1) | arcasHLA + T1K (once per sample) | `genes/HLA-{DQA1,DQB1,DRB1}/*_comparison.tsv` (+`detail.json`) — **same schema as class-I HLA** (arcasHLA call, unchanged); **new:** `hla2/<S>.hla2_consensus.json` (two-typer consensus, `agreement` flag `agree_2field/agree_1field/disagree/single_typer`, read support, collapsed rare names; ToolsDocumentation 5c) and three trailing `all_genes_summary.tsv` columns `HLA2Agreement/HLA2Consensus/HLA2Flags` | celiac (DQ2.5/DQ8), narcolepsy (DQB1\*06:02), T1D susceptibility | `all_genes_summary.tsv` reads only this sample's consensus file; a missing file while class II ran (status 0), or a malformed one, fails the rule; `-` only when class II did not run or failed.
+| **ABO blood type** | Read-level pileup at c.261delG + 4 B SNPs (`abo_pileup.py`) | `results/<S>/abo/abo_type.tsv` (`sample, ABO_type, alleles, confidence` + new `o_site_depth, n_sites_observed, flags`), `abo_type.json` (per-site reads), `genes/ABO/*_comparison.tsv` | GRCh38 carries the O allele (hom-ref = O/O); uncovered O site gives `Not typed`, never a default. Checked on GIAB HG001-HG007 (ToolsDocumentation 5d/5e); A1/A2 and O subtypes not resolved |
 
 The deterministic parsing/assignment logic lives in `docker/omnigen_addons.py` (pure,
 stdlib-only, unit-tested by `docker/test_omnigen_addons.py` without a BAM). The report adds an

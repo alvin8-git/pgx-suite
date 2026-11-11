@@ -14,10 +14,9 @@ WITHOUT a BAM, a container, or a full pipeline run (see test_omnigen_addons.py).
 The wet-lab / caller wiring lives in the shell scripts + Snakefile rules; this
 module only parses tool output and assigns/serialises calls.
 
-ABO IS PROVISIONAL. The GRCh38 reference-allele identity at the ABO locus and
-the exact variant coordinates require empirical confirmation (samtools faidx)
-plus validation against a known-type control before any clinical use. Until then
-every ABO result carries validation_status = "UNVALIDATED" and confidence "low".
+ABO is typed from BAM pileup evidence (abo_pileup.py) at the c.261delG O site and
+four A/B SNPs; GRCh38 carries the O allele, so the non-O allele is the insertion.
+An uncovered O site gives "Not typed", never a default type.
 """
 from __future__ import annotations
 
@@ -114,88 +113,131 @@ def hla2_disease_findings(calls: dict[str, str]) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. ABO blood type — SNP+indel assignment (VCF-Check-style)  ** PROVISIONAL **
+# 2. ABO blood type — read-level assignment from BAM pileup evidence
 # ─────────────────────────────────────────────────────────────────────────────
-# Model (classic 3-site ABO*O.01 / A1 / B): O is defined by the rs8176719
-# frameshift deletion; among non-O haplotypes A vs B is set by rs8176746 +
-# rs8176747. This is diploid and unphased, so we assign genotype from zygosity
-# counts. Reference-allele identity at these positions on GRCh38 is UNCONFIRMED,
-# so the caller downgrades to UNVALIDATED (see module docstring).
+# GRCh38 carries the O haplotype at c.261delG (rs8176719): the reference LACKS the
+# G, and the non-O allele is a one-base C insertion after chr9:133257521. So a
+# sample whose reads all match the reference there has TWO O alleles; it is never
+# A/A. Among non-O haplotypes, B is set by four SNPs whose reference base is the
+# A-like base (c.526C>G, c.703G>A, c.796C>A, c.803G>C). The sites are read from the
+# BAM (abo_pileup.py): an uncovered site yields "Not typed", never a default type.
+ABO_MIN_DEPTH = 10          # reads required to genotype a site
+ABO_HOM_ALT = 0.80          # alt fraction >= this -> 2 copies
+ABO_HET_LOW = 0.20          # alt fraction in [LOW, HOM) -> 1 copy; < LOW -> 0
 ABO_VALIDATION_STATUS = (
-    "UNVALIDATED — provisional ABO call. GRCh38 reference-allele identity and "
-    "variant coordinates require empirical confirmation, and the caller must be "
-    "validated against a known-type control before any clinical use. DO NOT USE "
-    "CLINICALLY."
+    "Research use. Read-level ABO call at the c.261delG O site and four A/B SNPs "
+    "(GRCh38 reference = O haplotype). A1/A2 and O subtypes, cis-AB and weak/Bombay "
+    "phenotypes are not resolved. Validation: docs/ToolsDocumentation.md 5e (GIAB HG001-HG007)."
 )
 
 
-def abo_assign_type(sites: dict, defs: dict) -> dict:
-    """Assign ABO genotype/serology from per-site observations.
+def _site_copies(var: dict, obs: dict | None) -> dict:
+    """Genotype one site from pileup counts -> {copies, depth, alt, af, status}."""
+    if not obs or not obs.get("depth"):
+        return {"rsid": var["rsid"], "status": "no_data", "copies": None,
+                "depth": 0, "n_alt": 0, "n_ref": 0, "af": None}
+    depth = int(obs["depth"])
+    if var["type"] == "insertion":
+        ins = obs.get("ins_seqs", {}).get(var["non_o_insertion"], 0)
+        n_alt = ins
+        n_ref = max(obs.get("ref_count", 0) + sum(obs.get("alt_counts", {}).values()) - ins, 0)
+    else:
+        n_alt = int(obs.get("alt_counts", {}).get(var["b_allele"], 0))
+        n_ref = int(obs.get("ref_count", 0)) + int(obs.get("alt_counts", {}).get(var["ref_allele"], 0))
+    informative = n_alt + n_ref
+    if informative < ABO_MIN_DEPTH:
+        return {"rsid": var["rsid"], "status": "no_data", "copies": None,
+                "depth": depth, "n_alt": n_alt, "n_ref": n_ref, "af": None}
+    af = n_alt / informative
+    copies = 2 if af >= ABO_HOM_ALT else (1 if af >= ABO_HET_LOW else 0)
+    return {"rsid": var["rsid"], "status": "ok", "copies": copies, "depth": depth,
+            "n_alt": n_alt, "n_ref": n_ref, "af": round(af, 3)}
 
-    sites: {rsid: obs|None}, where obs = {"alt_copies": 0|1|2, "gt": str,
-            "depth": int, "is_indel": bool}. None = position not observed / hom-ref.
-    defs:  loaded abo_allele_defs.json (o_defining_rsid, ab_discriminating_rsids).
 
-    Returns {ABO_type, alleles, confidence, per_site, validation_status}.
-    Logic is validated by unit tests on synthetic, coordinate-independent inputs.
+def abo_assign_type(pileup: dict, defs: dict) -> dict:
+    """Assign ABO genotype/serology from per-site pileup evidence.
+
+    pileup: {"sites": {rsid: {depth, ref, ref_count, alt_counts, ins_seqs, ...}}}
+            (output of abo_pileup.py). A missing/empty pileup, or an uncovered
+            O-defining site, gives ABO_type "Not typed" (ERROR is never NEGATIVE).
+
+    Returns {ABO_type, alleles, confidence, per_site, validation_status,
+             n_sites_observed, flags, evidence}.
     """
+    psites = (pileup or {}).get("sites", {}) or {}
+    var_by_rs = {v["rsid"]: v for v in defs["variants"]}
     o_rs = defs["o_defining_rsid"]
     ab_rs = list(defs["ab_discriminating_rsids"])
+    extra = [r for r in (list(defs.get("supporting_rsids", [])) + [defs.get("o2_rsid")]) if r]
+    calls = {r: _site_copies(var_by_rs[r], psites.get(r)) for r in [o_rs, *ab_rs, *extra]
+             if r in var_by_rs}
+    flags = []
 
-    def _copies(rsid):
-        obs = sites.get(rsid)
-        return int(obs["alt_copies"]) if obs and obs.get("alt_copies") else 0
+    def _result(abo, alleles, conf, why=None):
+        if why:
+            flags.append(why)
+        per_site = [{"rsid": r, "role": var_by_rs[r]["role"], "cdna": var_by_rs[r]["cdna"],
+                     "pos": var_by_rs[r]["pos_grch38"], **c} for r, c in calls.items()]
+        # legacy keys kept for existing readers
+        for ps in per_site:
+            ps["alt_copies"] = ps["copies"] if ps["copies"] is not None else 0
+            ps["gt"] = {None: "./.", 0: "0/0", 1: "0/1", 2: "1/1"}[ps["copies"]]
+        return {"ABO_type": abo, "alleles": alleles, "confidence": conf,
+                "per_site": per_site, "validation_status": ABO_VALIDATION_STATUS,
+                "n_sites_observed": sum(1 for c in calls.values() if c["status"] == "ok"),
+                "flags": flags,
+                "evidence": {"min_depth_required": ABO_MIN_DEPTH,
+                             "o_site_depth": calls[o_rs]["depth"],
+                             "o_site_reads_non_o": calls[o_rs]["n_alt"],
+                             "o_site_reads_o": calls[o_rs]["n_ref"]}}
 
-    o_copies = _copies(o_rs)                       # 0,1,2 deletion copies
-    b_copies = max((_copies(r) for r in ab_rs), default=0)  # B-defining SNP copies
+    o_call = calls[o_rs]
+    if o_call["status"] != "ok":
+        return _result("Not typed", "-", "none",
+                       f"O-defining site c.261delG not covered (depth {o_call['depth']}, "
+                       f"need >= {ABO_MIN_DEPTH}); no ABO call made")
 
-    non_o = 2 - o_copies
-    # Clamp B copies to the number of non-O haplotypes available.
-    b_copies = min(b_copies, non_o)
-    a_copies = non_o - b_copies
-
-    haps = ["O"] * o_copies + ["B"] * b_copies + ["A"] * a_copies
+    non_o = o_call["copies"]            # copies of the C insertion (non-O)
+    o_copies = 2 - non_o
+    if non_o == 0:                       # reference-homozygous at c.261 -> O/O
+        haps = ["O", "O"]
+    else:
+        b_calls = [calls[r] for r in ab_rs]
+        ok_b = [c for c in b_calls if c["status"] == "ok"]
+        if len(ok_b) < 2:
+            return _result("Not typed", "-", "none",
+                           "non-O allele present but fewer than 2 of 4 A/B SNPs covered; "
+                           "A vs B cannot be called")
+        b_copies = min(max(c["copies"] for c in ok_b), non_o)
+        # Sites should agree: every covered B SNP should carry the same copy number
+        if len({c["copies"] for c in ok_b}) > 1:
+            flags.append("A/B SNPs disagree (" +
+                         ", ".join(f"{c['rsid']}={c['copies']}" for c in ok_b) +
+                         "); possible recombinant/cis-AB/subtype, review")
+        if len(ok_b) < len(b_calls):
+            flags.append(f"{len(b_calls) - len(ok_b)} of 4 A/B SNPs not covered")
+        a_copies = non_o - b_copies
+        haps = ["O"] * o_copies + ["B"] * b_copies + ["A"] * a_copies
+    o2 = calls.get(defs.get("o2_rsid"))
+    if o2 and o2["status"] == "ok" and o2["copies"]:
+        flags.append("c.802G>A (O2 marker) present: an O allele without c.261delG may be "
+                     "present, so a non-O call may under-count O alleles")
     haps.sort(key=lambda h: {"A": 0, "B": 1, "O": 2}[h])
-    allele_names = {"A": "ABO*A1.01", "B": "ABO*B.01", "O": "ABO*O.01.01"}
-    alleles = "/".join(allele_names[h] for h in haps)
-
+    alleles = "/".join(f"ABO*{h}" for h in haps)
     present = set(haps)
     if present == {"O"}:
         abo = "O"
-    elif "A" in present and "B" in present:
+    elif {"A", "B"} <= present:
         abo = "AB"
     elif "A" in present:
         abo = "A"
-    elif "B" in present:
+    else:
         abo = "B"
-    else:
-        abo = "Undetermined"
-
-    # Confidence never exceeds "low" while the caller is UNVALIDATED.
-    observed = sum(1 for r in [o_rs, *ab_rs] if sites.get(r) is not None)
-    min_depth = min((sites[r]["depth"] for r in [o_rs, *ab_rs]
-                     if sites.get(r) and sites[r].get("depth")), default=0)
-    if abo == "Undetermined" or min_depth < 10:
-        confidence = "low"
-    else:
-        confidence = "low"  # capped at low: UNVALIDATED
-    per_site = []
-    for r in [o_rs, *ab_rs]:
-        obs = sites.get(r)
-        per_site.append({
-            "rsid": r,
-            "alt_copies": obs["alt_copies"] if obs else 0,
-            "gt": obs.get("gt", "0/0") if obs else "0/0",
-            "depth": obs.get("depth") if obs else None,
-        })
-    return {
-        "ABO_type": abo,
-        "alleles": alleles,
-        "confidence": confidence,
-        "per_site": per_site,
-        "validation_status": ABO_VALIDATION_STATUS,
-        "n_sites_observed": observed,
-    }
+    ok_depths = [c["depth"] for c in calls.values() if c["status"] == "ok"
+                 and c["rsid"] in [o_rs, *ab_rs]]
+    conf = "high" if (not flags and min(ok_depths) >= 20) else (
+        "medium" if min(ok_depths) >= ABO_MIN_DEPTH and len(flags) <= 1 else "low")
+    return _result(abo, alleles, conf)
 
 
 def write_abo_tsv(path: str, sample: str, result: dict) -> None:
@@ -203,9 +245,13 @@ def write_abo_tsv(path: str, sample: str, result: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh, delimiter="\t")
-        w.writerow(["sample", "ABO_type", "alleles", "confidence"])
-        w.writerow([sample, result.get("ABO_type", "Undetermined"),
-                    result.get("alleles", "-"), result.get("confidence", "low")])
+        w.writerow(["sample", "ABO_type", "alleles", "confidence", "o_site_depth",
+                    "n_sites_observed", "flags"])
+        w.writerow([sample, result.get("ABO_type", "Not typed"),
+                    result.get("alleles", "-"), result.get("confidence", "none"),
+                    (result.get("evidence") or {}).get("o_site_depth", ""),
+                    result.get("n_sites_observed", 0),
+                    "; ".join(result.get("flags", []))])
 
 
 def read_abo_tsv(path: str) -> dict | None:

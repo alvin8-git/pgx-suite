@@ -595,6 +595,150 @@ Resulting 2-field diplotypes (`Status=ok`, `Tool=arcasHLA`, class-I contract sch
 
 ---
 
+## 5c. HLA class II second typer (T1K) and consensus
+
+### Why a second typer
+
+arcasHLA (5b) reports one genotype per gene and keeps no confidence. On 30X WGS the MHC gives
+only ~100-200 reads per class II gene, and arcasHLA picks one name among near-identical
+IPD-IMGT/HLA entries. Many of the rare names it returns (for example `DRB1*11:284`,
+`DRB1*13:375`, `DRB1*16:76`, `DRB1*01:126`, `DQB1*02:189`) are cDNA-only entries 2-4 bases
+from a common allele; the name carries no allele-level information. A second, independent
+algorithm on the same reads separates real calls from tie-break artefacts.
+
+### Choice: T1K
+
+| Candidate | Licence | Offline / container | Verdict |
+|-----------|---------|---------------------|---------|
+| [T1K](https://github.com/mourisl/T1K) v1.0.10 (Song et al., *Genome Res* 2023, doi:10.1101/gr.277585.122) | MIT | Single C++/perl tool; reference index is built from `hla.dat` (no download needed); ~1 min per 30X sample | **Chosen** |
+| [HLA\*LA](https://github.com/DiltheyLab/HLA-LA) | GPL-3.0 | Needs a ~30-40 GB reference graph and heavy graph alignment | Open, but too heavy for the offline node; kept as a possible third typer |
+| [xHLA](https://github.com/humanlongevity/HLA) | Non-commercial academic only (its LICENSE file) | Docker image | **Rejected** on licence for a public repo |
+
+T1K's documented design (README): it aligns reads to allele reference sequences, estimates
+allele abundance by EM and reports, per gene, abundance, a **quality score** and the
+tie-broken **secondary alleles**; `--preset hla-wgs` is its WGS setting. It is
+independent of arcasHLA (alignment to genomic+cDNA sequence vs kallisto pseudoalignment to cDNA),
+so agreement is not a shared bug. The index is built from the **same `hla.dat`** as the arcasHLA
+SIF, so both typers use one IPD-IMGT/HLA release (3.64.0).
+
+### Pinned assets
+
+| Asset | Pin | Notes |
+|-------|-----|-------|
+| Image `pgx-suite:abo-t1k-20261111` | T1K commit `9f09f4dccee4e7501b98a4e822943c0fb26a4e25` compiled in the builder stage, at `/opt/t1k` | Replaces `pgx-suite:latest`; add this tag to the offline image list |
+| `t1k_hlaidx/` (`hlaidx_dna_seq.fa`, 75 MB; `hlaidx_rna_seq.fa`, 33 MB) | Built from the arcasHLA `hla.dat` (IPD-IMGT/HLA 3.64.0) with `docker/build-t1k-index.sh` | Mount at `/pgx/containers/t1k_hlaidx`, or pass `pgx-hla2.sh --t1k-idx DIR` |
+
+Without the binary or the index the run still completes with arcasHLA only and every gene is
+reported `single_typer` (never silently as a two-typer result).
+
+### Outputs and new fields
+
+`pgx-hla2.sh` now writes, in `hla2/`: `<S>.genotype.json` (unchanged), `arcashla_genotype.log`
+(arcasHLA `--verbose`: reads aligned, abundance, alternative pairs, zygosity),
+`<S>.arcashla_genes.json`, `<S>.t1k_genotype.tsv` (raw T1K output) and
+**`<S>.hla2_consensus.json`**. `all_genes_summary.tsv` keeps its seven columns and gains three
+trailing ones (`HLA2Agreement`, `HLA2Consensus`, `HLA2Flags`; `-` for non-class-II genes).
+
+`hla2_consensus.json` (schema `hla2_consensus/1`), per gene in `genes.DRB1|DQA1|DQB1`:
+
+| Field | Meaning |
+|-------|---------|
+| `arcashla`, `t1k` | Raw calls as the typers wrote them (T1K ties joined with `\|`) |
+| `agreement` | `agree_2field` (both typers agree on every allele at 2-field), `agree_1field` (agree on the allele group for every allele, 2-field differs for at least one), `disagree` (at least one allele has no matching group), `single_typer` (second typer unavailable), `not_typed` |
+| `consensus` | One entry per allele at the resolution both typers support: `DRB1*10:01` (2-field), `DRB1*04` (1-field group) or `DRB1*?` (unresolved; never a guess) |
+| `consensus_resolution` | `2-field`, `1-field`, `partial`, `none` |
+| `collapsed_rare` | Rare tie-break names (2nd field >= 100) dropped to their group because the typers did not agree at 2-field |
+| `support.arcashla` | `reads_aligned`, `explained_pct` of the best pair, `zygosity`, top abundances and alternative pairs |
+| `support.t1k` | per-allele `abundance`, `quality`, `secondary` alleles |
+| `flags` | `low_read_support:` (arcasHLA < 50 aligned reads or best pair explains < 70%; T1K quality <= 0 or abundance < 5), `rare_name:`, `only <typer> typed this gene` |
+
+Thresholds are constants at the top of `docker/hla2_consensus.py`. Tests:
+`docker/test_hla2_consensus.py`. The pairing of alleles between typers is order-independent
+and maximises matched resolution.
+
+## 5d. ABO blood group (read-level typer)
+
+Defining sites (GRCh38; `docker/abo_allele_defs.json`; coordinates fetched 2026-11-11 from the
+Ensembl REST API, `/vep/human/id/<rsid>` with `hgvs=1&mane=1`; legacy ISBT `c.` numbers, MANE
+Select ABO = ENST00000644422 / NM_020469.4; the older ENST00000538324 numbering is 3 bp lower):
+
+| Role | rsID | cDNA | GRCh38 forward-strand change |
+|------|------|------|------------------------------|
+| O (non-O = insertion) | rs8176719 | c.261delG | `-/C`, insertion after chr9:133257521 (Ensembl `133257522-133257521 -/C`) |
+| B | rs7853989 | c.526C>G | 133256205 G>C |
+| B | rs8176743 | c.703G>A | 133256028 C>T |
+| B | rs8176746 | c.796C>A | 133255935 G>T |
+| B | rs8176747 | c.803G>C | 133255928 C>G |
+| supporting | rs8176749 | c.930G>A | 133255801 C>T |
+| O2 marker (flag) | rs41302905 | c.802G>A | 133255929 C>T |
+
+What was wrong before: (1) GRCh38 carries the **O** haplotype (the reference lacks the G at
+c.261), so the non-O allele is the insertion. The old caller counted any ALT as an O copy,
+which swapped both homozygous states, and a sample with no VCF record at the site defaulted to
+A/A (a truly O/O sample reported as A/A). (2) The A/B coordinates (133256264, 133256205)
+were wrong or mislabelled: 133256264 is an unrelated SNP; 133256205 is c.526C>G.
+
+Now: the Snakemake rule `abo_pileup` (declared output `genes/ABO/abo_pileup.json`, an input of the ABO compare) runs `abo_pileup.py`, which reads the BAM (`samtools mpileup`, MAPQ >= 20, BQ >= 20) at the sites;
+`abo_assign_type` genotypes each site from read counts (>= 10 informative reads; alt fraction
+>= 0.8 -> 2 copies, >= 0.2 -> 1). Hom-ref at c.261 is **O/O**. Non-O copies take a B copy
+count from the four B SNPs (maximum over covered sites, clamped to the non-O count) and a flag if
+they disagree. **No coverage at c.261 (or fewer than 2 of 4 B SNPs when a non-O allele is
+present) gives `Not typed`, never a default type.** `abo_type.tsv` keeps its four columns and
+adds `o_site_depth, n_sites_observed, flags`; `abo_type.json` carries per-site reads
+(`per_site[].n_ref/n_alt/af/depth`). Alleles are labelled `ABO*A`, `ABO*B`, `ABO*O`: A1/A2 and O
+subtypes are not resolved, nor cis-AB or weak/Bombay phenotypes; c.802G>A (O2) is flagged because
+an O allele without c.261delG is invisible to the O site.
+
+## 5e. Validation on GIAB (HG001-HG007, 30X GRCh38 BWA BAMs)
+
+**ABO.** Truth = the GIAB v4.2.1 small-variant benchmark at the defining sites (benchmark regions
+cover chr9:133255835-133262897 in all seven samples, so c.261 and the four B SNPs are inside; c.930
+is outside) plus Mendelian inheritance. No published ABO typing for these samples was found.
+
+| Sample | Previous caller | Fixed caller | Benchmark at the sites | Reads at c.261 (ref / insertion) |
+|--------|-----------------|--------------|------------------------|----------------------------------|
+| HG001 | A/O | **A/O** | het insertion, no B SNP | 13 / 12 |
+| HG002 (son) | A/A | **O/O** | no variant (hom-ref) | 22 / 0 |
+| HG003 (father) | A/A | **O/O** | no variant | 32 / 0 |
+| HG004 (mother) | B/O | **B/O** | het insertion + het c.526, c.703, c.796, c.803 | 15 / 11 |
+| HG005 (son) | B/O (wrong site) | **A/O** | het insertion, no B SNP | 22 / 9 |
+| HG006 (father) | B/O (wrong site) | **A/O** | het insertion, no B SNP | 16 / 10 |
+| HG007 (mother) | A/A | **O/O** | no variant | 22 / 0 |
+
+The "previous" column for HG002 is the stored result; the others re-apply the previous logic to the
+benchmark genotypes at its coordinates. The fixed calls match the benchmark genotype at the defining
+sites in 7/7 samples and are Mendelian-consistent in both trios (HG002 O/O from a B/O mother and
+an O/O father; HG005 A/O from an A/O father and an O/O mother). Previously HG002 was called A/A
+while his mother is B/O, which is impossible.
+
+**HLA class II.** Truth for HG001 is the published prediction for NA12878 (HLA-VBSeq and PHLAT
+concordant at 6 digits; Nariai et al., *BMC Genomics* 2015;16(Suppl 2):S7, Table 2):
+DRB1\*03:01/\*01:01, DQA1\*01:01/\*05:01, DQB1\*02:01/\*05:01. No published class II typing was found for
+HG002-HG007, so those are checked by inheritance only (a weak test: both typers pass it, and it
+cannot show the wrong-haplotype failures seen in a non-GIAB trio).
+
+| Sample | Gene | arcasHLA | T1K | Consensus (agreement) |
+|--------|------|----------|-----|-----------------------|
+| HG001 | DRB1 | 01:126, 03:01:01 | 01:01:01, 03:01:01 | DRB1\*01, 03:01 (1-field; rare name collapsed; flag low_read_support) - matches truth |
+| HG001 | DQA1 | 01:01:01, 05:01:01 | 01:01:01, 05:01:01 | 01:01, 05:01 (2-field) - matches truth |
+| HG001 | DQB1 | 02:189, 05:01:01 | 02:01:01, 05:01:01 | 02, 05:01 (1-field; rare name collapsed) - matches truth |
+| HG002 | DRB1 | 10:01:01, 04:02:01 | 10:01:01, 04:04:01 | 10:01, 04 (1-field) |
+| HG002 | DQA1 / DQB1 | 03:01, 01:05 / 03:02, 05:01 | same | 2-field agree |
+| HG003 | DRB1 | 04:02:01, 07:01:01 | 07:01:01, 04:xx (tie) | 04, 07:01 (1-field) |
+| HG003 | DQA1 / DQB1 | 02:01, 03:01 / 02:253, 03:02 | 02:01, 03:01 / 02:02:01, 03:02:01 | DQA1 2-field; DQB1 02, 03:02 (rare name collapsed) |
+| HG004 | DRB1 / DQA1 / DQB1 | 10:01, 04:04 / 03:03, 01:05 / 05:01, 04:02 | identical | 2-field agree (all three) |
+| HG005 | all three | 09:01, 04:05 / 03:02, 03:03 / 03:03, 04:01 | identical | 2-field agree |
+| HG006 | all three | 09:01, 04:05 / 03:02, 03:03 / 04:01, 03:03 | identical | 2-field agree |
+| HG007 | all three | 09:01:19 hom / 03:02 hom / 03:03:02, 03:03:38 | 09:01:02 hom / 03:02 hom / 03:03 hom | 2-field agree (arcasHLA's rare 09:01:19 and 03:03:38 collapse onto the common 2-field name) |
+
+Inheritance (1- and 2-field, DRB1/DQA1/DQB1): both trios Mendelian-consistent for arcasHLA, for
+T1K and for the consensus. All 21 gene-calls (7 samples x 3 genes) agree at 2-field (16) or 1-field (5); none disagree.
+T1K runs in about one minute per sample (8 threads). The arcasHLA
+`--verbose` reproduces the earlier rare names (HG001 DRB1\*01:126, DQB1\*02:189; HG007 09:01:19),
+which the consensus collapses. The failure that motivated this work (a trio whose DRB1 calls were
+Mendelian-inconsistent) is not reproduced by GIAB, so the `disagree` path is covered by unit tests
+(`test_hla2_consensus.py`) rather than by GIAB data.
+
 ## 6. mutserve
 
 ### Overview

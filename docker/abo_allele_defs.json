@@ -3,43 +3,55 @@
   "build": "GRCh38",
   "strand": "minus",
   "region": "chr9:133255000-133280000",
-  "validation_status": "UNVALIDATED — provisional. Coordinates and GRCh38 reference-allele identity require empirical confirmation; the caller must be validated against a known-type control before any clinical use. DO NOT USE CLINICALLY.",
-  "reference_allele_note": "ABO is on the minus strand of chr9. The GRCh38 reference-allele identity at the O-defining frameshift (rs8176719) determines whether a homozygous-reference sample types as A/B (reference carries the intact base) or O (reference already carries the deletion) — this MUST be confirmed with `samtools faidx` before the O logic is trusted. Empirical faidx context recorded below at the widely-cited positions; positions themselves still require dbSNP/Ensembl confirmation.",
+  "validation_status": "Checked against the GIAB v4.2.1 benchmark genotypes at these sites in HG001-HG007 (7/7 concordant, both trios Mendelian-consistent; docs/ToolsDocumentation.md 5e). Research use; A1/A2, O subtypes, cis-AB and weak phenotypes are not resolved.",
+  "reference_allele_note": "GRCh38 carries the O haplotype at c.261delG: the reference lacks the G (forward-strand: lacks one C after chr9:133257521). The NON-O allele is the one-base insertion (T>TC). A sample with only reference reads at the O-defining site is therefore O/O, never A/A. All A/B-discriminating reference bases are the A-like base.",
+  "sources": "Ensembl REST /vep/human/id/<rsid> (GRCh38, MANE Select ABO ENST00000644422 / NM_020469.4 numbering for the c. positions; the legacy ISBT c. numbers are used here). Fetched 2026-11-11.",
   "o_defining_rsid": "rs8176719",
-  "ab_discriminating_rsids": ["rs8176746", "rs8176747"],
+  "ab_discriminating_rsids": ["rs7853989", "rs8176743", "rs8176746", "rs8176747"],
+  "supporting_rsids": ["rs8176749"],
+  "o2_rsid": "rs41302905",
   "variants": [
     {
-      "rsid": "rs8176719",
-      "chrom": "chr9",
-      "pos_grch38_provisional": 133257521,
-      "type": "indel",
-      "role": "O_defining",
-      "cdna": "c.261delG",
-      "consequence": "frameshift -> premature stop -> non-functional (O) allele",
-      "observed_ref_context_133257518_133257524": "GGGTACC",
-      "note": "Any single-base deletion at/near this homopolymer marks the O haplotype. Position PROVISIONAL — confirm against dbSNP GRCh38."
+      "rsid": "rs8176719", "chrom": "chr9", "pos_grch38": 133257521,
+      "type": "insertion", "role": "O_defining", "cdna": "c.261delG",
+      "ref_allele": "T", "non_o_insertion": "C",
+      "note": "Ensembl GRCh38: allele_string -/C at 133257522-133257521 (insertion after 133257521). Reference = O (deletion) haplotype; alt (insertion) = non-O."
     },
     {
-      "rsid": "rs8176746",
-      "chrom": "chr9",
-      "pos_grch38_provisional": 133256264,
-      "type": "snp",
-      "role": "AB_discriminating",
-      "cdna": "c.796C>A",
-      "protein": "Leu266Met",
-      "observed_ref_context_133256260_133256268": "GGCCGGCTG",
-      "note": "Distinguishes A vs B (with rs8176747). Minus strand: cDNA C>A -> forward-strand complement. B-defining alt must be confirmed empirically. Position PROVISIONAL."
+      "rsid": "rs7853989", "chrom": "chr9", "pos_grch38": 133256205,
+      "type": "snp", "role": "B_defining", "cdna": "c.526C>G", "protein": "p.Arg176Gly",
+      "ref_allele": "G", "b_allele": "C",
+      "note": "Ensembl VEP: forward G/A/C; MANE ENST00000644422.3:c.526C>G is the alt C allele."
     },
     {
-      "rsid": "rs8176747",
-      "chrom": "chr9",
-      "pos_grch38_provisional": 133256205,
-      "type": "snp",
-      "role": "AB_discriminating",
-      "cdna": "c.803G>C",
-      "protein": "Gly268Ala",
-      "observed_ref_context_133256201_133256210": "GCGCGCACCT",
-      "note": "Distinguishes A vs B (with rs8176746). Minus strand. B-defining alt must be confirmed empirically. Position PROVISIONAL."
+      "rsid": "rs8176743", "chrom": "chr9", "pos_grch38": 133256028,
+      "type": "snp", "role": "B_defining", "cdna": "c.703G>A", "protein": "p.Gly235Ser",
+      "ref_allele": "C", "b_allele": "T",
+      "note": "Ensembl VEP: forward C/G/T at 133256028; c.700G>A on ENST00000538324 (3 bp shorter numbering) = c.703G>A on the legacy/MANE numbering; alt T allele."
+    },
+    {
+      "rsid": "rs8176746", "chrom": "chr9", "pos_grch38": 133255935,
+      "type": "snp", "role": "B_defining", "cdna": "c.796C>A", "protein": "p.Leu266Met",
+      "ref_allele": "G", "b_allele": "T",
+      "note": "Ensembl VEP: forward G/A/T at 133255935; ENST00000538324.2:c.793C>A (legacy c.796C>A) is the alt T allele."
+    },
+    {
+      "rsid": "rs8176747", "chrom": "chr9", "pos_grch38": 133255928,
+      "type": "snp", "role": "B_defining", "cdna": "c.803G>C", "protein": "p.Gly268Ala",
+      "ref_allele": "C", "b_allele": "G",
+      "note": "Ensembl VEP: forward C/A/G at 133255928; MANE ENST00000644422.3:c.803G>C is the alt G allele."
+    },
+    {
+      "rsid": "rs8176749", "chrom": "chr9", "pos_grch38": 133255801,
+      "type": "snp", "role": "supporting", "cdna": "c.930G>A", "protein": "p.Leu310=",
+      "ref_allele": "C", "b_allele": "T",
+      "note": "Ensembl VEP: forward C/T at 133255801; MANE c.930G>A (synonymous). Reported, not used to assign B."
+    },
+    {
+      "rsid": "rs41302905", "chrom": "chr9", "pos_grch38": 133255929,
+      "type": "snp", "role": "O2_marker", "cdna": "c.802G>A", "protein": "p.Gly268Arg",
+      "ref_allele": "C", "b_allele": "T",
+      "note": "Ensembl VEP: forward C/G/T at 133255929; c.802G>A is the O2 null marker (an O allele WITHOUT c.261delG). Flagged when present; the sample may carry an O allele that the c.261 site cannot see."
     }
   ]
 }
