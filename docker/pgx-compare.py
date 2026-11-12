@@ -1754,6 +1754,50 @@ def nat2_cpic_phenotype(diplotype: str) -> str:
     return "Intermediate Metabolizer"
 
 
+# Defining variants (GRCh38 chr19 positions) of CYP2B6 alleles, from PharmVar via pypgx's allele-table.csv
+# (pypgx/api/data). Used only to tell a cis/trans difference (same variants, different phase) from a real
+# disagreement. *6 = 516G>T + 785A>G; *7 = *6 + 1459C>T (*5); *9 = 516G>T; *4 = 785A>G.
+_B6 = {"516": "19-41006936-G-T", "785": "19-41009358-A-G", "1459": "19-41016810-C-T"}
+PHASE_DEFS = {"CYP2B6": {"*1": (), "*4": (_B6["785"],), "*5": (_B6["1459"],),
+                         "*6": (_B6["516"], _B6["785"]), "*7": (_B6["516"], _B6["785"], _B6["1459"]),
+                         "*9": (_B6["516"],)}}
+
+
+def _variant_multiset(gene, dip):
+    """Counter of defining variants of a simple diplotype, or None if any allele is not in PHASE_DEFS."""
+    defs = PHASE_DEFS.get(gene)
+    if not defs or not dip or dip.count("/") != 1:
+        return None
+    c = Counter()
+    for al in dip.replace(" ", "").split("/"):
+        if al not in defs:
+            return None
+        c.update(defs[al])
+    return c
+
+
+def _phase_ambiguity(gene, a, results):
+    """When callers differ from authority `a` only in how the same defining variants sit on the two
+    haplotypes (unphased short reads cannot tell), -> dict describing both readings, else None."""
+    ref = _variant_multiset(gene, a.diplotype)
+    if ref is None:
+        return None
+    alt = [r for r in results if r.status == "ok" and r is not a and r.diplotype not in ("-", "")
+           and _variant_multiset(gene, r.diplotype) == ref
+           and reconcile.canonicalize_diplotype(gene, r.diplotype) != reconcile.canonicalize_diplotype(gene, a.diplotype)]
+    if not alt:
+        return None
+    readings = {}
+    for r in results:
+        if r.status == "ok" and r.diplotype not in ("-", "") and _variant_multiset(gene, r.diplotype) == ref:
+            readings.setdefault(reconcile.canonicalize_diplotype(gene, r.diplotype), []).append(r)
+    phen = {_norm_phenotype(r.phenotype) for rs in readings.values() for r in rs
+            if r.phenotype not in ("-", "")}
+    return {"readings": {k: [r.tool for r in rs] for k, rs in readings.items()},
+            "display": {k: rs[0].diplotype for k, rs in readings.items()},
+            "phenotypes": sorted(p for p in phen if p), "n_total": sum(len(rs) for rs in readings.values())}
+
+
 def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                     gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
@@ -1811,6 +1855,31 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                             "n_agree": 0, "n_called": n_called, "status": "discordant",
                             "note": note, "reconciled": False, "reason": f"{a.tool} found no deficiency allele but "
                             f"{', '.join(dissent)} report(s) deficiency"}
+            amb = _phase_ambiguity(gene, a, results)
+            if amb:
+                # Same defining variants, different cis/trans assignment, no phase information:
+                # never "concordant". Both readings are listed; the phenotype is passed only when
+                # every reading's phenotype is the same.
+                shown = " vs ".join(f"{amb['display'][k]} ({', '.join(t)})" for k, t in amb["readings"].items())
+                # Phenotype: the authority's, when at least one caller of every other reading reports the same
+                # one (a single caller's own table can differ: it is named in the note, it does not block).
+                ap = _norm_phenotype(a.phenotype) if a.phenotype not in ("-", "") else ""
+                same = bool(ap) and all(
+                    any(_norm_phenotype(r.phenotype) == ap for r in results if r.tool in tools)
+                    for k, tools in amb["readings"].items() if a.tool not in tools)
+                # Both readings are printed, the one more callers report first; no phase is asserted.
+                order = sorted(amb["readings"], key=lambda k: (-len(amb["readings"][k]), a.tool not in amb["readings"][k]))
+                return {"consensus_diplotype": " or ".join(amb["display"][k] for k in order),
+                        "consensus_phenotype": (a.phenotype if same else
+                                                "Indeterminate - phase ambiguous: readings differ in phenotype"),
+                        "n_agree": amb["n_total"] if same else n_agree, "n_called": n_called,
+                        "status": "concordant" if same else "majority",
+                        "phase_ambiguous": True, "alternative_readings": amb["readings"],
+                        "note": ((note + "; " if note else "") + "phase ambiguity: callers report the same "
+                                 "defining variants in a different cis/trans arrangement and the data are "
+                                 f"unphased: {shown}; phenotype " + ("is the same for both readings"
+                                 if same else "differs between readings")),
+                        "reconciled": False, "authority": auth_tool}
             return {"consensus_diplotype": a.diplotype,
                     "consensus_phenotype": a.phenotype if a.phenotype not in ("-", "") else "-",
                     "n_agree": n_agree, "n_called": n_called, "status": "concordant",

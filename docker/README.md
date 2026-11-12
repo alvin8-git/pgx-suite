@@ -43,7 +43,7 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 | StellarPGx | 1.2.7 | `nextflow run /pgx/stellarpgx/main.nf` |
 | Cyrius | vendored | `cyrius` rule → `/opt/cyrius/star_caller.py` (CYP2D6; authority) |
 | PharmCAT | 3.2.0 | `pharmcat` rule → `pharmcat_pipeline` in `pharmcat.sif` (UGT1A1/CYP2B6/CYP4F2; authority) |
-| PharmCAT outside calls | 3.2.0 | `pharmcat_outside` rule → `pgx-pharmcat-outside.sh`: OptiType HLA-A/B (two-field) and CYP2D6 passed by level of agreement (diplotype / activity score / phenotype) via `pharmcat.jar -po`; omitted genes logged in `pharmcat/outside_calls.tsv`; stage-1 report kept on any failure |
+| PharmCAT outside calls | 3.2.0 | `pharmcat_outside` rule → `pgx-pharmcat-outside.sh`: OptiType HLA-A/B (two-field) and CYP2D6 passed by level of agreement (diplotype / activity score / Cyrius + activity score / phenotype) via `pharmcat.jar -po`; omitted genes logged in `pharmcat/outside_calls.tsv`; stage-1 report kept on any failure |
 | OptiType | 1.3.5 | `optitype` rule — Apptainer SIF; **sample-level** (one run types HLA-A/B/C; the three loci share one result TSV) |
 | mutserve | 2.0.3 | `mutserve` rule (baked-in JAR, MT-RNR1) |
 | VCF-Check | in-house | `pgx-compare.py` direct genotype from `vcf_check_variants.json` (RYR1/VKORC1/IFNL3/G6PD/CACNA1S; authority; G6PD = full CPIC allele table) |

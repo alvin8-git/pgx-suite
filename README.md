@@ -380,13 +380,14 @@ preprocessed VCF with `-po`:
   call; notation is normalised first by `reconcile.norm_diplotype`: whitespace and case; Aldy's tandem
   `X` marker; `.NNN` and CYP2D6 letter sub-alleles such as `*6B`; allele order inside a tandem and
   between haplotypes; `+rsNNN` tags, copy numbers and different tandem structures stay real
-  differences). First matching level wins; no majority call is ever made:
+  differences). Levels are tried in the order a, b, e, c, d and the first match wins. Level e (added 2026-11-13) is not a majority vote: it needs Cyrius, the read-depth copy-number caller, and one other caller to agree on the CPIC activity score. Other callers' disagreement, including an explicit Indeterminate, does not block it and is recorded:
 
   | Level | Condition | Passed to PharmCAT | `source` in the record |
   |---|---|---|---|
   | a | all normalised diplotypes equal | diplotype + activity score (score omitted if unknown) | `all callers agree` |
   | b | diplotypes differ, every caller has a known activity score, all equal | activity score only | `activity score agreed n/n` |
-  | c | scores differ, every caller has a known activity score, all in the same CPIC phenotype | phenotype only | `phenotype agreed n/n` |
+  | e | not a or b; Cyrius has a call with a known CPIC activity score and at least one other caller's call has the same score | Cyrius's cleaned diplotype + that score | `Cyrius + N other caller(s) on activity score X` (dissenting callers listed in the reason column and provenance `note`) |
+| c | scores differ, every caller has a known activity score, all in the same CPIC phenotype | phenotype only | `phenotype agreed n/n` |
   | d | otherwise | nothing (omitted, reason logged) | |
 
   The activity score is the sum of the two haplotype values of the CPIC allele table
@@ -395,6 +396,9 @@ preprocessed VCF with `-po`:
   guessed, for an allele absent from the table (e.g. `*79`), an allele with no numeric value, an
   Aldy `+rsNNN` tag or an unknown copy number. The phenotype class always comes from the score through
   CPIC's activity-score table (`gene_result`); a caller's own phenotype label is never passed on.
+  Level e keeps level b's precedence (when every score is equal the score-only call is unchanged) and
+  goes before level c (a diplotype with a score is more specific than a phenotype). It never applies when
+  Cyrius made no call or its call has no CPIC score (e.g. `*134`, `*1/*36+*36+*10`): b, c and d then run as before.
   Level c needs a known score for every caller: no caller is left out of the comparison. A caller
   that reports Indeterminate or unknown agrees with nothing and blocks level c.
   Level a passes the cleaned spelling of one agreeing caller (Cyrius preferred). The file may

@@ -140,6 +140,36 @@ def test_card_majority_is_amber():
     assert cc == "card-amber", cc
 
 
+def test_cyp2b6_cis_trans_is_phase_ambiguous_not_concordant():
+    # PyPGx/Stargazer/Aldy *5/*6 vs StellarPGx/PharmCAT *1/*7: same defining variants (*7 = *5 + *6 in cis).
+    # CPIC (api.cpicpgx.org, 2026-11-13): both diplotypes are Intermediate Metabolizer.
+    im = "Intermediate Metabolizer"
+    rs = [_r("PyPGx", "*5/*6", pheno=im), _r("Stargazer", "*5/*6", pheno=im), _r("Aldy", "*5/*6", pheno=im),
+          _r("StellarPGx", "*1/*7", pheno=im), _r("PharmCAT", "*1/*7", pheno=im)]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    # both readings printed (majority reading first), no phase asserted; all five callers support the variant set
+    assert v["phase_ambiguous"] is True and v["consensus_diplotype"] == "*5/*6 or *1/*7", v
+    assert v["status"] == "concordant" and v["n_agree"] == 5 and v["n_called"] == 5, v
+    assert set(map(tuple, v["alternative_readings"].values())) == {
+        ("PyPGx", "Stargazer", "Aldy"), ("StellarPGx", "PharmCAT")}, v
+    assert "phase ambiguity" in v["note"] and "*5/*6" in v["note"] and "*1/*7" in v["note"], v
+    assert v["consensus_phenotype"] == im, v
+    # one caller's own phenotype table differs (seen on a real sample): named, does not block the shared phenotype
+    rs1 = [_r("PyPGx", "*5/*6", pheno=im), _r("Stargazer", "*5/*6", pheno="normal_metabolizer"), _r("Aldy", "*5/*6", pheno="Intermediate"),
+           _r("StellarPGx", "*1/*7"), _r("PharmCAT", "*1/*7", pheno=im)]
+    v = cmp.compute_verdict(rs1, no_call=False, gene="CYP2B6")
+    assert v["consensus_phenotype"] == im and v["consensus_diplotype"] == "*5/*6 or *1/*7", v
+    # readings with different phenotypes: phenotype not passed
+    rs2 = [_r("PyPGx", "*5/*6", pheno="Poor Metabolizer"), _r("PharmCAT", "*1/*7", pheno=im)]
+    v = cmp.compute_verdict(rs2, no_call=False, gene="CYP2B6")
+    assert v["phase_ambiguous"] and v["consensus_phenotype"].startswith("Indeterminate") and v["status"] == "majority", v
+    # a real difference (not a phase swap) is untouched; identical calls stay concordant
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*6"), _r("PharmCAT", "*1/*7")], no_call=False, gene="CYP2B6")
+    assert v["status"] == "concordant" and "phase_ambiguous" not in v, v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*7"), _r("PharmCAT", "*1/*7")], no_call=False, gene="CYP2B6")
+    assert v["status"] == "concordant" and "phase_ambiguous" not in v, v
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

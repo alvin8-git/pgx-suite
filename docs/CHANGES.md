@@ -5,6 +5,29 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-13 — CYP2D6 outside call: level e (Cyrius + activity-score agreement)
+
+- `docker/pgx_outside_calls.py`: new level **e**, tried after a and b and before c. When Cyrius has a call
+  with a known CPIC activity score and at least one other caller's call has the same score, Cyrius's cleaned
+  diplotype and that score are passed to PharmCAT (`source` = `Cyrius + N other caller(s) on activity score X`).
+  Dissenting callers, an explicit Indeterminate among them, do not block it and are listed in the
+  `reason_omitted` column and in provenance (`note`). Without a Cyrius call, or with a Cyrius call that has no
+  CPIC score, nothing changes. Nothing that passed before stops passing; level c results move to e when
+  Cyrius shares a score (a diplotype with a score instead of a phenotype only).
+- Consumers: `outside_calls.tsv` and provenance carry level `e`; any reader that maps level letters to text
+  must add `e` (OmniGen `omnigen_dtc2.load_pgx_agreement` accepts only a, b, c).
+- Tests: `docker/test_outside_calls.py` (`test_cyrius_activity_score_level`, GIAB cases updated).
+
+- **CYP2B6 phase ambiguity** (`docker/pgx-compare.py`, `_phase_ambiguity`): when the authority (PharmCAT) and other
+  callers report the same defining variants in a different cis/trans arrangement (`*5/*6` vs `*1/*7`; definitions in
+  `PHASE_DEFS`, PharmVar via pypgx), no phase is asserted: `ConsensusDiplotype` prints both readings (`*5/*6 or *1/*7`,
+  the reading more callers report first) with `phase_ambiguous` and `alternative_readings` in the verdict. The phenotype
+  is the authority's when at least one caller of every other reading reports the same one (status `concordant`, nAgree =
+  callers supporting the variant set); otherwise the phenotype is Indeterminate and the status `majority`. Only CYP2B6
+  has definitions; only the authority branch is covered.
+
+---
+
 ## 2026-11-12 — Caller agreement: shared notation normaliser, nAgree fix
 
 - **Cause of the wrong `nAgree`**: in `compute_verdict` the authoritative-caller branch (Cyrius for

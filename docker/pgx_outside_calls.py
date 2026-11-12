@@ -22,6 +22,12 @@ Rules (never fabricate a call; an omitted gene is logged with the reason):
                    c  otherwise, every caller has the same phenotype class (from the score
                       via the CPIC score table, else the caller's own phenotype) -> phenotype
                       only                                         "phenotype agreed n/n"
+                   (b is tried before e, e before c; see the comment in call_cyp2d6)
+                   e  Cyrius has a call with a known CPIC activity score and >=1 other caller has
+                      the same score -> Cyrius's cleaned diplotype + that score. Dissenting callers
+                      (including an explicit Indeterminate) do not block it and are listed in the
+                      reason column. Needs a CPIC score for Cyrius's call: no Cyrius call, or one
+                      with an unscored allele, never reaches e.
                    d  otherwise omitted, with the reason.
                  A caller that reports Indeterminate does not agree with anything: it blocks
                  level c. A caller with neither score nor phenotype is ignored in level c
@@ -132,6 +138,24 @@ def call_cyp2d6(out):
     if None not in scores and len(scores) == 1:
         res.update(level="b", source=f"activity score agreed {n}/{n}", score=scores.pop())
         return res
+    # e: Cyrius (the read-depth copy-number caller) has a call with a CPIC activity score and at least one other
+    # caller's call has the same score. Cyrius's cleaned diplotype is passed with that score; callers that
+    # disagree, an explicit Indeterminate among them, are listed in `why` and never block this level.
+    # Precedence: a, then b (every caller on the score: nothing to dissent, and the passed score-only call is
+    # unchanged), then e, then c (e carries a diplotype and a score, c a phenotype only).
+    cy = next((i for i in info if i["tool"] == "Cyrius" and i["score"] is not None), None)
+    if cy is not None:
+        same = [i for i in info if i is not cy and i["score"] == cy["score"]]
+        if same:
+            others = [i for i in info if i is not cy and i["score"] != cy["score"]]
+            note = ("; dissenting: " + "; ".join(
+                f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
+                f"{i['own'] or i['class'] or 'no phenotype'})" for i in others)) if others else ""
+            res.update(level="e", source=f"Cyrius + {len(same)} other caller(s) on activity score "
+                                         f"{_fmt_score(cy['score'])}",
+                       diplotype=reconcile.clean_diplotype("CYP2D6", cy["diplotype"]), score=cy["score"],
+                       why=("agreeing on the score: " + ", ".join(i["tool"] for i in same) + note))
+            return res
     # c: one phenotype class; an explicit Indeterminate blocks it
     if any("Indeterminate" in (i["own"], i["class"]) for i in info):
         res["why"] = "a caller reports Indeterminate (blocks phenotype agreement): " + desc
@@ -179,7 +203,7 @@ def build(out):
             what = " ".join(x for x in (r["diplotype"] or "",
                                         f"phenotype={r['phenotype']}" if r["phenotype"] else "",
                                         f"AS={_fmt_score(r['score'])}" if r["score"] is not None else "") if x)
-            print(f"[outside-calls] {r['gene']}: " + (f"{what} (level {r['level']}, {r['source']})"
+            print(f"[outside-calls] {r['gene']}: " + (f"{what} (level {r['level']}, {r['source']})" + (f" [{r['why']}]" if r["why"] else "")
                   if _passed(r) else f"omitted - {r['why']}"), file=sys.stderr)
     return recs
 
@@ -192,7 +216,7 @@ def update_provenance(out, recs):
     prov["pharmcat_outside_calls"] = [
         {"gene": r["gene"], "diplotype": r["diplotype"], "phenotype": r["phenotype"],
          "activity_score": r["score"], "level": r["level"], "source_tool": r["source"],
-         "per_caller": r["callers"], "passed": True} if _passed(r) else
+         "per_caller": r["callers"], "passed": True, "note": r["why"] or None} if _passed(r) else
         {"gene": r["gene"], "passed": False, "reason": r["why"], "per_caller": r["callers"]}
         for r in recs]
     with open(p + ".tmp", "w") as fh:
