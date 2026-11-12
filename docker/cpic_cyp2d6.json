@@ -1,0 +1,869 @@
+{
+ "alleles": {
+  "*1": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*10": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*100": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*101": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*102": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*103": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*104": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*105": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*106": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*107": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*108": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*109": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*10x2": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*11": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*110": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*111": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*112": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*113": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*114": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*115": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*116": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*117": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*118": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*119": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*12": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*120": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*121": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*122": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*123": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*124": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*125": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*126": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*127": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*128": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*129": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*13": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*13+*1": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*13+*1x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*13+*2": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*13+*68x2+*4": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*130": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*131": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*132": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*133": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*134": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*135": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*136": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*137": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*138": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*139": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*14": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*140": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*141": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*142": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*143": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*144": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*145": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*146": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*146x2": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*147": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*148": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*149": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*15": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*150": {
+   "activity": null,
+   "function": null
+  },
+  "*151": {
+   "activity": null,
+   "function": null
+  },
+  "*152": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*153": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*154": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*155": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*156": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*157": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*158": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*159": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*160": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*161": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*162": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*163": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*164": {
+   "activity": null,
+   "function": null
+  },
+  "*165": {
+   "activity": null,
+   "function": null
+  },
+  "*166": {
+   "activity": null,
+   "function": null
+  },
+  "*167": {
+   "activity": null,
+   "function": null
+  },
+  "*168": {
+   "activity": null,
+   "function": null
+  },
+  "*169": {
+   "activity": null,
+   "function": null
+  },
+  "*17": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*170": {
+   "activity": null,
+   "function": null
+  },
+  "*171": {
+   "activity": null,
+   "function": null
+  },
+  "*172": {
+   "activity": null,
+   "function": null
+  },
+  "*173": {
+   "activity": null,
+   "function": null
+  },
+  "*174": {
+   "activity": null,
+   "function": null
+  },
+  "*175": {
+   "activity": null,
+   "function": null
+  },
+  "*176": {
+   "activity": null,
+   "function": null
+  },
+  "*177": {
+   "activity": null,
+   "function": null
+  },
+  "*178": {
+   "activity": null,
+   "function": null
+  },
+  "*179": {
+   "activity": null,
+   "function": null
+  },
+  "*17x2": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*18": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*180": {
+   "activity": null,
+   "function": null
+  },
+  "*181": {
+   "activity": null,
+   "function": null
+  },
+  "*182": {
+   "activity": null,
+   "function": null
+  },
+  "*183": {
+   "activity": null,
+   "function": null
+  },
+  "*184": {
+   "activity": null,
+   "function": null
+  },
+  "*185": {
+   "activity": null,
+   "function": null
+  },
+  "*186": {
+   "activity": null,
+   "function": null
+  },
+  "*19": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*1x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*1x\u22653": {
+   "activity": null,
+   "function": "Increased function"
+  },
+  "*2": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*20": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*21": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*22": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*23": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*24": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*25": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*26": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*27": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*27x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*28": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*28x2": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*29": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*29x2": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*2x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*2x\u22653": {
+   "activity": null,
+   "function": "Increased function"
+  },
+  "*3": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*30": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*31": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*32": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*33": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*34": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*35": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*35x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*36": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*36+*10": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*36+*10x2": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*36x2": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*36x2+*10": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*36x2+*10x2": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*37": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*38": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*39": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*3x2": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*4": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*40": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*41": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*41x2": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*41x3": {
+   "activity": 0.75,
+   "function": "Decreased function"
+  },
+  "*42": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*43": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*43x2": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*44": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*45": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*45x2": {
+   "activity": 2.0,
+   "function": "Increased function"
+  },
+  "*46": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*47": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*48": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*49": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*4x2": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*4x\u22653": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*5": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*50": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*51": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*52": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*53": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*54": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*55": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*56": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*58": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*59": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  },
+  "*6": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*60": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*61": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*62": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*63": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*64": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*65": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*68": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*68+*2": {
+   "activity": 1.0,
+   "function": "Normal function"
+  },
+  "*68+*4": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*69": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*6x2": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*7": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*70": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*71": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*72": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*73": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*74": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*75": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*8": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*81": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*82": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*83": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*84": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*85": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*86": {
+   "activity": null,
+   "function": "Unknown function"
+  },
+  "*87": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*88": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*89": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*9": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*90": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*91": {
+   "activity": 0.25,
+   "function": "Decreased function"
+  },
+  "*92": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*93": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*94": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*95": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*96": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*97": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*98": {
+   "activity": null,
+   "function": "Uncertain function"
+  },
+  "*99": {
+   "activity": 0.0,
+   "function": "No function"
+  },
+  "*9x2": {
+   "activity": 0.5,
+   "function": "Decreased function"
+  }
+ },
+ "gene": "CYP2D6",
+ "retrieved": "2026-11-12",
+ "score_phenotype": {
+  "at_least": {
+   "3.00": "Ultrarapid Metabolizer",
+   "3.25": "Ultrarapid Metabolizer",
+   "3.50": "Ultrarapid Metabolizer",
+   "3.75": "Ultrarapid Metabolizer",
+   "4.00": "Ultrarapid Metabolizer",
+   "5.00": "Ultrarapid Metabolizer",
+   "6.00": "Ultrarapid Metabolizer"
+  },
+  "exact": {
+   "0.00": "Poor Metabolizer",
+   "0.25": "Intermediate Metabolizer",
+   "0.50": "Intermediate Metabolizer",
+   "0.75": "Intermediate Metabolizer",
+   "1.00": "Intermediate Metabolizer",
+   "1.25": "Normal Metabolizer",
+   "1.50": "Normal Metabolizer",
+   "1.75": "Normal Metabolizer",
+   "2.00": "Normal Metabolizer",
+   "2.25": "Normal Metabolizer",
+   "2.50": "Ultrarapid Metabolizer",
+   "2.75": "Ultrarapid Metabolizer",
+   "3.00": "Ultrarapid Metabolizer",
+   "4.00": "Ultrarapid Metabolizer"
+  }
+ },
+ "source": {
+  "alleles": "https://api.cpicpgx.org/v1/allele?genesymbol=eq.CYP2D6&select=name,clinicalfunctionalstatus,activityvalue&order=name",
+  "score_phenotype": "https://api.cpicpgx.org/v1/gene_result?genesymbol=eq.CYP2D6&select=result,activityscore&order=activityscore"
+ }
+}

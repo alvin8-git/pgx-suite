@@ -1783,7 +1783,19 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
         a = next((r for r in results if r.tool == auth_tool and r.status == "ok"
                   and r.diplotype not in ("-", "")), None)
         if a is not None:
-            n_called = sum(1 for r in results if r.status == "ok" and r.diplotype not in ("-", ""))
+            # n_called = callers with a comparable call (+ the authority itself);
+            # n_agree = callers whose normalised call equals the authority's. A
+            # caller that cannot be placed on haplotypes (VCF-Check two unphased
+            # alleles) is left out of both and named in `note`.
+            a_key = reconcile.canonicalize_diplotype(gene, a.diplotype)
+            keys = [(r, reconcile.canonicalize_diplotype(gene, r.diplotype)) for r in results
+                    if r.status == "ok" and r.diplotype not in ("-", "")]
+            skipped = [r.tool for r, k in keys if k is reconcile.UNRESOLVED and r is not a]
+            n_called = sum(1 for r, k in keys if r is a or k is not reconcile.UNRESOLVED)
+            n_agree = 1 + sum(1 for r, k in keys if r is not a and a_key is not reconcile.UNRESOLVED
+                              and k == a_key)
+            note = (f"{', '.join(skipped)}: unphased multi-allele call, excluded from the "
+                    "diplotype comparison") if skipped else ""
             # G6PD safety net: a "no deficiency" authority call must not stand when an
             # independent caller (PyPGx/Stargazer/Aldy/PharmCAT) reports deficiency.
             if gene == "G6PD" and not re.match(r"G6PD (Deficient|Variable|not typed)|Indeterminate|not typed",
@@ -1797,25 +1809,30 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                                                     f"deficiency allele but {', '.join(dissent)} report(s) "
                                                     "deficiency or variable activity; confirm by enzyme assay"),
                             "n_agree": 0, "n_called": n_called, "status": "discordant",
-                            "reconciled": False, "reason": f"{a.tool} found no deficiency allele but "
+                            "note": note, "reconciled": False, "reason": f"{a.tool} found no deficiency allele but "
                             f"{', '.join(dissent)} report(s) deficiency"}
             return {"consensus_diplotype": a.diplotype,
                     "consensus_phenotype": a.phenotype if a.phenotype not in ("-", "") else "-",
-                    "n_agree": 1, "n_called": n_called, "status": "concordant",
-                    "reconciled": False, "authority": auth_tool}
+                    "n_agree": n_agree, "n_called": n_called, "status": "concordant",
+                    "note": note, "reconciled": False, "authority": auth_tool}
 
-    pairs, phenos = [], []   # pairs: (canonical, raw_normalized)
+    pairs, phenos, skipped = [], [], []   # pairs: (canonical, raw_normalized)
     for r in results:
         if r.status == "ok" and r.diplotype not in ("-", ""):
-            raw = _normalize_diplotype(r.diplotype)
-            canon = reconcile.canonicalize_diplotype(gene, r.diplotype) if gene else raw
+            raw = _normalize_diplotype(r.diplotype)   # display spelling (original case)
+            canon = reconcile.canonicalize_diplotype(gene, r.diplotype)
+            if canon is reconcile.UNRESOLVED:
+                skipped.append(r.tool)   # unphased multi-allele call: not comparable
+                continue
             pairs.append((canon, raw))
             if r.phenotype not in ("-", ""):
                 phenos.append(r.phenotype)
 
     n_called = len(pairs)
+    extra = ({"note": f"{', '.join(skipped)}: unphased multi-allele call, excluded from the "
+                      "diplotype comparison"} if skipped else {})
     if n_called == 0:
-        return {"consensus_diplotype": "-", "consensus_phenotype": "-",
+        return {**extra, "consensus_diplotype": "-", "consensus_phenotype": "-",
                 "n_agree": 0, "n_called": 0, "status": "no_data", "reconciled": False}
 
     canon_counts = Counter(c for c, _ in pairs).most_common()
@@ -1833,10 +1850,10 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
     if len(canon_counts) > 1 and canon_counts[1][1] == n_agree:
         if pheno_rescue:
             p_disp, p_n, d_disp = pheno_rescue
-            return {"consensus_diplotype": d_disp, "consensus_phenotype": p_disp,
+            return {**extra, "consensus_diplotype": d_disp, "consensus_phenotype": p_disp,
                     "n_agree": p_n, "n_called": n_called, "status": "concordant",
                     "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
-        return {"consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
+        return {**extra, "consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
                 "n_agree": n_agree, "n_called": n_called, "status": "discordant",
                 "reconciled": False}
 
@@ -1847,10 +1864,10 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
     # all phenotype-emitting callers agree on the phenotype.
     if status == "majority" and pheno_rescue:
         p_disp, p_n, _ = pheno_rescue
-        return {"consensus_diplotype": top_dip, "consensus_phenotype": p_disp,
+        return {**extra, "consensus_diplotype": top_dip, "consensus_phenotype": p_disp,
                 "n_agree": p_n, "n_called": n_called, "status": "concordant",
                 "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
-    return {"consensus_diplotype": top_dip, "consensus_phenotype": pheno,
+    return {**extra, "consensus_diplotype": top_dip, "consensus_phenotype": pheno,
             "n_agree": n_agree, "n_called": n_called, "status": status,
             "reconciled": reconciled}
 
@@ -1945,6 +1962,8 @@ def print_table(
     else:  # concordant | majority
         print(f"Concordance: {verdict['n_agree']}/{verdict['n_called']} tools agree on "
               f"{verdict['consensus_diplotype']}")
+    if verdict.get("note"):
+        print(f"Note: {verdict['note']}")
 
     print("=" * W)
     print()

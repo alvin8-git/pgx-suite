@@ -5,6 +5,38 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-12 — Caller agreement: shared notation normaliser, nAgree fix
+
+- **Cause of the wrong `nAgree`**: in `compute_verdict` the authoritative-caller branch (Cyrius for
+  CYP2D6, PharmCAT for UGT1A1/CYP2B6/CYP4F2, VCF-Check for RYR1/VKORC1/...) returned the constant
+  `n_agree = 1`, so five callers on `*2/*4` printed `nAgree=1 nCalled=5`. It is now the number of
+  callers whose normalised call equals the authority's call.
+- **One normaliser** (`reconcile.norm_diplotype`, `clean_diplotype`) now feeds the verdict
+  (consensus and `n_agree`) and the PharmCAT outside-call builder. Rules: whitespace/case ignored;
+  Aldy's tandem `X` marker dropped (`*36X+*10` = `*36+*10`; `*2x2` is kept); PharmVar `.NNN` sub-allele
+  dropped; trailing letter dropped for CYP2D6 only (`*6B` = `*6`; not for TPMT `*3A`/`*3C`, DPYD);
+  alleles sorted inside a tandem and between haplotypes; Aldy `+rsNNN` tags are real differences;
+  VCF-Check `*N(het) [unphased]` = `*1/*N` and `*N(hom)` = `*N/*N` for a single listed allele, while
+  two listed alleles are unresolved and excluded from `n_called` (verdict `note`, printed as `Note:`).
+  The per-caller table keeps the original strings.
+- Outside calls: CYP2D6 is passed when all comparable callers agree after normalisation (cleaned
+  spelling, Cyrius preferred). A majority rule was evaluated and NOT implemented: GeT-RM covers only
+  HG001 among HG001-HG007, so it cannot be validated on the GIAB set.
+- Tests: `docker/test_normalise.py` (new), `docker/test_outside_calls.py` extended.
+- **CYP2D6 outside call by level of agreement** (supersedes "unanimous diplotype only"): (a) diplotype
+  agreed -> diplotype + CPIC activity score; (b) diplotypes differ but all activity scores known and
+  equal -> score only; (c) same phenotype class -> phenotype only; (d) otherwise omitted. Scores come
+  from `docker/cpic_cyp2d6.json` (CPIC allele table + `gene_result` score->phenotype table, retrieved
+  2026-11-12; refresh with `docker/cpic_cyp2d6_build.py`), via `reconcile.activity_score`,
+  `score_phenotype`, `phenotype_class`. Unknown allele (`*79`), `+rsNNN` tag or unknown copy number
+  gives no score; an explicit Indeterminate blocks level c. `outside_calls.tsv` and provenance record
+  level, source and per-caller diplotype/score/phenotype. GIAB: HG002 and `*2/*36+*10` -> a;
+  HG001, HG006, HG007 -> b; HG005 -> c (Intermediate); HG004 -> d. Checked with PharmCAT 3.2.0:
+  score-only (`0.5` -> Intermediate, AS 0.5) and phenotype-only (annotations for 0.25/0.5/0.75/1.0,
+  four times the per-drug annotations) both run; a phenotype-only call needs downstream care.
+
+---
+
 ## 2026-11-11 — MT-RNR1 and G6PD false negatives fixed (ERROR is never NEGATIVE)
 
 Two false negatives found on commercial reference standards (a homoplasmic MT-RNR1
