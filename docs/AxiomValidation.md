@@ -138,7 +138,7 @@ This adjudication is why the headline 73.0% understates true performance: **42 o
 
 ### 5.1 DPYD -- Array panel gap (8% raw; `array_FN`)
 
-**The single largest source of "discordance" is an array limitation, not a pipeline error.** In 24/26 pairs Axiom reports DPYD `*1/*1` while the pipeline's star-allele callers concordantly detect a real reduced-function variant -- collapsed by synonym reconciliation (e.g. `Reference/c.85T>C (*9A)`, equivalently `*1/*S10` / `rs1801265`). The Axiom P6/P9 arrays genotype only a fixed pathogenic-variant set (chiefly *2A, *13, HapB3); lower-penetrance alleles such as *9A (c.85T>C) and *5 (c.1627A>G) are not on the array. WGS detects them regardless. **Clinically relevant for fluoropyrimidine dosing -- confirm by targeted assay before reporting.**
+**The single largest source of "discordance" is an array limitation, not a pipeline error.** In 24/26 pairs Axiom reports DPYD `*1/*1` while the pipeline's star-allele callers concordantly detect a real variant -- collapsed by synonym reconciliation (e.g. `Reference/c.85T>C (*9A)`, equivalently `*1/*S10` / `rs1801265`). The Axiom P6/P9 arrays genotype only a fixed pathogenic-variant set (chiefly *2A, *13, HapB3); *9A (c.85T>C) and *5 (c.1627A>G) are not on the array. WGS detects them regardless. **Both are Normal function (activity value 1.0) in the CPIC allele table (checked 2026-11-13), so these pairs differ in name only and the fluoropyrimidine phenotype is the same as the array's `*1/*1`.** An earlier version of this section called them reduced-function; that was wrong.
 
 ### 5.2 CYP2D6 -- SV-aware authority; Cyrius abstention (17% raw)
 
@@ -204,7 +204,7 @@ Legend: Y concordant, ~ partial (review/nomenclature), N mismatch, -- no Axiom d
 
 ### 8.1 Clinical reporting
 
-1. **DPYD -- mandatory review.** WGS systematically detects reduced-function DPYD variants (*9A, *5) the array does not score. Confirm by targeted assay before fluoropyrimidine dosing decisions.
+1. **DPYD -- naming difference, not a dosing difference.** WGS detects DPYD *9A and *5, which the array does not score; CPIC assigns both Normal function (activity value 1.0, checked 2026-11-13). A DPYD variant with decreased or no function still needs confirmation by a targeted assay before fluoropyrimidine dosing decisions.
 2. **CYP2D6 -- accept Cyrius when it calls; flag abstentions.** Where Cyrius returns a genotype, report it. Where it abstains (ambiguous CNV), report the star-allele consensus as "complex structural variant -- manual review."
 3. **VKORC1 -- report the rs9923231 genotype** from VCF-Check; ignore star-allele haplotype notation noise.
 4. **RYR1 -- orthogonal confirmation.** Array-reported het RYR1 variants not confirmed by VCF-Check (and vice-versa) require pileup/Sanger review before reporting (malignant-hyperthermia relevance).
