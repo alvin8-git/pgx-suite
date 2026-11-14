@@ -170,6 +170,60 @@ def test_cyp2b6_cis_trans_is_phase_ambiguous_not_concordant():
     assert v["status"] == "concordant" and "phase_ambiguous" not in v, v
 
 
+# ── CYP2D6: Cyrius reports no phenotype; derived from the CPIC activity score ──
+def _d2d6(dip, others=None, cy_pheno="-", filt="-"):
+    """Cyrius call plus, by default, one corroborating caller on the same diplotype."""
+    cy = _r("Cyrius", dip, pheno=cy_pheno)
+    cy.alternative_diplotypes = filt
+    if others is None:
+        others = [("PyPGx", dip, "-")]
+    return cmp.compute_verdict([cy] + [_r(t, d, pheno=p) for t, d, p in others], no_call=False, gene="CYP2D6")
+
+
+def test_cyp2d6_phenotype_derived_from_activity_score():
+    for dip, score, ph in [("*2/*4", "1", "Intermediate Metabolizer"), ("*4/*4", "0", "Poor Metabolizer"),
+                           ("*2/*2x2", "3", "Ultrarapid Metabolizer"),
+                           ("*36+*10/*36+*10", "0.5", "Intermediate Metabolizer"),
+                           ("*3/*68+*4", "0", "Poor Metabolizer"), ("*1/*1", "2", "Normal Metabolizer")]:
+        v = _d2d6(dip)
+        assert v["consensus_phenotype"] == ph, (dip, v)
+        assert v["phenotype_source"] == f"CPIC activity score {score} from {dip}", v
+        assert (v["consensus_diplotype"], v["status"], v["n_agree"]) == (dip, "concordant", 2), v
+
+
+def test_cyp2d6_fail_closed_cases_keep_blank_phenotype():
+    for dip in ["*1/*2x3", "*1/*4.013+*4", "*36+*10/*36+*36", "*1/*36+*36+*10", "*1/*2;*1/*4",
+                "Cyrius_not_assigned_to_haplotypes"]:
+        v = _d2d6(dip)
+        assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, (dip, v)
+        assert v["note"].startswith("activity score not available for"), (dip, v)
+    v = _d2d6("*1/*2x2", filt="LowQ_high_CN")
+    assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, v
+    assert "Cyrius filter LowQ_high_CN: phenotype not derived" in v["note"], v
+    v = _d2d6("*1/*4", others=[("PyPGx", "*1/*1", "Normal Metabolizer"), ("Aldy", "*1/*1", "Normal")])
+    assert v["consensus_phenotype"] == "-" and (v["n_agree"], v["status"]) == (1, "concordant"), v
+    assert "no other caller reports this diplotype: phenotype not derived" in v["note"], v
+
+
+def test_cyp2d6_authority_own_phenotype_unchanged():
+    v = _d2d6("*2/*4", cy_pheno="Poor Metabolizer")
+    assert v["consensus_phenotype"] == "Poor Metabolizer" and "phenotype_source" not in v, v
+
+
+def test_cyp2d6_caller_class_difference_is_a_note_only():
+    v = _d2d6("*2/*4", others=[("Aldy", "*2/*4", "Normal"), ("PyPGx", "*2/*4", "Intermediate Metabolizer"),
+                               ("StellarPGx", "*2/*4", "Indeterminate")])
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+    assert "Aldy Normal" in v["note"] and "PyPGx" not in v["note"], v
+    assert (v["n_agree"], v["n_called"], v["status"]) == (4, 4, "concordant"), v
+
+
+def test_other_authority_gene_with_blank_phenotype_stays_blank():
+    rs = [_r("PharmCAT", "*1/*1", pheno="-"), _r("Stargazer", "*1/*1", pheno="normal_metabolizer")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP4F2")
+    assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, v
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

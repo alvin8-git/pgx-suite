@@ -5,6 +5,31 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-14 — CYP2D6 verdict phenotype is no longer blank when Cyrius calls
+
+- `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): Cyrius, the CYP2D6 authority, never emits a phenotype,
+  so `ConsensusPhenotype` was "-" whenever it called and CYP2D6 dropped out of the report's actionable-phenotype
+  list. The phenotype is now derived from the diplotype (`reconcile.activity_score` then `reconcile.score_phenotype`,
+  the CPIC table in `cpic_cyp2d6.json`), no caller vote; a plain CPIC term, with `phenotype_source`
+  ("CPIC activity score 1 from *2/*4"). It is derived only when Cyrius's filter is PASS (the filter is carried in
+  `alternative_diplotypes`) and at least one other caller reports the same diplotype (`n_agree >= 2`), so the
+  gene card never shows a phenotype that the PharmCAT outside call (which needs a second caller) does not use.
+  Otherwise the phenotype stays "-" and the reason is appended to the verdict `note` (and `phenotype_note`):
+  `Cyrius filter <X>: phenotype not derived`; `no other caller reports this diplotype: phenotype not derived`;
+  `activity score not available for <diplotype> (structure or copy number not in the CPIC table lookup)`. A caller
+  on the same diplotype whose phenotype class differs is named in the note only. Diplotype, status, n_agree,
+  n_called, every other gene (CYP4F2 stays "-"), the phase-ambiguity branch, and an authority that supplies its own
+  phenotype are unchanged. Takes effect only in a rebuilt docker image.
+- `docker/pgx-report.py`: the "resolved by <authority>" sentence says the phenotype is the CPIC phenotype for the
+  activity score (diplotype), or why none was derived.
+- Tests: `docker/test_verdict.py` (`test_cyp2d6_*`, including fail-closed cases).
+- Known limitations (unchanged): tandem spellings Cyrius emits that the exact-key lookup misses (`*36+*36+*10` vs
+  CPIC `*36x2+*10`, `*36+*36`, `*4.013+*4`, `*68+*68+*4`) give no phenotype; copy number >= 3 (`*1x3`, CPIC `x>=3`
+  rows) gives none; legacy lettered allele names are scored as their base number in `reconcile.clean_diplotype`;
+  `all_genes_summary.tsv` has no provenance column saying a phenotype was derived.
+
+---
+
 ## 2026-11-13 — CYP2D6 outside call: level e (Cyrius + activity-score agreement)
 
 - `docker/pgx_outside_calls.py`: new level **e**, tried after a and b and before c. When Cyrius has a call
