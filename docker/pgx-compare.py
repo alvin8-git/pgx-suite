@@ -1798,12 +1798,21 @@ def _phase_ambiguity(gene, a, results):
             "phenotypes": sorted(p for p in phen if p), "n_total": sum(len(rs) for rs in readings.values())}
 
 
+# A legacy lettered allele name (*13C, *4NX, *36X): reconcile.clean_diplotype strips the letters and would
+# score it as its base number, so such a caller never counts as score corroboration (rule b only).
+# "x<digit>"/"X<digit>" is a copy number.
+_LEGACY_LETTERED = re.compile(r"\*\d+(?![xX]\d)[A-Za-z]")
+
+
 def _cyp2d6_authority_phenotype(a, results, n_agree):
     """CYP2D6 only. Cyrius reports no phenotype, so derive it from the diplotype itself: CPIC activity
     score (reconcile.activity_score) -> CPIC phenotype (reconcile.score_phenotype); no caller votes.
-    Returns (phenotype, extra verdict fields). Not derived ("-" plus a reason in `note`) when Cyrius's
-    filter is not PASS (carried in alternative_diplotypes), when no other caller reports the diplotype,
-    or when the activity score cannot be looked up."""
+    Derived when Cyrius's filter is PASS (a non-PASS one is carried in alternative_diplotypes), its diplotype
+    has a CPIC score, and either (a) another caller reports the same canonical diplotype (n_agree >= 2, the
+    6de12ca rule) or (b) another caller's diplotype has the same activity score (lettered legacy allele
+    names excluded). Rule (b) uses the same score comparison as pgx_outside_calls.call_cyp2d6 (levels a, b, e)
+    plus a lettered-allele guard that call_cyp2d6 lacks, so a lettered-only corroborator can give a drug-table
+    call with a blank gene-card phenotype (known limitation). Otherwise "-" plus the reason in `note`."""
     if reconcile.phenotype_class(a.phenotype) not in (None, "Indeterminate"):
         return a.phenotype, {}          # the authority's own phenotype always stands
 
@@ -1811,20 +1820,31 @@ def _cyp2d6_authority_phenotype(a, results, n_agree):
         return "-", {"phenotype_note": reason, "note_add": reason}
     if a.alternative_diplotypes not in ("-", ""):
         return no(f"Cyrius filter {a.alternative_diplotypes}: phenotype not derived")
-    if n_agree < 2:
-        return no("no other caller reports this diplotype: phenotype not derived")
     sc = reconcile.activity_score(a.diplotype)
-    pheno = reconcile.score_phenotype(sc)
-    if pheno is None:
+    if sc is None:
         return no(f"activity score not available for {a.diplotype} (structure or copy number not in the "
                   "CPIC table lookup)")
-    extra = {"phenotype_source": f"CPIC activity score {sc:g} from {a.diplotype}"}
+    ok = [r for r in results if r is not a and r.status == "ok" and r.diplotype not in ("-", "")]
     a_key = reconcile.canonicalize_diplotype("CYP2D6", a.diplotype)
+    same_dip = [r for r in ok if (n_agree or 0) >= 2 and a_key is not reconcile.UNRESOLVED
+                and reconcile.canonicalize_diplotype("CYP2D6", r.diplotype) == a_key]
+    same_score = [r for r in ok if not _LEGACY_LETTERED.search(r.diplotype)
+                  and reconcile.activity_score(r.diplotype) == sc]
+    pheno = reconcile.score_phenotype(sc)
+    if not (same_dip or same_score):
+        return no("no other caller's diplotype has the same activity score: phenotype not derived")
+    if pheno is None:
+        return no(f"no CPIC phenotype for activity score {sc:g}")
+    if same_dip:
+        corr = same_dip
+        why = "same diplotype: " + ", ".join(r.tool for r in same_dip)
+    else:
+        corr = same_score
+        why = "same score: " + ", ".join(f"{r.tool} {r.diplotype}" for r in same_score)
+    extra = {"phenotype_source": f"CPIC activity score {sc:g} from {a.diplotype} ({why})"}
     cls = reconcile.phenotype_class(pheno)
-    diff = [f"{r.tool} {r.phenotype}" for r in results
-            if r is not a and r.status == "ok" and r.diplotype not in ("-", "")
-            and reconcile.canonicalize_diplotype("CYP2D6", r.diplotype) == a_key
-            and reconcile.phenotype_class(r.phenotype) not in (None, "Indeterminate", cls)]
+    diff = [f"{r.tool} {r.phenotype}" for r in corr
+            if reconcile.phenotype_class(r.phenotype) not in (None, "Indeterminate", cls)]
     if diff:
         extra["phenotype_note"] = extra["note_add"] = (
             "caller phenotype differs from the CPIC activity-score phenotype: " + "; ".join(diff))

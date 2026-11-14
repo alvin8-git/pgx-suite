@@ -1993,6 +1993,7 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                f"({why}). Its call {cons} is taken as the verdict.{tail}")
         if v.get("phenotype_source"):
             _sc, _, _dip = v["phenotype_source"].removeprefix("CPIC activity score ").partition(" from ")
+            _dip = _dip.split(" (same ")[0]
             res += (f" {auth} reports no phenotype; the phenotype shown is the CPIC phenotype for activity "
                     f"score {_sc} ({_dip}).")
         elif v.get("phenotype_note") and v.get("consensus_phenotype") in ("-", ""):

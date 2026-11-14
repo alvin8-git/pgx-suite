@@ -5,6 +5,27 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-15 — CYP2D6 derived phenotype: corroboration by diplotype or activity score
+
+- `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): the phenotype Cyrius lacks is derived when Cyrius's
+  filter is PASS, its diplotype has a CPIC activity score, and either (a) another caller reports the same canonical
+  diplotype (`n_agree >= 2`, the 6de12ca rule, unchanged) or (b) another caller's diplotype has the same activity
+  score (callers with no score do not count; a caller whose diplotype contains a legacy lettered allele such as
+  `*13C`, `*4N`, `*36x`, in either case, never counts for (b), because `reconcile.clean_diplotype` would score it as
+  its base number). `phenotype_source` says which applied, `(same diplotype: <tools>)` or
+  `(same score: <tool diplotype>, ...)`, the first when both do. Not corroborated: "-" with `no other caller's
+  diplotype has the same activity score: phenotype not derived` in `note`. Diplotype, status, n_agree, n_called and
+  every other gene are unchanged.
+- Rule (b) uses the same score comparison as `pgx_outside_calls.call_cyp2d6` (levels a, b, e), re-stated in the
+  verdict, plus the lettered-allele guard that `call_cyp2d6` does not have.
+- Tests: `docker/test_verdict.py` (both rules, lettered guard in upper and lower case, fail-closed cases).
+- Known limitations: a lettered-only corroborator can give a drug-table (outside) call with a blank gene-card
+  phenotype; tandem spellings Cyrius emits that the exact-key lookup misses (`*36+*36+*10` vs CPIC `*36x2+*10`,
+  `*36+*36`, `*4.013+*4`, `*68+*68+*4`) give no phenotype; copy number >= 3 (`*1x3`, CPIC `x>=3` rows) gives none;
+  `all_genes_summary.tsv` has no provenance column for a derived phenotype.
+
+---
+
 ## 2026-11-14 — CYP2D6 verdict phenotype is no longer blank when Cyrius calls
 
 - `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): Cyrius, the CYP2D6 authority, never emits a phenotype,

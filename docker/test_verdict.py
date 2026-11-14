@@ -187,7 +187,7 @@ def test_cyp2d6_phenotype_derived_from_activity_score():
                            ("*3/*68+*4", "0", "Poor Metabolizer"), ("*1/*1", "2", "Normal Metabolizer")]:
         v = _d2d6(dip)
         assert v["consensus_phenotype"] == ph, (dip, v)
-        assert v["phenotype_source"] == f"CPIC activity score {score} from {dip}", v
+        assert v["phenotype_source"] == f"CPIC activity score {score} from {dip} (same diplotype: PyPGx)", v
         assert (v["consensus_diplotype"], v["status"], v["n_agree"]) == (dip, "concordant", 2), v
 
 
@@ -202,7 +202,46 @@ def test_cyp2d6_fail_closed_cases_keep_blank_phenotype():
     assert "Cyrius filter LowQ_high_CN: phenotype not derived" in v["note"], v
     v = _d2d6("*1/*4", others=[("PyPGx", "*1/*1", "Normal Metabolizer"), ("Aldy", "*1/*1", "Normal")])
     assert v["consensus_phenotype"] == "-" and (v["n_agree"], v["status"]) == (1, "concordant"), v
-    assert "no other caller reports this diplotype: phenotype not derived" in v["note"], v
+    assert "no other caller's diplotype has the same activity score: phenotype not derived" in v["note"], v
+
+
+def test_cyp2d6_corroboration_is_by_activity_score_not_spelling():
+    v = _d2d6("*3/*68+*4", others=[(t, "*3/*4", "-") for t in ("PyPGx", "Stargazer")])
+    assert v["consensus_phenotype"] == "Poor Metabolizer", v
+    assert v["phenotype_source"] == "CPIC activity score 0 from *3/*68+*4 (same score: PyPGx *3/*4, Stargazer *3/*4)", v
+    assert v["n_agree"] == 1 and v["status"] == "concordant", v      # counts untouched
+    v = _d2d6("*1/*13", others=[("PyPGx", "*5/*39", "-"), ("StellarPGx", "*5/*39", "-")])
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+
+
+def test_cyp2d6_lettered_legacy_allele_never_corroborates():
+    for other in ("*13C/*39", "*4NX/*4", "*36X/*39", "*13c/*39", "*4n/*4", "*36x/*10"):
+        v = _d2d6("*1/*13", others=[("Stargazer", other, "-")])
+        assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, (other, v)
+    v = _d2d6("*1/*13", others=[("Stargazer", "*13C/*39", "-"), ("PyPGx", "*5/*39", "-")])
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and "Stargazer" not in v["phenotype_source"], v
+    # an uppercase X copy number is not a letter suffix
+    v = _d2d6("*2/*2x2", others=[("Stargazer", "*2/*2X2", "-")])
+    assert v["consensus_phenotype"] == "Ultrarapid Metabolizer", v
+
+
+def test_legacy_lettered_pattern():
+    rx = cmp._LEGACY_LETTERED
+    for t in ("*13C/*39", "*4N/*4", "*36X+*10", "*13c/*39", "*4n/*4", "*36x/*10", "*4NX/*4"):
+        assert rx.search(t), t
+    for t in ("*2X2", "*10X2", "*1x2", "*68+*4", "*4.021", "*2x2/*1", "*1/*36+*10"):
+        assert not rx.search(t), t
+
+
+def test_cyp2d6_same_diplotype_rule_survives_lettered_spelling():
+    v = _d2d6("*4/*4", others=[("Stargazer", "*4N/*4", "-")])
+    assert v["consensus_phenotype"] == "Poor Metabolizer" and v["n_agree"] == 2, v
+    assert v["phenotype_source"] == "CPIC activity score 0 from *4/*4 (same diplotype: Stargazer)", v
+    v = _d2d6("*1/*36+*10", others=[("Stargazer", "*1/*36X+*10", "-")])
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and "same diplotype: Stargazer" in v["phenotype_source"], v
+    # both rules apply: the same-diplotype wording wins
+    v = _d2d6("*4/*4", others=[("PyPGx", "*4/*4", "-"), ("Aldy", "*4/*4.021", "-")])
+    assert "(same diplotype: PyPGx" in v["phenotype_source"], v
 
 
 def test_cyp2d6_authority_own_phenotype_unchanged():
