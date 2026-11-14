@@ -1798,6 +1798,39 @@ def _phase_ambiguity(gene, a, results):
             "phenotypes": sorted(p for p in phen if p), "n_total": sum(len(rs) for rs in readings.values())}
 
 
+def _cyp2d6_authority_phenotype(a, results, n_agree):
+    """CYP2D6 only. Cyrius reports no phenotype, so derive it from the diplotype itself: CPIC activity
+    score (reconcile.activity_score) -> CPIC phenotype (reconcile.score_phenotype); no caller votes.
+    Returns (phenotype, extra verdict fields). Not derived ("-" plus a reason in `note`) when Cyrius's
+    filter is not PASS (carried in alternative_diplotypes), when no other caller reports the diplotype,
+    or when the activity score cannot be looked up."""
+    if reconcile.phenotype_class(a.phenotype) not in (None, "Indeterminate"):
+        return a.phenotype, {}          # the authority's own phenotype always stands
+
+    def no(reason):
+        return "-", {"phenotype_note": reason, "note_add": reason}
+    if a.alternative_diplotypes not in ("-", ""):
+        return no(f"Cyrius filter {a.alternative_diplotypes}: phenotype not derived")
+    if n_agree < 2:
+        return no("no other caller reports this diplotype: phenotype not derived")
+    sc = reconcile.activity_score(a.diplotype)
+    pheno = reconcile.score_phenotype(sc)
+    if pheno is None:
+        return no(f"activity score not available for {a.diplotype} (structure or copy number not in the "
+                  "CPIC table lookup)")
+    extra = {"phenotype_source": f"CPIC activity score {sc:g} from {a.diplotype}"}
+    a_key = reconcile.canonicalize_diplotype("CYP2D6", a.diplotype)
+    cls = reconcile.phenotype_class(pheno)
+    diff = [f"{r.tool} {r.phenotype}" for r in results
+            if r is not a and r.status == "ok" and r.diplotype not in ("-", "")
+            and reconcile.canonicalize_diplotype("CYP2D6", r.diplotype) == a_key
+            and reconcile.phenotype_class(r.phenotype) not in (None, "Indeterminate", cls)]
+    if diff:
+        extra["phenotype_note"] = extra["note_add"] = (
+            "caller phenotype differs from the CPIC activity-score phenotype: " + "; ".join(diff))
+    return pheno, extra
+
+
 def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                     gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
@@ -1880,10 +1913,16 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                                  f"unphased: {shown}; phenotype " + ("is the same for both readings"
                                  if same else "differs between readings")),
                         "reconciled": False, "authority": auth_tool}
-            return {"consensus_diplotype": a.diplotype,
-                    "consensus_phenotype": a.phenotype if a.phenotype not in ("-", "") else "-",
-                    "n_agree": n_agree, "n_called": n_called, "status": "concordant",
-                    "note": note, "reconciled": False, "authority": auth_tool}
+            a_pheno, a_extra = (_cyp2d6_authority_phenotype(a, results, n_agree) if gene == "CYP2D6"
+                                else (a.phenotype if a.phenotype not in ("-", "") else "-", {}))
+            add = a_extra.pop("note_add", "")
+            out = {"consensus_diplotype": a.diplotype,
+                   "consensus_phenotype": a_pheno,
+                   "n_agree": n_agree, "n_called": n_called, "status": "concordant",
+                   "note": "; ".join(x for x in (note, add) if x), "reconciled": False,
+                   "authority": auth_tool}
+            out.update(a_extra)
+            return out
 
     pairs, phenos, skipped = [], [], []   # pairs: (canonical, raw_normalized)
     for r in results:

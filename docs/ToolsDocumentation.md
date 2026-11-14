@@ -870,6 +870,11 @@ authority for CYP2D6** — when Cyrius returns a call, that call *is* the verdic
 - `parse_cyrius()` in `pgx-compare.py` reads the JSON/TSV output; `AUTHORITATIVE["CYP2D6"]
   = "Cyrius"`. If Cyrius no-calls (e.g. a genuinely ambiguous complex locus), the verdict
   falls through to the reconciled star-allele vote.
+- Cyrius reports no phenotype. The verdict phenotype is derived from the verdict diplotype: CPIC activity score
+  (`reconcile.activity_score`) to CPIC phenotype (`reconcile.score_phenotype`), recorded in `phenotype_source`. It is
+  derived only for a PASS Cyrius call that at least one other caller reports; otherwise, or when the score cannot be
+  looked up, it stays "-" and the reason is appended to the verdict `note`. Callers' own phenotypes are not used; one
+  that differs in class is only named in the note.
 
 ### Input requirements
 

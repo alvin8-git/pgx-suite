@@ -1991,6 +1991,12 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                 if star_disc else " The other callers were consistent with this call.")
         res = (f"{gene} is resolved by {auth}, the designated CPIC authority for this gene "
                f"({why}). Its call {cons} is taken as the verdict.{tail}")
+        if v.get("phenotype_source"):
+            _sc, _, _dip = v["phenotype_source"].removeprefix("CPIC activity score ").partition(" from ")
+            res += (f" {auth} reports no phenotype; the phenotype shown is the CPIC phenotype for activity "
+                    f"score {_sc} ({_dip}).")
+        elif v.get("phenotype_note") and v.get("consensus_phenotype") in ("-", ""):
+            res += f" {auth} reports no phenotype; none was derived ({v['phenotype_note']})."
     elif status == "concordant":
         na, nc = v.get("n_agree", 0), v.get("n_called", 0)
         res = (f"All {na} of {nc} callers agree on {cons} (synonymous diplotypes collapsed before "
