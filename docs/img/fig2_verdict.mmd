@@ -1,0 +1,17 @@
+flowchart TB
+  START(["Calls from the callers that ran for one gene"]) --> G["Depth at or above min_depth, and<br/>alignment fit for paralog genes?"]
+  G -- no --> NC["no_call"]
+  G -- yes --> AU["Does the gene's authority<br/>method have a call?"]
+  AU -- yes --> AV["concordant<br/>verdict = authority call"]
+  AU -- no --> N["Normalise notation, collapse<br/>synonyms, count agreement"]
+  N -- all agree --> CC["concordant"]
+  N -- most agree --> MJ["majority"]
+  N -- tie --> DS["discordant"]
+  MJ -- "phenotype callers agree" --> PH["concordant<br/>authority: Phenotype"]
+  DS -- "phenotype callers agree" --> PH
+  classDef bad fill:#fdecea,stroke:#c62828;
+  classDef good fill:#e6f4ea,stroke:#2e7d32;
+  classDef mid fill:#fff4e5,stroke:#d29922;
+  class NC,DS bad;
+  class CC,AV,PH good;
+  class MJ mid;

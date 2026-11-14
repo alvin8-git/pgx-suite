@@ -1,0 +1,20 @@
+flowchart TB
+  IN["BAM or CRAM (GRCh38, bwa-mem) + hg38.fa"]
+  subgraph PRE["Sample-level checks"]
+    direction LR
+    QC["bamstats<br/>depth per gene"] ~~~ ALT["altcheck<br/>ALT-aware alignment?"] ~~~ VCF["bcftools<br/>per-gene VCF"]
+  end
+  subgraph CALL["Callers: one Snakemake rule each, a failure is recorded, not fatal"]
+    direction LR
+    STAR["Star-allele callers<br/>PyPGx, Stargazer,<br/>Aldy, StellarPGx"] ~~~ AUTH["Authority methods<br/>Cyrius, PharmCAT,<br/>VCF-Check"] ~~~ HLA["HLA and ABO<br/>OptiType, arcasHLA,<br/>T1K, ABO pileup"] ~~~ MT["mtDNA<br/>mutserve<br/>MT-RNR1"]
+  end
+  CMP["pgx-compare.py: one verdict per gene (Figure 2)"]
+  subgraph OUTS["Per-sample outputs"]
+    direction LR
+    REP["HTML report"] ~~~ SUM["all_genes_summary.tsv"] ~~~ DET["genes/*/detail.json"] ~~~ PROV["provenance.json"]
+  end
+  IN --> PRE --> CALL --> CMP --> OUTS
+  classDef io fill:#e8f0fe,stroke:#1f6feb;
+  classDef core fill:#fff4e5,stroke:#d29922;
+  class IN,REP,SUM,DET,PROV io;
+  class CMP core;

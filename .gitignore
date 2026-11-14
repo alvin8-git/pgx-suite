@@ -66,3 +66,7 @@ Axiom.xlsx
 
 # graphify knowledge-graph build output (regenerate with /graphify)
 graphify-out/
+
+# Smoke-test input (GIAB HG002 slice, ~7 MB) is the one committed BAM
+!tests/smoke/data/*.bam
+!tests/smoke/data/*.bai
