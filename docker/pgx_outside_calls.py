@@ -29,6 +29,9 @@ Rules (never fabricate a call; an omitted gene is logged with the reason):
                       reason column. Needs a CPIC score for Cyrius's call: no Cyrius call, or one
                       with an unscored allele, never reaches e.
                    d  otherwise omitted, with the reason.
+                 The levels live in reconcile.cyp2d6_agreement, shared with the verdict's CYP2D6 phenotype. Folded
+                 tandem spellings (`*36+*36+*10` = `*36x2+*10`) and CPIC `x>=3` rows (a lower bound: usable in
+                 level c as a phenotype class, never as an equal score) are scored.
                  A caller that reports Indeterminate does not agree with anything: it blocks
                  level c. A caller with neither score nor phenotype is ignored in level c
                  only while >=3 callers remain. Activity values come from docker/cpic_cyp2d6.json
@@ -43,7 +46,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import reconcile  # noqa: E402  (single diplotype normaliser, shared with pgx-compare)
 
 HLA = ("HLA-A", "HLA-B")
-UNTYPED = {"", "-", "NA", "N/A", "NONE", "UNKNOWN"}
 
 
 def _newest(paths):
@@ -60,18 +62,12 @@ def read_comparison(out, gene):
 
 
 def typed(row):
-    d = (row.get("Diplotype") or "").strip()
-    bad = d.upper() in UNTYPED or "NO_CALL" in d.upper() or "/" not in d
-    return (row.get("Status") or "").strip().lower() == "ok" and not bad
+    return reconcile.is_typed_call(row.get("Status"), row.get("Diplotype"))
 
 
 def norm_dip(d, gene="CYP2D6"):
     """Comparison key (see reconcile.norm_diplotype); None when not comparable."""
     return reconcile.norm_diplotype(gene, d)
-
-
-# Preference for which agreeing caller's spelling is cleaned and passed to PharmCAT.
-_PREFER = ("Cyrius", "PyPGx", "Stargazer", "StellarPGx", "Aldy")
 
 
 def hla_two_field(allele, gene):
@@ -92,8 +88,7 @@ def call_hla(out, gene):
     return "/".join(alleles), "OptiType", ""
 
 
-def _fmt_score(x):
-    return "" if x is None else f"{x:.2f}".rstrip("0").rstrip(".") if x != int(x) else f"{x:.1f}"
+_fmt_score = reconcile._fmt_score
 
 
 def call_cyp2d6(out):
@@ -117,63 +112,9 @@ def _call_cyp2d6(out):
         res["why"] = (f"only {len(t)} caller(s) with a comparable CYP2D6 call (need >=2)"
                       + (f"; {','.join(skipped)} unphased, excluded" if skipped else ""))
         return res
-    info = []
-    for r in t:
-        sc = reconcile.activity_score(r["Diplotype"])
-        own = reconcile.phenotype_class(r.get("Phenotype"))
-        mapped = reconcile.score_phenotype(sc)
-        info.append({"tool": r["Tool"], "diplotype": r["Diplotype"], "key": norm_dip(r["Diplotype"]),
-                     "score": sc, "own": own,
-                     "class": reconcile.phenotype_class(mapped) if mapped else own})
-    res["callers"] = [{"tool": i["tool"], "diplotype": i["diplotype"], "score": i["score"],
-                       "phenotype": i["class"]} for i in info]
-    n = len(info)
-    desc = "; ".join(f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
-                     f"{i['class'] or 'no phenotype'})" for i in info)
-    # a: unanimous diplotype
-    if len({i["key"] for i in info}) == 1:
-        pick = min(t, key=lambda r: _PREFER.index(r["Tool"]) if r["Tool"] in _PREFER else len(_PREFER))
-        res.update(level="a", source="all callers agree",
-                   diplotype=reconcile.clean_diplotype("CYP2D6", pick["Diplotype"]),
-                   score=reconcile.activity_score(pick["Diplotype"]))
-        return res
-    # b: every score known and equal
-    scores = {i["score"] for i in info}
-    if None not in scores and len(scores) == 1:
-        res.update(level="b", source=f"activity score agreed {n}/{n}", score=scores.pop())
-        return res
-    # e: Cyrius (the read-depth copy-number caller) has a call with a CPIC activity score and at least one other
-    # caller's call has the same score. Cyrius's cleaned diplotype is passed with that score; callers that
-    # disagree, an explicit Indeterminate among them, are listed in `why` and never block this level.
-    # Precedence: a, then b (every caller on the score: nothing to dissent, and the passed score-only call is
-    # unchanged), then e, then c (e carries a diplotype and a score, c a phenotype only).
-    cy = next((i for i in info if i["tool"] == "Cyrius" and i["score"] is not None), None)
-    if cy is not None:
-        same = [i for i in info if i is not cy and i["score"] == cy["score"]]
-        if same:
-            others = [i for i in info if i is not cy and i["score"] != cy["score"]]
-            note = ("; dissenting: " + "; ".join(
-                f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
-                f"{i['own'] or i['class'] or 'no phenotype'})" for i in others)) if others else ""
-            res.update(level="e", source=f"Cyrius + {len(same)} other caller(s) on activity score "
-                                         f"{_fmt_score(cy['score'])}",
-                       diplotype=reconcile.clean_diplotype("CYP2D6", cy["diplotype"]), score=cy["score"],
-                       why=("agreeing on the score: " + ", ".join(i["tool"] for i in same) + note))
-            return res
-    # c: one phenotype class; an explicit Indeterminate blocks it
-    if any("Indeterminate" in (i["own"], i["class"]) for i in info):
-        res["why"] = "a caller reports Indeterminate (blocks phenotype agreement): " + desc
-        return res
-    # Every caller's call must have a CPIC activity score: the phenotype is then CPIC's for that score, never a
-    # caller's own label (a caller may print "Normal" over an allele CPIC lists with unknown function), and no
-    # caller is left out of the comparison.
-    if None in scores:
-        res["why"] = "callers disagree and a call has no CPIC activity score: " + desc
-        return res
-    if len({i["class"] for i in info}) == 1 and info[0]["class"]:
-        res.update(level="c", source=f"phenotype agreed {n}/{n}", phenotype=f"{info[0]['class']} Metabolizer")
-        return res
-    res["why"] = "callers disagree: " + desc
+    shared = reconcile.cyp2d6_agreement([{"tool": r["Tool"], "diplotype": r["Diplotype"], "phenotype": r.get("Phenotype")}
+                                         for r in t])
+    res.update({k: v for k, v in shared.items() if k != "source" or v})
     return res
 
 

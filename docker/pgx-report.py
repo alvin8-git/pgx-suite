@@ -280,7 +280,10 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             concordance_warn = n_triggered < n_called
         else:
             # Phenotype-based gene: require ≥2 tools to agree on diplotype.
-            if n_agree < 2:
+            # an authority-decided gene is one tool's call by design, not a 1-caller vote ("Phenotype" is the
+            # phenotype tier, not a tool)
+            auth_tool = gd.get("authority") if gd.get("authority") not in (None, "", "Phenotype") else None
+            if n_agree < 2 and not auth_tool:
                 continue
             tier = _get_tier(gene, pheno_cat, diplo)
             note = _get_landing_note(gene, pheno_cat, diplo)
@@ -294,6 +297,7 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             "phenotype":        pheno,
             "note":             note,
             "concordance_warn": concordance_warn,
+            "authority_tool":   (gd.get("authority") if gd.get("authority") not in (None, "", "Phenotype") else None),
             "n_agree":          n_agree,
             "n_called":         n_called,
         })
@@ -318,11 +322,16 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             pill_color = phenotype_color(f["phenotype"])
             pheno_str  = f["phenotype"] if f["phenotype"] not in ("-", "") else "—"
             diplo_str  = f["diplotype"] if f["diplotype"] not in ("-", "") else "—"
-            warn_html  = (
-                f'<span class="cf-concordance-warn" title="{f["n_agree"]}/{f["n_called"]} tools agree">'
-                f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
-                if f["concordance_warn"] else ""
-            )
+            if f["concordance_warn"] and f.get("authority_tool"):
+                warn_html = (
+                    f'<span class="cf-concordance-warn" title="decided by {f["authority_tool"]}; '
+                    f'{f["n_agree"]}/{f["n_called"]} tools agree">'
+                    f'&#9888; {f["authority_tool"]} call ({f["n_agree"]}/{f["n_called"]} agree)</span>')
+            else:
+                warn_html = (
+                    f'<span class="cf-concordance-warn" title="{f["n_agree"]}/{f["n_called"]} tools agree">'
+                    f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
+                    if f["concordance_warn"] else "")
             if embedded:
                 detail_href  = "#"
                 detail_click = f" onclick=\"pgxShowGene('{f['gene']}'); return false;\""

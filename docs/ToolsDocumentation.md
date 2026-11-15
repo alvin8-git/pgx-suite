@@ -870,6 +870,14 @@ authority for CYP2D6** — when Cyrius returns a call, that call *is* the verdic
 - `parse_cyrius()` in `pgx-compare.py` reads the JSON/TSV output; `AUTHORITATIVE["CYP2D6"]
   = "Cyrius"`. If Cyrius no-calls (e.g. a genuinely ambiguous complex locus), the verdict
   falls through to the reconciled star-allele vote.
+- **Outside-call level codes** (`pharmcat/outside_calls.tsv` column `level`, `reconcile.cyp2d6_agreement`): `hla` OptiType
+  two-field call; `a` all callers agree on the diplotype (diplotype + exact score, or diplotype only for an `x>=3` lower bound);
+  `b` diplotypes differ but every caller has the same exact CPIC score (score only); `e` Cyrius's call is shared by another
+  caller by exact score (diplotype + score) or, for a `≥` lower bound, by the same diplotype (diplotype only, no number);
+  `c` every caller has the same CPIC phenotype class (phenotype only); `m` majority: >= 3 callers (no Cyrius call, no
+  scoreable caller reporting Indeterminate) share one exact score (score only; the dissenters are named in `reason`); `-`
+  no call (the reason is in `reason_omitted`). The verdict's CYP2D6 phenotype without Cyrius is the phenotype of the same
+  result.
 - Cyrius reports no phenotype. The verdict phenotype is the CPIC phenotype of Cyrius's activity score
   (`reconcile.activity_score` then `reconcile.score_phenotype`), derived only for a PASS call that another caller
   corroborates: (a) the same canonical diplotype, or (b) a diplotype with the same activity score (a lettered

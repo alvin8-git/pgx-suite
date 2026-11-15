@@ -5,6 +5,46 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-15 (batch 2) — one CYP2D6 agreement rule for the gene row and the drug table; TPMT/NUDT15 from CPIC; tandem folding; `decided_by`
+
+- **Tandem spellings agree** in `cyp2d6_agreement` (`*36+*36+*10` = `*36x2+*10`): the diplotype key is folded before comparison, so
+  two callers that differ only in tandem spelling reach level a. No change on the 65 stored samples (consistency 65/65).
+- **CYP2D6 gene row = PharmCAT input** (`reconcile.cyp2d6_agreement`, `pgx_outside_calls`, `pgx-compare._cyp2d6_agreed_phenotype`).
+  Cause: when Cyrius gave no usable call the verdict phenotype was a plurality of the callers' own phenotype labels (ties
+  broken by caller order), while the outside call required every caller's CPIC activity score (levels a/b/c). In 10 stored
+  samples the gene row showed a phenotype and the drug table said "No Result". The outside-call levels moved into
+  `reconcile.cyp2d6_agreement` and the verdict (status concordant/majority/discordant, no Cyrius authority) takes its
+  phenotype from it (CPIC phenotype of the agreed score, or of the all-agree class); where it makes no call the phenotype
+  is `-` with `phenotype_note` (also appended to `note`). Voting over callers' own labels stays rejected (CLAUDE.md).
+  Cyrius-authority verdicts are unchanged. Side effect: 12 stored samples lose a label-vote phenotype (see the report).
+- **A clinical-sample pattern** (`*1x2/*36+*10`, score 2.25, shown Ultrarapid): same cause, same fix; the phenotype is now `-`.
+- **TPMT / NUDT15**: `docker/cpic_thiopurine.json` (CPIC `/diplotype` table, built by `cpic_thiopurine_build.py`) gives the
+  verdict phenotype for a single concordant/majority diplotype (`reconcile.thiopurine_phenotype`); `phenotype_source`
+  names the row, a contradicting caller label is named in `note`. HG006 TPMT `*1/*6` Indeterminate -> Intermediate
+  (CPIC row `*1/*6` Intermediate Metabolizer). Discordant NUDT15 verdicts are untouched: PyPGx and StellarPGx miss `*6`
+  (HG005, HG006 and two clinical samples), a caller-sensitivity limit that needs an owner decision (PharmCAT as authority).
+- **CYP2D6 tandem spellings** (`reconcile._fold_tandem`, used by `clean_diplotype`): `*36+*36+*10` -> `*36x2+*10`,
+  `*2+*2` -> `*2x2`; N>=3 uses CPIC's `x≥3` row (`*1x≥3`, `≥3.0`, a lower bound kept as `activity_min` in
+  `cpic_cyp2d6.json`; `*4x≥3` is exactly 0.0). A lower bound gives a phenotype (>=3.0 Ultrarapid) but never an exact score.
+  Comparison keys (`norm_diplotype`) are not folded.
+- **`DecidedBy`**: `all_genes_summary.tsv` gets a trailing `DecidedBy` column = the verdict's existing `authority` key (`-` for votes and the
+  phenotype tier); no new verdict key. `status` and `n_agree` are unchanged.
+- **Discordant verdicts carry no caller phenotype** (`compute_verdict`): `-`, the callers' labels named in `note`.
+  **`pgx-report.py` Key Findings** keep an authority-decided gene with `n_agree` < 2 (`decided_by`), with no discordance warning.
+- **Review fixes**: level e also accepts a Cyrius `≥` lower bound matched by the same canonical diplotype (diplotype passed,
+  never a number); level m is blocked by an explicit Indeterminate from a scoreable caller (HG002_12X again `-`); a majority
+  verdict's phenotype comes only from callers on the consensus diplotype (67 NAT1/CYP1A2/CYP2E1 cells: dissenters'
+  Indeterminate labels no longer stand); NUDT15 split also catches zygosity and uses reconcile's cleaning.
+- **CYP2D6 level m** (owner decision): without Cyrius, >= `MAJORITY_MIN` (3) callers sharing one exact CPIC activity
+  score give that score's phenotype for the verdict and the outside call (score only), dissenters named in `note`/`why`.
+- **NUDT15** (owner decision): when typed callers (and the informational PharmCAT row) disagree on whether a defining
+  allele is present, the phenotype is `-` with "callers disagree on NUDT15 *6: ... report it; ... do not". No tool decides
+  NUDT15; PharmCAT only withholds a phenotype.
+- Tests: `test_verdict.py`, `test_outside_calls.py`, `test_cpic.py` (set `PGX_CPIC_VERIFY=1`, optional
+  `PGX_CPIC_SNAPSHOT=<dir>`, to compare the committed CYP2D6/TPMT/NUDT15 tables with the CPIC API).
+
+---
+
 ## 2026-11-15 — PharmCAT "Unknown" is no call; lettered legacy CYP2D6 names are never scored as the base allele
 
 - `docker/pgx-compare.py` (`_compute_verdict_core`, `_is_no_diplotype`): for the PharmCAT-authority genes (UGT1A1,

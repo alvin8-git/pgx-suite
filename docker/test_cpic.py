@@ -87,6 +87,24 @@ def main():
     assert v["consensus_phenotype"] == "Intermediate Metabolizer"
 
     print("all cpic.json schema + registry checks passed")
+    check_tables_against_cpic()
+
+
+def check_tables_against_cpic():
+    """Owner rule 1: the committed CYP2D6, TPMT and NUDT15 tables equal the CPIC API. Rebuilds both files from the
+    CPIC API (live, or PGX_CPIC_SNAPSHOT=<dir> replaying saved responses) and compares; skipped (and said so) when
+    PGX_CPIC_VERIFY is not set, so the offline suite stays offline."""
+    if not os.environ.get("PGX_CPIC_VERIFY"):
+        print("CPIC table comparison skipped (set PGX_CPIC_VERIFY=1, optionally PGX_CPIC_SNAPSHOT=<dir>)")
+        return
+    sys.path.insert(0, HERE)
+    import cpic_cyp2d6_build as b2, cpic_thiopurine_build as bt
+    for name, fresh in (("cpic_cyp2d6.json", b2.build("x")), ("cpic_thiopurine.json", bt.build("x"))):
+        with open(os.path.join(HERE, name), encoding="utf-8") as fh:
+            have = json.load(fh)
+        have["retrieved"] = fresh["retrieved"] = "x"
+        assert have == fresh, f"{name} differs from the CPIC API"
+    print("CYP2D6, TPMT and NUDT15 tables equal the CPIC API")
 
 
 if __name__ == "__main__":

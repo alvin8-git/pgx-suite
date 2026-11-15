@@ -144,7 +144,12 @@ Decisions recorded 2026-11-15. Each is a rule plus its reason.
 - CYP2D6: Cyrius is the authority. When Cyrius gives a diplotype but no phenotype, the phenotype is the CPIC
   activity-score phenotype of that diplotype, derived only when Cyrius's filter is PASS and another caller supports
   it by the same canonical diplotype or the same activity score. Otherwise it stays "-" with the reason in the note.
-  Voting over callers' own phenotype tables was rejected (one caller could decide).
+  Voting over callers' own phenotype tables was rejected (one caller could decide). When Cyrius gave no usable call,
+  the verdict's CYP2D6 phenotype is the one the PharmCAT outside call carries (`reconcile.cyp2d6_agreement`: all callers
+  agree, same score, same CPIC class from every caller's score, or >= 3 callers sharing one exact score, none of the scoreable callers reporting an explicit Indeterminate), else `-` with the reason; NUDT15 callers that disagree on a defining allele give `-` (no tool decides NUDT15); the gene row and the drug
+  table never differ. TPMT and NUDT15 phenotypes are the CPIC diplotype-table row (`cpic_thiopurine.json`). Authority-decided
+  verdicts name the tool in `authority` (the `DecidedBy` summary column); `n_agree` is then not a caller vote. A verdict's phenotype
+  comes only from callers whose diplotype is the consensus one; callers split on a NUDT15 allele or its zygosity give `-`.
 - Lettered legacy allele names (`*14A`, `*14B`, `*13C`, `*4N`, `*4NX`, any case) are never scored as their base star
   number: `reconcile` keeps the letter, so the name has no activity score and matches only itself, in the verdict and
   in `pgx_outside_calls.call_cyp2d6` alike. The repo carries no cited legacy-to-current table; adding one needs a

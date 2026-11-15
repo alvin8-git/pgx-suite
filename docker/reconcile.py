@@ -19,6 +19,7 @@ Usage:
     reconcile.py --prove <SAMPLE> [--results results] [--gene DPYD]
 """
 import argparse
+import collections
 import glob
 import json
 import os
@@ -91,6 +92,14 @@ def canonicalize_allele(gene: str, tok: str) -> str:
 # bare trailing `x`/`X` (Aldy's tandem marker, `*36X`) is notation that _clean_allele normalises: neither matches.
 LEGACY_LETTERED = re.compile(r"\*\d+(?:(?![xX](?:\d|$|[+/]))[A-Za-z])")
 UNRESOLVED = None   # norm_diplotype() result for a call that cannot be compared
+UNTYPED = {"", "-", "NA", "N/A", "NONE", "UNKNOWN"}
+
+
+def is_typed_call(status, dip) -> bool:
+    """A caller row that typed the gene: status ok and a phased `a/b` diplotype (no no-call marker)."""
+    d = (dip or "").strip()
+    return (status or "").strip().lower() == "ok" and not (d.upper() in UNTYPED or "NO_CALL" in d.upper()
+                                                            or "/" not in d)
 
 _VCF_CHECK_RE = re.compile(r"^(\*[0-9A-Za-z]+)\((het|hom)\)(?:\[unphased\])?$", re.I)
 
@@ -114,10 +123,27 @@ def _clean_allele(gene, tok: str) -> str:
     return t
 
 
+def _fold_tandem(hap: str) -> str:
+    """Fold repeated parts of one CYP2D6 haplotype into CPIC copy-number spelling: `*36+*36+*10` ->
+    `*36x2+*10`, `*2+*2` -> `*2x2`, `*36x2+*36` -> `*36x3`. Parts keep first-appearance order. A haplotype
+    with any part that is not `*N` or `*NxM` (an `rsNNN` tag) is returned unchanged."""
+    counts: dict[str, int] = {}
+    for part in hap.split("+"):
+        m = re.fullmatch(r"(\*[0-9]+)(?:x([0-9]+))?", part)
+        if not m:
+            return hap
+        counts[m.group(1)] = counts.get(m.group(1), 0) + int(m.group(2) or 1)
+    return "+".join(a if n == 1 else f"{a}x{n}" for a, n in counts.items())
+
+
 def clean_diplotype(gene, dip: str) -> str:
-    """Display-safe cleaned spelling (order and case kept): used for the PharmCAT call."""
+    """Display-safe cleaned spelling (order and case kept): used for the PharmCAT call. For CYP2D6 repeated
+    tandem parts are folded into CPIC copy-number spelling (_fold_tandem); comparison keys (norm_diplotype)
+    are not folded."""
     halves = [("+".join(_clean_allele(gene, a) for a in h.split("+")))
               for h in re.sub(r"\s+", "", dip or "").split("/")]
+    if gene == "CYP2D6":
+        halves = [_fold_tandem(h) for h in halves]
     return "/".join(halves)
 
 
@@ -188,31 +214,77 @@ def _cpic():
     return _cpic_cache
 
 
-def _haplotype_activity(hap: str):
-    """CPIC activity value of one cleaned haplotype (`*10`, `*2x2`, `*36+*10`), or None.
+def _haplotype_value(hap: str):
+    """CPIC activity of one cleaned haplotype (`*10`, `*2x2`, `*36x2+*10`) as (value, is_lower_bound), or None.
 
-    A tandem is looked up under every order of its parts (CPIC writes `*36+*10`,
-    `*68+*4`). None for: an `rsNNN` novel tag, an unknown copy number (`*2x>=3`), an allele
-    absent from the CPIC table, or one whose CPIC activity value is not numeric.
+    A tandem is looked up under every order of its parts (CPIC writes `*36+*10`, `*68+*4`). A copy number N>=3
+    with no CPIC row of its own (`*1x3`) uses CPIC's `x>=3` row (`*1x≥3`, activity `≥3.0`: a lower bound, or
+    `*4x≥3`, activity 0.0: exact). None for: an `rsNNN` novel tag, a copy number CPIC does not list, an allele
+    absent from the CPIC table, or one whose CPIC activity value is neither a number nor `≥number`.
     """
     import itertools
     if re.search(r"rs\d", hap, re.I) or not re.fullmatch(r"\*[0-9]+(x[0-9]+)?(\+\*[0-9]+(x[0-9]+)?)*", hap):
         return None
     table = _cpic()["alleles"]
-    for perm in itertools.permutations(hap.split("+")):
-        entry = table.get("+".join(perm))
-        if entry is not None:
-            return entry["activity"]
+
+    def lookup(parts):
+        for perm in itertools.permutations(parts):
+            entry = table.get("+".join(perm))
+            if entry is not None:
+                return entry
+        return None
+    parts = hap.split("+")
+    entry = lookup(parts)
+    if entry is None:
+        ge3 = [re.sub(r"x([0-9]+)$", lambda m: "x≥3" if int(m.group(1)) >= 3 else m.group(0), p) for p in parts]
+        entry = lookup(ge3) if ge3 != parts else None
+    if entry is None:
+        return None
+    if entry["activity"] is not None:
+        return entry["activity"], False
+    if entry.get("activity_min") is not None:
+        return entry["activity_min"], True
     return None
 
 
-def activity_score(dip: str, gene: str = "CYP2D6"):
-    """Total CYP2D6 activity score (sum over the two haplotypes) or None when unknown."""
+def _haplotype_activity(hap: str):
+    """Exact CPIC activity value of one haplotype, or None (a lower-bound row is not an exact value)."""
+    v = _haplotype_value(hap)
+    return v[0] if v and not v[1] else None
+
+
+def _diplotype_values(dip: str, gene: str = "CYP2D6"):
     d = clean_diplotype(gene, dip)
     if "(" in d or d.count("/") != 1:
         return None
-    vals = [_haplotype_activity(h) for h in d.split("/")]
-    return None if None in vals else round(sum(vals), 2)
+    vals = [_haplotype_value(h) for h in d.split("/")]
+    return None if None in vals else vals
+
+
+def activity_score(dip: str, gene: str = "CYP2D6"):
+    """Total CYP2D6 activity score (sum over the two haplotypes) or None when unknown or only a lower bound."""
+    vals = _diplotype_values(dip, gene)
+    if vals is None or any(b for _, b in vals):
+        return None
+    return round(sum(v for v, _ in vals), 2)
+
+
+def activity_lower_bound(dip: str, gene: str = "CYP2D6"):
+    """Lower bound of the total activity score when a haplotype is a CPIC `x>=3` row with a `≥` activity
+    (`*1x3/*10` -> 3.25), else None. Never an exact score."""
+    vals = _diplotype_values(dip, gene)
+    if vals is None or not any(b for _, b in vals):
+        return None
+    return round(sum(v for v, _ in vals), 2)
+
+
+def bound_phenotype(lower_bound):
+    """CPIC phenotype for 'activity score >= lower_bound' (the `≥` rows of gene_result), or None."""
+    if lower_bound is None:
+        return None
+    at_least = _cpic()["score_phenotype"]["at_least"]
+    ge = [float(k) for k in at_least if float(k) <= lower_bound]
+    return at_least[f"{max(ge):.2f}"] if ge else None
 
 
 def score_phenotype(score):
@@ -238,6 +310,145 @@ def phenotype_class(text):
     # the phenotype word must lead the string: "Not Normal" or "Normal to Ultrarapid" is not a class
     m = re.match(r"(poor|intermediate|normal|ultrarapid)(\s+metaboli[sz]er\b.*)?$", t)
     return m.group(1).capitalize() if m else None
+
+
+# ── TPMT / NUDT15: CPIC diplotype -> phenotype (CPIC data, no value in code) ────
+_THIO_PATH = os.path.join(_HERE, "cpic_thiopurine.json")
+_thio_cache = None
+
+
+def thiopurine_phenotype(gene: str, dip: str):
+    """CPIC phenotype of a TPMT or NUDT15 diplotype from CPIC's own diplotype table
+    (docker/cpic_thiopurine.json, built by cpic_thiopurine_build.py), or None when the table has no row.
+    The lookup is order-insensitive and TPMT `*1S` is read as `*1` (allele_synonyms.json)."""
+    global _thio_cache
+    if _thio_cache is None:
+        with open(_THIO_PATH, encoding="utf-8") as fh:
+            raw = json.load(fh)
+        _thio_cache = {g: {canonicalize_diplotype(g, k): v for k, v in raw[g].items()} for g in ("TPMT", "NUDT15")}
+    key = canonicalize_diplotype(gene, dip)
+    if gene not in _thio_cache or key in (None, "-"):
+        return None
+    return _thio_cache[gene].get(key)
+
+
+# ── CYP2D6: one agreement rule for the verdict and for the PharmCAT outside call ─────
+MAJORITY_MIN = 3   # owner decision 2026-11-15: callers sharing one CPIC activity score for a majority-by-score call
+_PREFER = ("Cyrius", "PyPGx", "Stargazer", "StellarPGx", "Aldy")
+
+
+def _fmt_score(x):
+    return "" if x is None else f"{x:.2f}".rstrip("0").rstrip(".") if x != int(x) else f"{x:.1f}"
+
+
+def _e_why(info, cy, same):
+    others = [i for i in info if i is not cy and i not in same]
+    note = ("; dissenting: " + "; ".join(
+        f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
+        f"{i['own'] or i['class'] or 'no phenotype'})" for i in others)) if others else ""
+    return "agreeing: " + ", ".join(i["tool"] for i in same) + note if cy["score"] is None else \
+        "agreeing on the score: " + ", ".join(i["tool"] for i in same) + note
+
+
+def cyp2d6_agreement(rows):
+    """Level of agreement among CYP2D6 callers -> dict(diplotype, phenotype, score, level, source, why, callers).
+
+    `rows`: dicts with tool, diplotype, phenotype, one per caller that typed the gene with a comparable call (the
+    caller filters; see pgx_outside_calls.typed). Levels, first match wins: a all normalised diplotypes equal ->
+    diplotype + CPIC score; b every score known and equal -> score only; e Cyrius has a scored call and >=1 other
+    caller has the same score -> Cyrius's diplotype + score; m (after c fails) at least MAJORITY_MIN callers share one
+    exact score -> that score only (not when Cyrius typed); c every caller has the same CPIC phenotype class
+    (from its score, or from a `≥` lower bound, never from its own label when it has a score) -> phenotype only;
+    otherwise no call, with the reason in `why`. The PharmCAT outside call and the verdict's CYP2D6 phenotype
+    (when Cyrius gave none) both come from this function, so the gene row and the drug table cannot differ."""
+    res = {"gene": "CYP2D6", "diplotype": None, "phenotype": None, "score": None, "level": "-",
+           "source": "", "why": "", "callers": [], "bound": None}
+    info = []
+    for r in rows:
+        sc = activity_score(r["diplotype"])
+        lb = activity_lower_bound(r["diplotype"])
+        own = phenotype_class(r.get("phenotype"))
+        mapped = score_phenotype(sc) if sc is not None else bound_phenotype(lb)
+        info.append({"tool": r["tool"], "diplotype": r["diplotype"], "key": norm_diplotype("CYP2D6", clean_diplotype("CYP2D6", r["diplotype"])),  # *36+*36 = *36x2
+                     "score": sc, "bound": lb, "own": own,
+                     "class": phenotype_class(mapped) if mapped else own})
+    res["callers"] = [{"tool": i["tool"], "diplotype": i["diplotype"], "score": i["score"],
+                       "phenotype": i["class"]} for i in info]
+    n = len(info)
+    desc = "; ".join(f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
+                     f"{i['class'] or 'no phenotype'})" for i in info)
+    if len({i["key"] for i in info}) == 1:
+        pick = min(info, key=lambda i: _PREFER.index(i["tool"]) if i["tool"] in _PREFER else len(_PREFER))
+        res.update(level="a", source="all callers agree", diplotype=clean_diplotype("CYP2D6", pick["diplotype"]),
+                   score=pick["score"], bound=pick["bound"])
+        return res
+    scores = {i["score"] for i in info}
+    if None not in scores and len(scores) == 1:
+        res.update(level="b", source=f"activity score agreed {n}/{n}", score=scores.pop())
+        return res
+    # e: Cyrius (the read-depth copy-number caller) has a call with a CPIC activity score and at least one other
+    # caller's call has the same score. Precedence: a, then b, then e, then c.
+    cy = next((i for i in info if i["tool"] == "Cyrius" and i["score"] is not None), None)
+    if cy is not None:
+        same = [i for i in info if i is not cy and i["score"] == cy["score"]]
+        if same:
+            res.update(level="e", source=f"Cyrius + {len(same)} other caller(s) on activity score "
+                                         f"{_fmt_score(cy['score'])}",
+                       diplotype=clean_diplotype("CYP2D6", cy["diplotype"]), score=cy["score"],
+                       why=_e_why(info, cy, same))
+            return res
+    # e (lower bound): Cyrius's call has only a `≥` bound (`*1x3/*10`, CPIC `≥3.25`), which has no exact value to
+    # compare, so another caller must report the same canonical diplotype. The diplotype and its bound phenotype are
+    # passed, never a number (mirrors pgx-compare._cyp2d6_authority_phenotype).
+    cyb = next((i for i in info if i["tool"] == "Cyrius" and i["score"] is None and i["bound"] is not None), None)
+    if cyb is not None:
+        same = [i for i in info if i is not cyb and i["key"] == cyb["key"]]
+        if same and bound_phenotype(cyb["bound"]):
+            res.update(level="e", source=f"Cyrius + {len(same)} other caller(s) on diplotype {cyb['diplotype']} "
+                                         f"(activity score >= {_fmt_score(cyb['bound'])})",
+                       diplotype=clean_diplotype("CYP2D6", cyb["diplotype"]), bound=cyb["bound"],
+                       why=_e_why(info, cyb, same))
+            return res
+    fail = None
+    if any("Indeterminate" in (i["own"], i["class"]) for i in info):
+        fail = "a caller reports Indeterminate (blocks phenotype agreement): " + desc
+    # Every caller's call needs a CPIC activity score or lower bound: the phenotype is then CPIC's for it, never a
+    # caller's own label, and no caller is left out of the comparison.
+    elif any(i["score"] is None and i["bound"] is None for i in info):
+        fail = "callers disagree and a call has no CPIC activity score: " + desc
+    elif len({i["class"] for i in info}) == 1 and info[0]["class"]:
+        res.update(level="c", source=f"phenotype agreed {n}/{n}", phenotype=f"{info[0]['class']} Metabolizer")
+        return res
+    else:
+        fail = "callers disagree: " + desc
+    # m: majority by activity score (owner decision 2026-11-15): at least MAJORITY_MIN callers with an exact CPIC
+    # score (a lettered legacy name has none) share one score; that score's CPIC phenotype is used. The agreeing and
+    # dissenting callers are named in `why`.
+    best = collections.Counter(i["score"] for i in info if i["score"] is not None).most_common(1)
+    # Not when Cyrius (the authority) typed the gene: its call is the verdict then and levels a/b/e decide the drug table.
+    # An explicit Indeterminate from a caller that has a score blocks m as it blocks c.
+    blocked = any(i["own"] == "Indeterminate" and (i["score"] is not None or i["bound"] is not None) for i in info)
+    if best and best[0][1] >= MAJORITY_MIN and not blocked and not any(i["tool"] == "Cyrius" for i in info):
+        sc = best[0][0]
+        agree = [i for i in info if i["score"] == sc]
+        others = [i for i in info if i["score"] != sc]
+        res.update(level="m", source=f"majority by activity score {_fmt_score(sc)} ({len(agree)}/{n} callers)",
+                   score=sc, why="agreeing on the score: " + ", ".join(i["tool"] for i in agree)
+                   + ("; dissenting: " + "; ".join(
+                       f"{i['tool']}={i['diplotype']} (score {_fmt_score(i['score']) or 'unknown'}, "
+                       f"{i['own'] or i['class'] or 'no phenotype'})" for i in others) if others else ""))
+        return res
+    res["why"] = fail
+    return res
+
+
+def agreement_phenotype(res):
+    """CPIC phenotype of a cyp2d6_agreement result (its phenotype, else that of its score or lower bound), or None."""
+    if res.get("phenotype"):
+        return res["phenotype"]
+    if res.get("score") is not None:
+        return score_phenotype(res["score"])
+    return bound_phenotype(res.get("bound")) if res.get("level") in ("a", "e") else None
 
 
 # ── proof / self-check ────────────────────────────────────────────────────────

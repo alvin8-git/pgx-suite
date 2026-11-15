@@ -191,9 +191,21 @@ def test_cyp2d6_phenotype_derived_from_activity_score():
         assert (v["consensus_diplotype"], v["status"], v["n_agree"]) == (dip, "concordant", 2), v
 
 
+def test_cyp2d6_tandem_and_x3_spellings_are_scored():
+    # CPIC keys: `*36x2+*10` 0.25, `*36x2` 0.0, `*1x≥3`/`*2x≥3` ≥3.0 (cpic_cyp2d6.json)
+    for dip, ph in [("*1/*36+*36+*10", "Normal Metabolizer"), ("*36+*10/*36+*36", "Intermediate Metabolizer"),
+                    ("*1/*4.013+*4", "Intermediate Metabolizer")]:
+        v = _d2d6(dip)
+        assert v["consensus_phenotype"] == ph and "phenotype_source" in v, (dip, v)
+    v = _d2d6("*1/*2x3")                      # >= 4.0 (lower bound): Ultrarapid; only the same diplotype corroborates
+    assert v["consensus_phenotype"] == "Ultrarapid Metabolizer", v
+    assert v["phenotype_source"] == "CPIC activity score >= 4 from *1/*2x3 (same diplotype: PyPGx)", v
+    v = _d2d6("*1/*2x3", others=[("PyPGx", "*1/*2x4", "-")])    # same lower bound is not the same score
+    assert v["consensus_phenotype"] == "-", v
+
+
 def test_cyp2d6_fail_closed_cases_keep_blank_phenotype():
-    for dip in ["*1/*2x3", "*1/*4.013+*4", "*36+*10/*36+*36", "*1/*36+*36+*10", "*1/*2;*1/*4",
-                "Cyrius_not_assigned_to_haplotypes"]:
+    for dip in ["*1/*2;*1/*4", "Cyrius_not_assigned_to_haplotypes"]:
         v = _d2d6(dip)
         assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, (dip, v)
         assert v["note"].startswith("activity score not available for"), (dip, v)
@@ -423,6 +435,176 @@ def test_no_call_is_never_shown_as_a_diplotype():
     # 3. the tier helper never returns an empty diplotype
     v = cmp._phenotype_tier_verdict([("x", "Indeterminate")], ["Aldy"], ("Normal Metabolizer", 1, "x"), 1, {})
     assert v["status"] == "no_call" and v["consensus_diplotype"] != "", v
+
+# ── CYP2D6 verdict without Cyrius = the outside-call agreement rule ─────────────
+def _vote(rows):
+    return cmp.compute_verdict([_r(t, d, pheno=p) for t, d, p in rows], no_call=False, gene="CYP2D6")
+
+
+def test_cyp2d6_vote_phenotype_is_the_outside_call_phenotype():
+    import pgx_outside_calls as oc, tempfile
+    cases = [
+        # clinical-sample pattern: displayed diplotype *1x2/*36+*10 scores 2.25 (Normal); PyPGx/Aldy label Ultrarapid
+        [("PyPGx", "*1x3/*10", "Ultrarapid Metabolizer"), ("Stargazer", "*1x2/*36+*10", "normal_metabolizer"),
+         ("Aldy", "*1+*1/*10+*10", "Ultrarapid"), ("StellarPGx", "*36+*10/*1x2", "Normal metaboliser (NM)")],
+        # no caller has a score for the unanimous allele: no phenotype, as before for the drug table
+        [("PyPGx", "*43/*86", "Indeterminate"), ("Stargazer", "*43/*86", "-"), ("Aldy", "*43/*86", "Indeterminate")],
+        # one caller Indeterminate blocks agreement
+        [("PyPGx", "*1/*2", "Normal Metabolizer"), ("Aldy", "*1/*2x2", "Indeterminate")],
+        # unanimous diplotype
+        [("PyPGx", "*4/*10", "Intermediate Metabolizer"), ("Stargazer", "*4/*10", "intermediate_metabolizer")],
+        # same score, different diplotypes
+        [("PyPGx", "*1/*41", "Normal Metabolizer"), ("Aldy", "*2/*41", "Normal")],
+        # lower-bound caller + exact callers of the same class
+        [("PyPGx", "*1x3/*10", "Ultrarapid Metabolizer"), ("Aldy", "*2x2/*2x2", "Ultrarapid")],
+    ]
+    for rows in cases:
+        v = _vote(rows)
+        with tempfile.TemporaryDirectory() as out:
+            d = os.path.join(out, "genes", "CYP2D6"); os.makedirs(d)
+            with open(os.path.join(d, "CYP2D6_S_comparison.tsv"), "w") as fh:
+                fh.write("Gene\tSample\tBuild\tTool\tDiplotype\tActivityScore\tPhenotype\tStatus\tSVMode\n")
+                for t, dip, p in rows:
+                    fh.write(f"CYP2D6\tS\tGRCh38\t{t}\t{dip}\t-\t{p}\tok\t-\n")
+            o = oc.call_cyp2d6(out)
+        # the gene row has a phenotype exactly when the drug table gets a call, and it is the same one
+        exp = oc.reconcile.agreement_phenotype(o) if o["level"] != "-" else None
+        assert v["consensus_phenotype"] == (exp or "-"), (rows, v, o)
+    v = _vote(cases[0])                       # that case: no longer a tie broken by caller order
+    assert v["consensus_phenotype"] == "-" and "phenotype not derived" in v["phenotype_note"], v
+    assert v["consensus_diplotype"] == "*1x2/*36+*10", v
+    v = _vote(cases[3])
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["phenotype_source"].startswith("CPIC activity score 0.25"), v
+    # an all-Ultrarapid vote including a lower-bound caller
+    assert _vote(cases[5])["consensus_phenotype"] == "Ultrarapid Metabolizer"
+
+
+# ── TPMT / NUDT15: phenotype from the CPIC diplotype table ────────────────────
+def test_thiopurine_phenotype_is_the_cpic_table_row():
+    import json
+    t = json.load(open(os.path.join(HERE, "cpic_thiopurine.json")))
+    # rows quoted in the report (CPIC API /diplotype, thiopurine guideline lookup)
+    assert t["TPMT"]["*1/*6"] == "Intermediate Metabolizer" and t["NUDT15"]["*1/*6"] == "Intermediate Metabolizer"
+    assert t["NUDT15"]["*3/*6"] == "Poor Metabolizer"
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*6", pheno="Indeterminate"), _r("Aldy", "*1/*6", pheno="Indeterminate"),
+                             _r("StellarPGx", "*1/*6", pheno="-")], no_call=False, gene="TPMT")   # HG006
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+    assert v["phenotype_source"] == "CPIC TPMT diplotype table, row *1/*6", v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Aldy", "*1/*1S", pheno="Normal")], no_call=False, gene="TPMT")
+    assert v["consensus_phenotype"] == "Normal Metabolizer", v      # *1S is *1
+    v = cmp.compute_verdict([_r("PyPGx", "*6/*1", pheno="Indeterminate"), _r("Aldy", "*1/*6", pheno="Indeterminate")],
+                            no_call=False, gene="NUDT15")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+    # a caller label that contradicts CPIC is replaced and named
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*6", pheno="Normal Metabolizer"), _r("Aldy", "*1/*6", pheno="Normal")],
+                            no_call=False, gene="NUDT15")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and "differs from the CPIC phenotype" in v["note"], v
+    # a discordant verdict shows no single caller's reading as the CPIC row
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*3", pheno="Intermediate Metabolizer"), _r("Stargazer", "*2/*6", pheno="-"),
+                             _r("Aldy", "*5/*6", pheno="Indeterminate"), _r("StellarPGx", "*1/*1", pheno="-")],
+                            no_call=False, gene="NUDT15")
+    assert "phenotype_source" not in v, v
+    assert v["status"] == "discordant" and v["consensus_phenotype"] == "-", v    # HG005 shape: PyPGx label dropped
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*5", pheno="Intermediate Metabolizer"), _r("Aldy", "*5/*6", pheno="-")],
+                            no_call=False, gene="NUDT15")
+    assert v["consensus_phenotype"] == "-" and "caller labels: PyPGx Intermediate Metabolizer" in v["note"], v
+
+
+def test_nudt15_allele_split_withholds_the_phenotype():
+    rs = [_r("PyPGx", "*1/*1", pheno="Normal Metabolizer"), _r("Stargazer", "*1/*6", pheno="-", status="not_run"),
+          _r("Aldy", "*1/*6", pheno="Indeterminate"), _r("StellarPGx", "*1/*1", pheno="-")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="NUDT15", informational={"PharmCAT": "*1/*6"})   # HG006
+    assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, v
+    assert "callers disagree on NUDT15 *6: Aldy, PharmCAT report it; PyPGx, StellarPGx do not" in v["note"], v
+    v = cmp.compute_verdict(rs, no_call=False, gene="NUDT15")          # without the PharmCAT row: still split
+    assert v["consensus_phenotype"] == "-" and "callers disagree on NUDT15 *6: Aldy report it; PyPGx, StellarPGx do not" in v["note"], v
+    # callers that agree on every allele keep the CPIC lookup
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*6"), _r("Aldy", "*6/*1")], no_call=False, gene="NUDT15",
+                            informational={"PharmCAT": "*1/*6"})
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+
+
+def test_cyp2d6_majority_by_score_level_m():
+    # clinical-sample pattern: three callers *1/*41 (1.25), Aldy has an unscored allele; HG002_12X pattern: two Indeterminate
+    v = _vote([("PyPGx", "*1/*41", "Normal Metabolizer"), ("Stargazer", "*1/*41", "normal_metabolizer"),
+               ("Aldy", "*1+*2/*119", "Ultrarapid"), ("StellarPGx", "*1/*41", "Normal metaboliser (NM)")])
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and "majority by activity score 1.25 (3/4 callers)" in v["phenotype_source"], v
+    assert "dissenting: Aldy=*1+*2/*119" in v["note"], v
+    v = _vote([("PyPGx", "*2/*4", "Intermediate Metabolizer"), ("Stargazer", "*2/*4", "intermediate_metabolizer"),
+               ("Aldy", "*4K/*160", "-"), ("StellarPGx", "*39/*4", "-")])
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v    # *39/*4 also scores 1.0: three callers share it
+    v = _vote([("PyPGx", "*2/*4", "x"), ("Stargazer", "*2/*4", "x"), ("Aldy", "*1/*1", "Indeterminate")])
+    assert v["consensus_phenotype"] == "-", v      # only two callers share a score: below MAJORITY_MIN
+    v = _vote([("PyPGx", "*1x3/*10", "-"), ("Stargazer", "*1/*41", "-"), ("Aldy", "*1/*41", "-")])
+    assert v["consensus_phenotype"] == "-", v      # two share a score
+    import pgx_outside_calls as oc
+    assert oc.reconcile.MAJORITY_MIN == 3
+
+
+def test_report_key_findings_keep_authority_genes():
+    src = open(os.path.join(HERE, "pgx-report.py")).read()
+    assert 'if n_agree < 2 and not auth_tool:' in src and '"authority_tool"' in src
+    assert 'concordance_warn = n_agree < n_called\n' in src      # an authority gene keeps the disagreement warning
+    assert "decided_by" not in src
+
+
+# ── authority genes: the verdict says who decided ─────────────────────────────
+def test_authority_verdict_names_who_decided():
+    v = cmp.compute_verdict([_r("VCF-Check", "*1/*2", pheno="Normal"), _r("PyPGx", "*1/*1"), _r("Aldy", "*1/*1")],
+                            no_call=False, gene="VKORC1")
+    assert v["status"] == "concordant" and v["n_agree"] == 1 and v["authority"] == "VCF-Check", v
+    assert "decided_by" not in v, v                       # the one key is `authority`
+    v = cmp.compute_verdict([_pc("*1/*28"), _r("PyPGx", "*1/*1")], no_call=False, gene="UGT1A1")
+    assert v.get("authority") == "PharmCAT", v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Aldy", "*1/*1")], no_call=False, gene="CYP2C9")
+    assert "authority" not in v, v                        # a vote is not an authority decision
+    snake = open(os.path.join(HERE, "Snakefile")).read()
+    assert 'v.get("authority") in (None, "", "Phenotype")' in snake and "DecidedBy" in snake
+
+
+def test_majority_phenotype_comes_only_from_the_majority_callers():
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*2", pheno="-"), _r("Aldy", "*1/*2", pheno="-"),
+                             _r("Stargazer", "*1/*3", pheno="Poor Metabolizer")], no_call=False, gene="CYP2C9")
+    assert v["status"] == "majority" and v["consensus_diplotype"] == "*1/*2" and v["consensus_phenotype"] == "-", v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*2", pheno="Intermediate Metabolizer"), _r("Aldy", "*1/*2", pheno="-"),
+                             _r("Stargazer", "*1/*3", pheno="Poor Metabolizer")], no_call=False, gene="CYP2C9")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+
+
+def test_nudt15_zygosity_and_spelling():
+    rs = [_r("PyPGx", "*3/*3", pheno="-"), _r("Aldy", "*1/*3", pheno="-")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="NUDT15")
+    assert v["consensus_phenotype"] == "-" and "callers disagree on NUDT15 *3 zygosity: PyPGx reports 2 copies; Aldy reports 1 copy" in v["note"], v
+    # a sub-allele suffix and Aldy's X marker are spelling, not a split
+    v = cmp.compute_verdict([_r("PyPGx", "*3.001/*1"), _r("Aldy", "*1/*3"), _r("Stargazer", "*3X/*1")],
+                            no_call=False, gene="NUDT15")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+
+
+def test_cyp2d6_lower_bound_cyrius_agrees_with_outside_call():
+    import pgx_outside_calls as oc, tempfile
+    rows = [("Cyrius", "*1x3/*10", "-"), ("PyPGx", "*1x3/*10", "-"), ("Aldy", "*1/*10", "Normal")]
+    v = cmp.compute_verdict([_r(t, d, pheno=p) for t, d, p in rows], no_call=False, gene="CYP2D6")
+    with tempfile.TemporaryDirectory() as out:
+        d = os.path.join(out, "genes", "CYP2D6"); os.makedirs(d)
+        with open(os.path.join(d, "CYP2D6_S_comparison.tsv"), "w") as fh:
+            fh.write("Gene\tSample\tBuild\tTool\tDiplotype\tActivityScore\tPhenotype\tStatus\tSVMode\n")
+            for t, dip, p in rows:
+                fh.write(f"CYP2D6\tS\tGRCh38\t{t}\t{dip}\t-\t{p}\tok\t-\n")
+        o = oc.call_cyp2d6(out)
+    assert v["consensus_phenotype"] == "Ultrarapid Metabolizer", v
+    assert o["level"] == "e" and o["diplotype"] == "*1x3/*10" and o["score"] is None, o   # never an exact score
+    assert oc.reconcile.agreement_phenotype(o) == v["consensus_phenotype"], (o, v)
+
+
+def test_level_m_is_blocked_by_an_explicit_indeterminate():
+    v = _vote([("PyPGx", "*1/*41", "Normal Metabolizer"), ("Stargazer", "*1/*41", "normal_metabolizer"),
+               ("StellarPGx", "*1/*41", "Normal metaboliser (NM)"), ("Aldy", "*1/*1", "Indeterminate")])
+    assert v["consensus_phenotype"] == "-", v        # Aldy scores 2.0 and says Indeterminate
+    v = _vote([("PyPGx", "*2/*4", "Intermediate Metabolizer"), ("Stargazer", "*2/*4", "intermediate_metabolizer"),
+               ("Aldy", "*4K/*160", "Indeterminate"), ("StellarPGx", "*39/*4", "Indeterminate")])
+    assert v["consensus_phenotype"] == "-", v        # HG002_12X shape: StellarPGx's scoreable Indeterminate blocks m
+
 
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
