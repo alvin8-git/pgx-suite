@@ -36,7 +36,7 @@ results/
 **Step 2: Verify the file exists**
 
 ```bash
-cat /data/alvin/PGxCallers/.dockerignore
+cat <repo>/.dockerignore
 ```
 Expected: file contents printed
 
@@ -154,7 +154,7 @@ CMD ["bash"]
 **Step 2: Verify the file was created**
 
 ```bash
-wc -l /data/alvin/PGxCallers/Dockerfile
+wc -l <repo>/Dockerfile
 ```
 Expected: line count printed
 
@@ -268,7 +268,7 @@ echo "============================================================"
 **Step 2: Verify it's executable**
 
 ```bash
-ls -la /data/alvin/PGxCallers/docker/test.sh
+ls -la <repo>/docker/test.sh
 ```
 Expected: file listed with contents
 
@@ -279,7 +279,7 @@ Expected: file listed with contents
 **Step 1: Build from the PGxCallers directory**
 
 ```bash
-cd /data/alvin/PGxCallers
+cd <repo>
 docker build -t pgx-suite:latest .
 ```
 
@@ -404,7 +404,7 @@ StellarPGx needs the repository mounted (for scripts/database) AND the SIF conta
 **Step 1: Run StellarPGx test pipeline**
 
 ```bash
-cd /data/alvin/PGxCallers
+cd <repo>
 docker run --privileged --rm \
   -v $(pwd)/StellarPGx:/pgx/stellarpgx \
   -v $(pwd)/StellarPGx/containers:/pgx/containers \
@@ -458,7 +458,7 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh 2>&1 | tee /tmp/pgx_smoke
 **Step 2: Run full suite including StellarPGx**
 
 ```bash
-cd /data/alvin/PGxCallers
+cd <repo>
 docker run --privileged --rm \
   -v $(pwd)/StellarPGx:/pgx/stellarpgx \
   -v $(pwd)/StellarPGx/containers:/pgx/containers \
@@ -498,13 +498,13 @@ exec docker run --privileged --rm -it \
 **Step 2: Make it executable**
 
 ```bash
-chmod +x /data/alvin/PGxCallers/docker/docker-run.sh
+chmod +x <repo>/docker/docker-run.sh
 ```
 
 **Step 3: Test the wrapper**
 
 ```bash
-cd /data/alvin/PGxCallers
+cd <repo>
 ./docker/docker-run.sh -- bash -c "pypgx --version && aldy --version && stargazer --version && nextflow -version"
 ```
 
@@ -537,7 +537,7 @@ This image must NOT be pushed to any public registry.
 ## Build
 
 ```bash
-cd /data/alvin/PGxCallers
+cd <repo>
 docker build -t pgx-suite:latest .
 ```
 

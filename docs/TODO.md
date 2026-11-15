@@ -39,7 +39,7 @@ Carried over from 2026-06-17:
 - [x] NO_CALL coverage gate + single verdict authority
 - [x] Real per-caller exit codes (`logs/<tool>.status`)
 - [ ] CRAM auto-extraction rule in the Snakefile (`depth_bam` config hook in place; needs a CRAM sample to validate)
-- [ ] Resolve the 2 long-read-only complex CYP2D6 cases (P_2000, EQ_2017) — out of reach for short reads + Cyrius
+- [ ] Resolve the 2 long-read-only complex CYP2D6 cases (sample I, sample A) — out of reach for short reads + Cyrius
 - [ ] `pharmcat.sif` build automation on deployment hosts (single-threaded mksquashfs; documented in README)
 
 The phase history below is retained for provenance; references to `pgx-run.sh` /

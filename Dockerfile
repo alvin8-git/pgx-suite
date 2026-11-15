@@ -177,6 +177,9 @@ COPY docker/reconcile.py          /opt/pgx/reconcile.py
 COPY docker/allele_synonyms.json  /opt/pgx/allele_synonyms.json
 COPY docker/cpic_cyp2d6.json      /opt/pgx/cpic_cyp2d6.json
 COPY docker/cpic_thiopurine.json   /opt/pgx/cpic_thiopurine.json
+COPY docker/cpic_diplotype.json    /opt/pgx/cpic_diplotype.json
+COPY docker/pharmvar_legacy_suballeles.json /opt/pgx/pharmvar_legacy_suballeles.json
+COPY docker/dpyd_notation_map.json  /opt/pgx/dpyd_notation_map.json
 COPY docker/vcf_check_variants.json /opt/pgx/vcf_check_variants.json
 COPY docker/pgx_outside_calls.py   /opt/pgx/pgx_outside_calls.py
 COPY docker/pgx-pharmcat-outside.sh /opt/pgx/pgx-pharmcat-outside.sh

@@ -150,6 +150,16 @@ Decisions recorded 2026-11-15. Each is a rule plus its reason.
   table never differ. TPMT and NUDT15 phenotypes are the CPIC diplotype-table row (`cpic_thiopurine.json`). Authority-decided
   verdicts name the tool in `authority` (the `DecidedBy` summary column); `n_agree` is then not a caller vote. A verdict's phenotype
   comes only from callers whose diplotype is the consensus one; callers split on a NUDT15 allele or its zygosity give `-`.
+- DPYD notation map (2026-11-15): Stargazer `*S` codes and Aldy `*rs<NNN>` tags are scored only through `docker/dpyd_notation_map.json`,
+  derived from Stargazer's shipped allele table and CPIC's allele definitions (a code maps only to one CPIC allele with the same
+  variant set; composite or undefined ones stay unscorable, never guessed). Owner decision 2026-11-15: a composite Aldy DPYD
+  haplotype (`*9A+rsX`) stays `-`; activity scores are never summed across its parts. Reason: 14 of 22 DPYD calls lost their phenotype to notation only.
+- Legacy letter fold (2026-11-15): a lettered allele folds to its numbered core only when `docker/pharmvar_legacy_suballeles.json`
+  (`fold`, derived by `pharmvar_legacy_build.py` from the dated snapshot `pharmvar_legacy_snapshot.json` of PharmVar 6.2.29's
+  rendered Legacy Label column) lists it for that gene (`*2B` -> `*2` for CYP2C19, `*3B` -> `*3` for CYP3A5). An unlisted letter is
+  unscorable and counts toward the split rule. A letter whose number differs from its core now (CYP2C19 `*1A` = `*38.001`) is `redesignated`,
+  never folded. TPMT and UGT1A1 are not maintained by PharmVar, DPYD is listed by rsID: nothing folds there. Reason: a blanket
+  letter strip would turn a re-designated or distinct allele into the wrong star.
 - Lettered legacy allele names (`*14A`, `*14B`, `*13C`, `*4N`, `*4NX`, any case) are never scored as their base star
   number: `reconcile` keeps the letter, so the name has no activity score and matches only itself, in the verdict and
   in `pgx_outside_calls.call_cyp2d6` alike. The repo carries no cited legacy-to-current table; adding one needs a
@@ -167,5 +177,12 @@ Decisions recorded 2026-11-15. Each is a rule plus its reason.
   `diplotype_readings`, `diplotype_resolved: false`), no reading is chosen. CYP2B6 `*2/*5` vs `*2/*2` differs between
   libraries of the same person: an inherent short-read limit.
 - CYP2B6 phase ambiguity: both readings are printed; no phase is asserted.
+- Owner decision 2026-11-15: when the consensus lists two or more diplotype readings and CPIC maps them to different
+  phenotypes (CPIC diplotype tables in `docker/`; a reading CPIC cannot score counts as different), the phenotype is `-`,
+  the note names each reading's phenotype and "confirm with a targeted assay", and the status is
+  `concordant, diplotype unresolved` (a majority verdict: `majority, diplotype unresolved`), never plain `concordant`; authority
+  and DecidedBy are cleared (nothing decided the phenotype). Readings that all give one usable CPIC phenotype report CPIC's
+  phenotype (CPIC decides medicine response; a differing caller label goes in the note); all-Indeterminate readings count as a
+  split. The rule applies to every `A or B` verdict of a gene with a CPIC table, whatever tier made it. CYP2D6 is unchanged.
 - Known limits: CPIC has no activity value for some CYP2D6 alleles (`*134`, `*43`, `*86`, `*106`, `*61`, `*160`);
   CPIC defines no CYP4F2 phenotype; CYP2B6 phase near CYP2B7 and CYP2D6 copy number need long reads or a targeted assay.

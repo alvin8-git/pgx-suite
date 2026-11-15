@@ -70,7 +70,7 @@ docker run --privileged pgx-suite:latest
 
 ## 3. Build Context & File Layout
 
-The Dockerfile lives at the root of `/data/alvin/PGxCallers/` and uses the following from the build context:
+The Dockerfile lives at the root of `<repo>/` and uses the following from the build context:
 
 ```
 PGxCallers/

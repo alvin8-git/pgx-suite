@@ -1240,7 +1240,7 @@ def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
 # RYR1 has NO star-allele system; CPIC defines MH risk by a curated list of
 # pathogenic / likely-pathogenic missense variants. The star-allele callers
 # (PyPGx/Stargazer/Aldy) are the wrong instrument here and routinely miss real
-# MH variants the array reports (validation: P_2000 c.1021G>A missed by all 3).
+# MH variants the array reports (validation: sample I c.1021G>A missed by all 3).
 # This VCF-Check is the authoritative RYR1 caller; the 93-variant table lives in
 # docker/vcf_check_variants.json (CPIC api.cpicpgx.org + Ensembl-resolved coords),
 # NOT hand-embedded — so it is auditable and updatable. GRCh38 / chr19 / +strand.
@@ -2160,6 +2160,78 @@ def _allele_split(gene, calls):
     return out
 
 
+# Owner decision 2026-11-15: a call that lists two or more diplotype readings ("A or B") whose CPIC phenotypes differ
+# has no phenotype ("-"); the readings, their phenotypes and the advice to confirm are in the note, and the status is
+# this label, never plain "concordant". Readings that all give one CPIC phenotype keep the phenotype as before.
+SPLIT_STATUS = "concordant, diplotype unresolved"
+SPLIT_STATUS_MAJORITY = "majority, diplotype unresolved"
+# Owner policy (2026-11-15): a reading CPIC has no row for counts as a phenotype different from every other reading.
+# False would ignore such readings when the scorable ones agree (it keeps the phenotype of e.g. DPYD `*S20`/`*rsNNN`
+# notation readings; see docs/CHANGES.md for how many stored calls the choice decides).
+UNSCORABLE_READING_IS_A_SPLIT = True
+
+
+def _reading_phenotype(gene, dip):
+    """(table_available, CPIC phenotype or None) of one diplotype reading. A reading CPIC cannot score is None
+    (a different phenotype from every other reading). CYP2D6 is not handled here (Cyrius / activity-score rule)."""
+    if gene in ("TPMT", "NUDT15"):
+        return True, reconcile.thiopurine_phenotype(gene, dip)
+    if gene == "NAT2":
+        p = nat2_cpic_phenotype(dip)
+        return True, (None if p == "Indeterminate" else p)
+    if reconcile.has_cpic_diplotype_table(gene or ""):
+        return True, reconcile.cpic_diplotype_phenotype(gene, dip)
+    return False, None
+
+
+def _split_status(status):
+    """The verdict status of a split call keeps the agreement level: concordant -> SPLIT_STATUS, majority -> SPLIT_STATUS_MAJORITY."""
+    return SPLIT_STATUS_MAJORITY if status == "majority" else SPLIT_STATUS
+
+
+def _usable_cpic_phenotype(p):
+    """A reading's CPIC phenotype that can stand as the gene's phenotype: not None and not an Indeterminate/unknown result."""
+    return bool(p) and not re.search(r"indeterminate|unknown|no result|n/a", p, re.I)
+
+
+def _split_by_cpic_phenotype(v, gene):
+    """Apply the SPLIT_STATUS rule to a verdict that lists several diplotype readings ("A or B", whatever tier made
+    it). A gene with no CPIC diplotype table is left as it was. Readings that all give one usable CPIC phenotype
+    set the phenotype to CPIC's (CPIC decides medicine response; a differing caller label goes in the note);
+    all-Indeterminate readings are treated like a split."""
+    if not gene or gene == "CYP2D6" or v.get("status") not in ("concordant", "majority"):
+        return v
+    if " or " not in v.get("consensus_diplotype", ""):
+        return v
+    readings = [x.strip() for x in v["consensus_diplotype"].split(" or ")]
+    found = [_reading_phenotype(gene, x) for x in readings]
+    if not all(ok for ok, _ in found):
+        return v
+    phs = [p for _, p in found]
+    scored = {p for p in phs if p is not None}
+    v = dict(v)
+    if len(set(phs)) == 1 and _usable_cpic_phenotype(phs[0]):
+        old = v.get("consensus_phenotype", "-")
+        if old not in ("-", "", None) and _norm_phenotype(old) != _norm_phenotype(phs[0]):
+            v["consensus_phenotype"] = phs[0]
+            v["note"] = "; ".join(x for x in (v.get("note", ""), f"callers said {old}; CPIC phenotype of every "
+                                              f"diplotype reading is {phs[0]}") if x)
+        v["phenotype_source"] = f"CPIC diplotype table, rows of {' / '.join(readings)}"
+        return v
+    if len(set(phs)) > 1 and not UNSCORABLE_READING_IS_A_SPLIT and len(scored) == 1:
+        return v
+    by = ", ".join(f"{x} {p or 'no CPIC phenotype'}" for x, p in zip(readings, phs))
+    reason = ("the diplotype readings give different CPIC phenotypes" if len(set(phs)) > 1
+              else "CPIC gives no usable phenotype for the diplotype readings")
+    v.update({"consensus_phenotype": "-", "status": _split_status(v["status"]), "phenotype_split": True,
+              "phenotype_by_reading": dict(zip(readings, phs)), "phenotype_note": f"{reason}: {by}"})
+    for k in ("phenotype_tier", "phenotype_source", "authority"):   # nothing decided the phenotype any more
+        v.pop(k, None)
+    v["note"] = "; ".join(x for x in (v.get("note", ""), f"{reason}: {by}; phenotype not reported, confirm with a "
+                                      "targeted assay") if x)
+    return v
+
+
 def compute_verdict(results: list[CallerResult], no_call: bool,
                     gene: str | None = None, informational: dict | None = None) -> dict[str, Any]:
     """Gene-level verdict; NAT2's and TPMT/NUDT15's phenotype is the CPIC lookup, CYP2D6's (without Cyrius) the
@@ -2198,16 +2270,15 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
             if _norm_phenotype(old) not in (None, _norm_phenotype(cp)):
                 v["note"] = "; ".join(x for x in (v.get("note", ""), f"caller phenotype {old} differs from the "
                                                   f"CPIC phenotype {cp}") if x)
-    if gene == "NAT2" and v.get("status") in ("concordant", "majority"):
+    if gene == "NAT2" and v.get("status") in ("concordant", "majority") and " or " in v["consensus_diplotype"]:
         readings = [x.strip() for x in v["consensus_diplotype"].split(" or ")]
         phs = {nat2_cpic_phenotype(x) for x in readings}
-        if len(phs) == 1:
+        if len(phs) == 1 and "Indeterminate" not in phs:
             v["consensus_phenotype"] = phs.pop()
-        else:
-            v["consensus_phenotype"] = "Indeterminate"
-            v["note"] = "; ".join(x for x in (v.get("note", ""), "NAT2 readings differ in CPIC phenotype: " +
-                                  ", ".join(f"{x} {nat2_cpic_phenotype(x)}" for x in readings)) if x)
-    return v
+        # a split (or an unscorable reading) is set to "-" and the status label by _split_by_cpic_phenotype
+    elif gene == "NAT2" and v.get("status") in ("concordant", "majority"):
+        v["consensus_phenotype"] = nat2_cpic_phenotype(v["consensus_diplotype"])
+    return _split_by_cpic_phenotype(v, gene)
 
 
 def pharmcat_cross_check(output_dir: str, gene: str, sample: str,

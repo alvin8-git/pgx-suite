@@ -903,11 +903,11 @@ def bam_stats_cards(bs: dict) -> str:
 
 
 # Genes where low mean gene depth (&lt;30×) materially reduces calling sensitivity.
-# Validation study (TTSH 2026-03): DPYD rare variants and RYR1 het variants were
+# Validation study (internal cohort 2026-03): DPYD rare variants and RYR1 het variants were
 # missed in samples with gene depth &lt;30×; all tools performed adequately above that.
 _DEPTH_SENSITIVE_GENES: dict[str, int] = {
-    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in TTSH cohort
-    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in TTSH cohort
+    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in internal validation cohort
+    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in internal validation cohort
 }
 
 
@@ -1316,7 +1316,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         }
         # Optional second array-software column (e.g. Axiom P6 vs P9). Detected from
         # the TSV header: if Axiom_P9 is present, render two array columns, else fall
-        # back to the single "Axiom" column (EQ_2017-style TSVs stay valid).
+        # back to the single "Axiom" column (sample A-style TSVs stay valid).
         two_arrays = any(("Axiom_P9" in r) for r in axiom)
         body = ""
         for r in axiom:
@@ -1935,8 +1935,11 @@ def _resolution_badge(verdict: dict) -> str:
         return f'<span class="badge badge-blue">&#9733; {auth} authoritative</span>'
     st = verdict.get("status")
     label = {"concordant": "Consensus", "majority": "Majority", "discordant": "Discordant",
+             "concordant, diplotype unresolved": "Concordant, diplotype unresolved",
+             "majority, diplotype unresolved": "Majority, diplotype unresolved",
              "no_call": "No call", "no_data": "No data"}.get(st, st or "")
     cls = {"concordant": "badge-green", "majority": "badge-amber", "discordant": "badge-red",
+           "concordant, diplotype unresolved": "badge-amber", "majority, diplotype unresolved": "badge-amber",
            "no_call": "badge-grey", "no_data": "badge-grey"}.get(st, "badge-grey")
     return f'<span class="badge {cls}">{label}</span>' if label else ""
 
@@ -1990,6 +1993,9 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                "all calls — no diplotype is asserted.")
     elif status == "no_data" or not called:
         res = "No caller produced a call, so no verdict could be formed."
+    elif v.get("phenotype_split"):
+        res = ("The callers' diplotype readings differ and CPIC scores them as different phenotypes, so no phenotype "
+               "is reported and every reading is listed; confirm with a targeted assay.")
     elif v.get("phenotype_tier"):
         res = (f"Callers reported differing diplotype strings, but ≥2 phenotype-emitting callers "
                f"agreed on the CPIC phenotype ({pheno}); the phenotype is concordant, the diplotype is not resolved "

@@ -1211,11 +1211,11 @@ def bam_stats_cards(bs: dict) -> str:
 
 
 # Genes where low mean gene depth (&lt;30×) materially reduces calling sensitivity.
-# Validation study (TTSH 2026-03): DPYD rare variants and RYR1 het variants were
+# Validation study (internal cohort 2026-03): DPYD rare variants and RYR1 het variants were
 # missed in samples with gene depth &lt;30×; all tools performed adequately above that.
 _DEPTH_SENSITIVE_GENES: dict[str, int] = {
-    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in TTSH cohort
-    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in TTSH cohort
+    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in internal validation cohort
+    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in internal validation cohort
 }
 
 

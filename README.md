@@ -150,7 +150,7 @@ ARCAS_DIR=/path/to/arcasHLA IMGTHLA_DIR=/path/to/IMGTHLA KALLISTO_ENV=/path/to/k
 
 On another machine either copy the finished `arcashla.sif` from this host
 (`StellarPGx/containers/`, ~450 MB) or run the script there (inputs: see
-`docs/ToolsDocumentation.md` 5b; host copies live in `/data/alvin/ref/omnigen/tools/arcasHLA`).
+`docs/ToolsDocumentation.md` 5b; host copies live in `<ref>/omnigen/tools/arcasHLA`).
 
 **Pulling the PharmCAT SIF** (one-time). PharmCAT carries its own bcftools ≥1.18 +
 Java 21 + the CPIC reporter; the suite's pharmcat rule runs `pharmcat_pipeline`

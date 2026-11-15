@@ -53,7 +53,8 @@ def _strip_allele(tok: str) -> str:
         return ""
     t = re.sub(r"\s*\(.*?\)", "", t)   # drop "(*9a)" parentheticals
     t = re.sub(r"x\d+", "", t)          # copy number  *2xn / *106x2 -> *106
-    t = t.split("+")[0]                  # *28+*80 -> *28 (base allele)
+    if t.startswith("*") or re.match(r"rs\d+\+", t):   # *28+*80 -> *28, rs1+rs2 -> rs1; an HGVS name keeps its "+" (c.1905+1g>a)
+        t = t.split("+")[0]
     t = t.split(";")[0]                  # pypgx "*17;*1;" -> *17
     return t.strip()
 
@@ -323,13 +324,139 @@ def thiopurine_phenotype(gene: str, dip: str):
     The lookup is order-insensitive and TPMT `*1S` is read as `*1` (allele_synonyms.json)."""
     global _thio_cache
     if _thio_cache is None:
-        with open(_THIO_PATH, encoding="utf-8") as fh:
-            raw = json.load(fh)
+        raw = _load_lookup(_THIO_PATH, "CPIC thiopurine table")
         _thio_cache = {g: {canonicalize_diplotype(g, k): v for k, v in raw[g].items()} for g in ("TPMT", "NUDT15")}
     key = canonicalize_diplotype(gene, dip)
     if gene not in _thio_cache or key in (None, "-"):
         return None
     return _thio_cache[gene].get(key)
+
+
+# ── CPIC diplotype -> phenotype for the other star-allele genes (CPIC data, no value in code) ──
+_DIP_PATH = os.path.join(_HERE, "cpic_diplotype.json")
+_dip_cache = None
+# Legacy lettered names -> the numbered core allele, from an explicit PharmVar-verified table only
+# (pharmvar_legacy_suballeles.json, derived by pharmvar_legacy_build.py from the rendered PharmVar gene pages in
+# pharmvar_legacy_snapshot.json, PharmVar 6.2.29). A lettered allele that is not listed under `fold` for its gene is
+# never folded (it stays unscorable and counts toward the split rule). `redesignated` lists letters whose number
+# differs from the core allele they now sit under (CYP2C19 `*1A` is now `*38.001`, PMID 32602114: the old meaning
+# was the reference allele); they are never folded, since the caller may mean either (owner decision 2026-11-16:
+# CYP2C19 `*1A` stays unscorable rather than being read as `*38`).
+_LEGACY_PATH = os.path.join(_HERE, "pharmvar_legacy_suballeles.json")
+_legacy_fold = None
+
+
+def _load_lookup(path: str, what: str):
+    """Read one lookup JSON on first use; a missing or unreadable file fails loud, naming the file (never an empty table)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as e:
+        raise RuntimeError(f"{what}: required lookup file {os.path.basename(path)} ({path}) cannot be read: {e}") from e
+
+
+def _legacy_table():
+    global _legacy_fold
+    if _legacy_fold is None:
+        raw = _load_lookup(_LEGACY_PATH, "PharmVar legacy sub-allele table")
+        _legacy_fold = {g: {k.casefold(): v["core_allele"] for k, v in d.items()} for g, d in raw["fold"].items()}
+    return _legacy_fold
+
+
+def fold_legacy_letter(gene: str, allele: str) -> str:
+    """`*2B` -> `*2` only when PharmVar lists `*2B` as a legacy label of a sub-allele of CYP2C19*2; else unchanged.
+    Case-insensitive, like every other allele comparison."""
+    a = allele.strip()
+    return _legacy_table().get(gene, {}).get(a.casefold(), a)
+
+
+# Caller-specific allele names -> CPIC allele names (docker/dpyd_notation_map.json, built by dpyd_notation_map_build.py
+# from Stargazer's shipped allele table and the CPIC allele definitions). Used only to look up a CPIC phenotype
+# (cpic_diplotype_phenotype); the verdict's comparison keys (norm_diplotype) keep the caller's own spelling.
+_NOTATION_PATH = os.path.join(_HERE, "dpyd_notation_map.json")
+_notation_map = None
+
+
+def _notation():
+    global _notation_map
+    if _notation_map is None:
+        raw = _load_lookup(_NOTATION_PATH, "caller notation map")
+        _notation_map = {
+            g: {k: v["cpic"] for sec in ("stargazer", "aldy", "cpic_star_names") for k, v in e[sec].items()}
+            for g, e in raw.items() if g not in ("retrieved", "source", "cpic_alleles")}
+    return _notation_map
+
+
+def _cpic_allele_key(gene: str, tok: str) -> str:
+    """One CPIC-table or caller allele name -> comparable key for the diplotype table lookup. Unlike
+    canonicalize_allele it keeps a `+` inside a name (`c.1905+1G>A`), so no two CPIC alleles merge. The synonym
+    map of the gene (allele_synonyms.json) is tried on the whole name, then on its parenthetical, then on the
+    name without it (`c.85T>C (*9A)`, `*9A`, `c.85T>C` all give `rs1801265`)."""
+    t = re.sub(r"\s+", " ", (tok or "")).strip().lower()
+    nm = _notation().get(gene, {})
+    if t in nm:                                     # Stargazer *S10 / Aldy *rs2297595 -> the CPIC allele name
+        t = re.sub(r"\s+", "", nm[t]).lower()   # _clean_allele has already dropped spaces from table keys
+    syn = SYNONYMS.get(gene, {})
+    m = re.match(r"^(.*?)\s*\((.*)\)$", t)
+    for cand in ((t,) + ((m.group(2).strip(), m.group(1).strip()) if m else ())):
+        if cand in _REFERENCE:
+            return "*1"
+        if cand in syn:
+            return syn[cand]
+    return t
+
+
+def _dip_key(gene: str, dip: str, collapse: bool = True):
+    """Order-insensitive key of an `a/b` diplotype, or None when it is not a two-haplotype call. With
+    collapse=False the alleles are only cleaned and lowercased (CPIC's own spelling)."""
+    d = re.sub(r"\s+", " ", (dip or "")).strip()
+    if d.count("/") != 1 or re.search(r"\((?:het|hom)\)", d, re.I):
+        return None
+    f = _cpic_allele_key if collapse else (lambda g, t: t.lower())
+    return "/".join(sorted(f(gene, _clean_allele(gene, h.strip())) for h in d.split("/")))
+
+
+def _dip_tables():
+    """{gene: (exact, collapsed)}: exact keeps CPIC's own allele spelling, collapsed folds synonyms (a key shared
+    by two CPIC rows of different phenotype is None: never scored)."""
+    global _dip_cache
+    if _dip_cache is None:
+        raw = _load_lookup(_DIP_PATH, "CPIC diplotype table")
+        _dip_cache = {}
+        for g, rows in raw.items():
+            if g in ("retrieved", "source", "allele_function"):
+                continue
+            tabs = ({}, {})
+            for k, v in rows.items():
+                for tab, collapse in zip(tabs, (False, True)):
+                    dk = _dip_key(g, k, collapse)
+                    tab[dk] = v if tab.get(dk, v) == v else None
+            _dip_cache[g] = tabs
+    return _dip_cache
+
+
+def has_cpic_diplotype_table(gene: str) -> bool:
+    return gene in _dip_tables()
+
+
+def cpic_diplotype_phenotype(gene: str, dip: str):
+    """CPIC phenotype of one diplotype reading from CPIC's own diplotype table (docker/cpic_diplotype.json, built
+    by cpic_diplotype_build.py), or None when CPIC has no row for it (a reading CPIC cannot score).
+    Lookup order: the reading as spelled (synonym-collapsed, order-insensitive; DPYD `*9A` == `c.85T>C (*9A)`),
+    then, when that finds no row, with a legacy lettered name folded to its numbered core allele (`*3B` -> `*3`,
+    `*2B` -> `*2`) but only where PharmVar's Legacy Label column lists it (LEGACY_FOLD); any other lettered allele
+    is not folded and gets no row.
+    Not used for CYP2D6, which has its own activity-score rule."""
+    tabs = _dip_tables()
+    if gene not in tabs or gene == "CYP2D6":
+        return None
+    exact, coll = tabs[gene]
+    folded = "/".join(fold_legacy_letter(gene, h) for h in (dip or "").split("/"))
+    for d, tab, collapse in ((dip, exact, False), (dip, coll, True), (folded, exact, False), (folded, coll, True)):
+        k = _dip_key(gene, d, collapse)
+        if k is not None and tab.get(k) is not None:    # an ambiguous (None) row falls through to the folded lookups
+            return tab[k]
+    return None
 
 
 # ── CYP2D6: one agreement rule for the verdict and for the PharmCAT outside call ─────
@@ -490,9 +617,8 @@ def _selftest():
     assert canonicalize_diplotype("DPYD", "*1/*5") == \
            canonicalize_diplotype("DPYD", "*1/*S6") == \
            canonicalize_diplotype("DPYD", "*1/c.1627A>G"), "DPYD *5 synonyms must reconcile"
-    # CYP2C19 sub-allele collapse
-    assert canonicalize_diplotype("CYP2C19", "*2/*38") == \
-           canonicalize_diplotype("CYP2C19", "*2/*2"), "CYP2C19 *38 is a *2 sub-allele"
+    # CYP2C19 *38 is its own (normal function) allele in CPIC, never a *2 synonym
+    assert canonicalize_diplotype("CYP2C19", "*2/*38") != canonicalize_diplotype("CYP2C19", "*2/*2")
     # TPMT *1S inflation
     assert canonicalize_diplotype("TPMT", "*1/*1S") == "*1/*1"
     # order-insensitive

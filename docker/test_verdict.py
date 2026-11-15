@@ -6,6 +6,7 @@ Run: python3 docker/test_verdict.py
 """
 import importlib.util
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -60,8 +61,22 @@ def test_phenotype_tier_rescues_string_discordance():
          _r("Stargazer", "*S10/*S20", pheno="normal_metabolizer"),
          _r("Aldy", "*9A/*rs2297595", pheno="Indeterminate")],
         no_call=False, gene="DPYD")
-    assert v["status"] == "concordant" and v.get("phenotype_tier") \
-        and v.get("authority") == "Phenotype", v
+    # Stargazer's *S20 and Aldy's *rs2297595 are CPIC c.496A>G through dpyd_notation_map.json: all readings score Normal
+    assert v["status"] == "concordant" and v["consensus_phenotype"] == "Normal Metabolizer" and v["authority"] == "Phenotype", v
+    # a composite Aldy haplotype (*9A + extra rs ids) is no CPIC allele: still unscorable, so still a split
+    v = cmp.compute_verdict(
+        [_r("PyPGx", "c.85T>C (*9A)/c.496A>G", pheno="Normal Metabolizer"),
+         _r("Stargazer", "*S10/*S20", pheno="normal_metabolizer"),
+         _r("Aldy", "*9A/*9A+rs1801159+rs2297595", pheno="Indeterminate")],
+        no_call=False, gene="DPYD")
+    assert v["status"] == cmp.SPLIT_STATUS and v["consensus_phenotype"] == "-" and "authority" not in v, v   # nothing decided it
+    # readings CPIC scores alike keep the phenotype tier
+    v = cmp.compute_verdict(
+        [_r("PyPGx", "c.85T>C (*9A)/*1", pheno="Normal Metabolizer"),
+         _r("Stargazer", "*S6/*1", pheno="normal_metabolizer"),
+         _r("Aldy", "*1/*1", pheno="Normal Metabolizer")],
+        no_call=False, gene="DPYD")
+    assert v["status"] == "concordant" and v.get("phenotype_tier") and v["consensus_phenotype"] == "Normal Metabolizer", v
 
 
 def test_phenotype_tier_not_applied_when_phenotypes_disagree():
@@ -162,7 +177,9 @@ def test_cyp2b6_cis_trans_is_phase_ambiguous_not_concordant():
     # readings with different phenotypes: phenotype not passed
     rs2 = [_r("PyPGx", "*5/*6", pheno="Poor Metabolizer"), _r("PharmCAT", "*1/*7", pheno=im)]
     v = cmp.compute_verdict(rs2, no_call=False, gene="CYP2B6")
-    assert v["phase_ambiguous"] and v["consensus_phenotype"].startswith("Indeterminate") and v["status"] == "majority", v
+    # CPIC scores *1/*7 and *5/*6 alike (Intermediate): CPIC decides, the callers' Indeterminate label goes in the note
+    assert v["phase_ambiguous"] and v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "majority", v
+    assert "callers said Indeterminate" in v["note"], v
     # a real difference (not a phase swap) is untouched; identical calls stay concordant
     v = cmp.compute_verdict([_r("PyPGx", "*1/*6"), _r("PharmCAT", "*1/*7")], no_call=False, gene="CYP2B6")
     assert v["status"] == "concordant" and "phase_ambiguous" not in v, v
@@ -382,7 +399,8 @@ def test_nat2_phenotype_tier_readings_keep_agreed_phenotype():
     rs = [_r("PyPGx", "*4/*4", pheno="Rapid Metabolizer"), _r("Aldy", "*4/*4", pheno="Rapid Metabolizer"),
           _r("Stargazer", "*5/*6", pheno="Rapid Metabolizer")]       # readings differ in CPIC phenotype
     v = cmp.compute_verdict(rs, no_call=False, gene="NAT2")
-    assert v["consensus_phenotype"] == "Indeterminate" and "differ in CPIC phenotype" in v["note"], v
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    assert "different CPIC phenotypes" in v["note"] and "confirm with a targeted assay" in v["note"], v
 
 
 def test_partial_pharmcat_unknown_is_no_call_for_the_authority():
@@ -604,6 +622,286 @@ def test_level_m_is_blocked_by_an_explicit_indeterminate():
     v = _vote([("PyPGx", "*2/*4", "Intermediate Metabolizer"), ("Stargazer", "*2/*4", "intermediate_metabolizer"),
                ("Aldy", "*4K/*160", "Indeterminate"), ("StellarPGx", "*39/*4", "Indeterminate")])
     assert v["consensus_phenotype"] == "-", v        # HG002_12X shape: StellarPGx's scoreable Indeterminate blocks m
+
+
+# ── owner decision 2026-11-15: readings with different CPIC phenotypes -> "-" + status label ──
+def _tier(gene, readings, label="Poor Metabolizer"):
+    """Callers whose own phenotype labels agree (so the phenotype tier fires) but whose diplotypes are `readings`."""
+    tools = ["PyPGx", "Stargazer", "Aldy", "StellarPGx"]
+    return cmp.compute_verdict([_r(t, readings[i % len(readings)], pheno=label) for i, t in enumerate(tools)],
+                               no_call=False, gene=gene)
+
+
+def test_split_cpic_phenotype_has_no_phenotype_and_its_own_status():
+    for gene, rd, a, b in (("CYP3A5", ["*3/*3", "*1/*1"], "Poor Metabolizer", "Normal Metabolizer"),
+                           ("CYP3A5", ["*1/*3", "*1/*1"], "Intermediate Metabolizer", "Normal Metabolizer"),
+                           ("CYP2C19", ["*1/*2", "*2/*36"], "Intermediate Metabolizer", "Poor Metabolizer")):
+        v = _tier(gene, rd)
+        assert v["consensus_phenotype"] == "-" and v["status"] == "concordant, diplotype unresolved", v
+        assert v["diplotype_resolved"] is False and not v.get("phenotype_tier"), v
+        assert f"{rd[0]} {a}" in v["note"] and f"{rd[1]} {b}" in v["note"] and "confirm with a targeted assay" in v["note"], v
+        assert v["phenotype_by_reading"] == {rd[0]: a, rd[1]: b}, v
+
+
+def test_same_cpic_phenotype_readings_keep_phenotype_and_status():
+    for gene, rd, ph in (("CYP2C19", ["*1/*2", "*1/*2B"], "Intermediate Metabolizer"),
+                         ("CYP3A5", ["*3/*3", "*3/*3B"], "Poor Metabolizer"),
+                         ("CYP2B6", ["*2/*2", "*2/*5"], "Normal Metabolizer")):
+        v = _tier(gene, rd, label=ph)
+        assert v["consensus_phenotype"] == ph and v["status"] == "concordant" and v.get("phenotype_tier"), v
+        assert "phenotype_split" not in v, v
+
+
+def test_reading_cpic_cannot_score_is_a_different_phenotype():
+    # CYP2C19 *1/*2 (Intermediate) vs a combination CPIC has no row for
+    v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and "*1/*99 no CPIC phenotype" in v["note"], v
+    cmp.UNSCORABLE_READING_IS_A_SPLIT = False          # the policy constant: ignore unscorable readings when the rest agree
+    try:
+        v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
+        assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+    finally:
+        cmp.UNSCORABLE_READING_IS_A_SPLIT = True
+    # a gene with no CPIC diplotype table is unchanged
+    v = _tier("CYP4F2", ["*1/*3", "*3/*3"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+
+
+def test_phase_ambiguous_cyp2b6_follows_cpic_phenotypes():
+    # *5/*6 and *1/*7 hold the same variants; CPIC scores both Intermediate -> phenotype kept, status unchanged
+    rs = [_pc("*5/*6", "Intermediate Metabolizer"), _r("PyPGx", "*1/*7", pheno="Intermediate Metabolizer"),
+          _r("Stargazer", "*5/*6", pheno="Intermediate Metabolizer"), _r("Aldy", "*5/*6", pheno="Intermediate Metabolizer")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    assert v.get("phase_ambiguous") and v["consensus_phenotype"] == "Intermediate Metabolizer", v
+    assert v["status"] == "concordant", v
+    rc = cmp.reconcile
+    assert rc.cpic_diplotype_phenotype("CYP2B6", "*1/*6") == rc.cpic_diplotype_phenotype("CYP2B6", "*4/*9") \
+        == "Intermediate Metabolizer"
+    # a phase-ambiguous pair CPIC scores differently gets "-" and the status label (stub the table lookup)
+    real = cmp.reconcile.cpic_diplotype_phenotype
+    try:
+        cmp.reconcile.cpic_diplotype_phenotype = lambda g, d: "Poor Metabolizer" if d == "*1/*7" else "Intermediate Metabolizer"
+        v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    finally:
+        cmp.reconcile.cpic_diplotype_phenotype = real
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "phase_ambiguous" in v, v
+
+
+def test_cpic_diplotype_table_lookup_is_cpic_data():
+    rc = cmp.reconcile
+    assert rc.cpic_diplotype_phenotype("CYP3A5", "*3/*3") == "Poor Metabolizer"
+    assert rc.cpic_diplotype_phenotype("CYP2C19", "*36/*2") == "Poor Metabolizer"       # order-insensitive
+    assert rc.cpic_diplotype_phenotype("CYP2D6", "*1/*1") is None                       # CYP2D6 has its own rule
+    assert rc.cpic_diplotype_phenotype("CYP4F2", "*1/*3") is None                       # no CPIC table
+
+
+def test_dpyd_synonym_readings_are_one_reading():
+    # PyPGx HGVS+star name, Stargazer S-name and Aldy star name of the same variant are one reading
+    rc = cmp.reconcile
+    assert len({rc.canonicalize_diplotype("DPYD", d) for d in
+                ("*1/c.1905+1G>A (*2A)", "*1/*2A", "Reference/c.1905+1G>A", "*S1/*1")}) == 1
+    rs = [_r("PyPGx", "*1/c.1905+1G>A (*2A)", pheno="Intermediate Metabolizer"),
+          _r("Stargazer", "*1/*S1", pheno="Intermediate Metabolizer"), _r("Aldy", "*1/*2A", pheno="Intermediate Metabolizer"),
+          _r("PharmCAT", "*1/*2A", pheno="Intermediate Metabolizer")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="DPYD")
+    assert " or " not in v["consensus_diplotype"] and v["status"] == "concordant" and (v["n_agree"], v["n_called"]) == (4, 4), v
+
+
+def test_every_synonym_pair_has_the_same_cpic_function():
+    """A synonym folds two names into one allele: where CPIC defines both, their function must be identical."""
+    import json
+    fn = json.load(open(os.path.join(HERE, "cpic_diplotype.json")))["allele_function"]
+    syn = json.load(open(os.path.join(HERE, "allele_synonyms.json")))
+    n = 0
+    for gene, ent in syn.items():
+        if gene.startswith("_"):
+            continue
+        table = {k.lower(): v for k, v in fn.get(gene, {}).items()}
+        for canon, aliases in ent.items():
+            group = [canon] + aliases
+            # CPIC names carry the HGVS and star name together (`c.85T>C (*9A)`): index each part
+            known = {}
+            for name, f in fn.get(gene, {}).items():
+                for part in [name] + re.findall(r"\(([^)]*)\)", name) + [re.sub(r"\s*\(.*\)", "", name)]:
+                    known[part.strip().lower()] = f
+            fs = {known[t.lower()] for t in group if t.lower() in known}
+            assert len(fs) <= 1, (gene, group, fs)
+            n += len(fs)
+    assert n >= 4, n          # CPIC defines DPYD *9A, *5, *2A, *13 and c.2846A>T, CYP2C19 *2: the check is not vacuous
+    assert syn["CYP2C19"]["*2"] == [] and fn["CYP2C19"]["*38"] != fn["CYP2C19"]["*2"]
+
+
+import reconcile as R
+
+
+def test_dpyd_notation_map_matches_its_sources():
+    """dpyd_notation_map.json is rebuilt from Stargazer's shipped tables + the embedded CPIC allele definitions and must
+    equal the committed file; CPIC API comparison under PGX_CPIC_VERIFY=1."""
+    import json, importlib.util
+    spec = importlib.util.spec_from_file_location("nmb", os.path.join(HERE, "dpyd_notation_map_build.py"))
+    b = importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+    m = json.load(open(os.path.join(HERE, "dpyd_notation_map.json")))
+    cp = m["cpic_alleles"]
+    sg = b.stargazer_codes()
+    assert m["source"]["stargazer"]["star_table_sha256"] == b.sha256(os.path.join(b.SG_DIR, "star_table.tsv"))
+    assert m["source"]["stargazer"]["snp_table_sha256"] == b.sha256(os.path.join(b.SG_DIR, "snp_table.tsv"))
+    d = m["DPYD"]
+    for code, e in d["stargazer"].items():
+        assert e["cpic"] in cp, code
+        want = sorted(f"{p}:{c}" for p, c in sg[code.upper().replace("*S", "*S")]["core"])
+        assert sorted(e["stargazer_core"]) == want, code
+        if e["method"] == "position+alt":
+            assert [(x["pos"], x["change"]) for x in cp[e["cpic"]]] == sorted(sg[code.upper()]["core"]), code
+        else:                                   # indel: one variant, same dbSNP id on both sides
+            assert len(cp[e["cpic"]]) == 1 and [cp[e["cpic"]][0]["rsid"]] == e["rsid"], code
+        for rs in e["rsid"]:
+            assert rs in {x["rsid"] for x in cp[e["cpic"]]}, code
+    assert set(d["stargazer"]) | set(d["unscorable_stargazer"]) == {c.lower() for c in sg}
+    for tag, e in d["aldy"].items():
+        v = cp[e["cpic"]]
+        assert len(v) == 1 and v[0]["rsid"] == e["rsid"] and tag == "*" + e["rsid"], tag
+    # no rs id may name two CPIC single-variant alleles (would be ambiguous: left out of the map)
+    rs_count = {}
+    for n, v in cp.items():
+        if len(v) == 1:
+            rs_count[v[0]["rsid"]] = rs_count.get(v[0]["rsid"], 0) + 1
+    assert all(("*" + r) in d["aldy"] for r, c in rs_count.items() if c == 1)
+    assert not any(("*" + r) in d["aldy"] for r, c in rs_count.items() if c > 1)
+    for n in d["cpic_star_names"].values():
+        assert n["cpic"] in cp
+    # every CPIC name the map points at exists in CPIC's diplotype table, and the committed file equals a rebuild
+    allnames = {h.strip() for k in json.load(open(os.path.join(HERE, "cpic_diplotype.json")))["DPYD"] for h in k.split("/")}
+    for sec in ("stargazer", "aldy", "cpic_star_names"):
+        for k, e in d[sec].items():
+            assert e["cpic"] in allnames, (k, e)
+    if os.environ.get("PGX_CPIC_VERIFY"):
+        fresh = b.build(m["retrieved"])
+        assert fresh["DPYD"] == d and fresh["cpic_alleles"] == cp, "dpyd_notation_map.json is out of date with CPIC"
+    # a Stargazer code that agrees with the hand-kept synonym map must agree on the allele
+    syn = json.load(open(os.path.join(HERE, "allele_synonyms.json")))["DPYD"]
+    for canon, aliases in syn.items():
+        for a in aliases:
+            if a in d["stargazer"]:
+                assert any(x.lower() in (canon, *aliases) or canon in R._cpic_allele_key("DPYD", d["stargazer"][a]["cpic"]).lower()
+                           for x in [a]) or R._cpic_allele_key("DPYD", d["stargazer"][a]["cpic"]) == canon, a
+
+
+def test_dpyd_notation_readings_get_the_cpic_phenotype():
+    """Stargazer *S codes and Aldy *rs tags score through the map; composite Aldy names and unmapped codes stay unscorable."""
+    f = R.cpic_diplotype_phenotype
+    assert f("DPYD", "*1/*S20") == f("DPYD", "Reference/c.496A>G") == "Normal Metabolizer"
+    assert f("DPYD", "*1/*rs2297595") == "Normal Metabolizer"
+    assert f("DPYD", "*S10/*S66") == f("DPYD", "c.2279C>T/c.85T>C (*9A)") == "Intermediate Metabolizer"
+    assert f("DPYD", "*S10/*S3") == f("DPYD", "c.1905+1G>A (*2A)/c.85T>C (*9A)")
+    assert f("DPYD", "*1/*4") == f("DPYD", "Reference/c.1601G>A (*4)") is not None
+    assert f("DPYD", "*9A/*9A+rs1801159+rs2297595") is None      # composite haplotype: not a CPIC allele
+    assert f("DPYD", "*1/*S8") is None                            # Stargazer *S8 (3 variants) is no CPIC allele
+    assert R._cpic_allele_key("CYP2C19", "*S20") == "*s20"        # the map is DPYD only
+
+
+def test_legacy_letter_fold_table_matches_pharmvar_snapshot():
+    """The fold table is derived from the dated snapshot of PharmVar's rendered Legacy Label column; with
+    PGX_PHARMVAR_PAGES=<dir of <GENE>.txt page texts> the snapshot is also compared with freshly rendered pages."""
+    import json, pharmvar_legacy_build as PB
+    snap = json.load(open(os.path.join(HERE, "pharmvar_legacy_snapshot.json")))
+    tab = json.load(open(os.path.join(HERE, "pharmvar_legacy_suballeles.json")))
+    der = PB.derive(snap, tab["checked"])
+    assert der == tab, "pharmvar_legacy_suballeles.json is not what pharmvar_legacy_build.derive gives for the snapshot"
+    assert {d["pharmvar_version"] for d in snap["genes"].values()} == {"6.2.29"}
+    assert tab["fold"]["CYP3A5"]["*3B"]["pharmvar_suballele"] == "CYP3A5*3.002" and tab["fold"]["CYP3A5"]["*3B"]["core_allele"] == "*3"
+    assert tab["fold"]["CYP2C19"]["*2B"]["core_allele"] == "*2"
+    assert "*1A" not in tab["fold"]["CYP2C19"] and tab["redesignated"]["CYP2C19"]["*1A"]["core_allele"] == "*38"
+    for g, labels in tab["fold"].items():          # every folded label sits under the core of the same number
+        for lab, e in labels.items():
+            assert lab.rstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ") == e["core_allele"], (g, lab)
+    assert not {"TPMT", "UGT1A1", "DPYD"} & set(tab["fold"]) and not {"TPMT", "UGT1A1", "DPYD"} & set(snap["genes"])
+    pages = os.environ.get("PGX_PHARMVAR_PAGES")
+    if pages:
+        for g, d in snap["genes"].items():
+            assert PB.parse(g, open(os.path.join(pages, g + ".txt"), encoding="utf-8").read()) == d, g
+
+
+def test_legacy_letter_fold_refuses_unlisted_labels():
+    f = R.fold_legacy_letter
+    assert f("CYP3A5", "*3B") == "*3" and f("CYP2C19", "*2B") == "*2" and f("CYP2C9", "*3A") == "*3"
+    assert f("CYP2C19", "*1A") == "*1A"              # re-designated (now *38.001): not folded to *1
+    assert f("CYP2C19", "*2Z") == "*2Z" and f("CYP3A5", "*2B") == "*2B"   # letter not in PharmVar's column for that gene
+    assert f("TPMT", "*3A") == "*3A" and f("UGT1A1", "*28A") == "*28A"    # genes PharmVar does not maintain
+    assert f("CYP2C19", "*2") == "*2" and f("DPYD", "*9A") == "*9A"
+    assert R.cpic_diplotype_phenotype("CYP3A5", "*3/*3B") == R.cpic_diplotype_phenotype("CYP3A5", "*3/*3") == "Poor Metabolizer"
+    assert R.cpic_diplotype_phenotype("CYP2C19", "*1/*1A") is None      # ambiguous: stays unscorable
+    assert R.cpic_diplotype_phenotype("CYP2C19", "*1/*2Z") is None
+
+
+def test_split_rule_review_fixes():
+    sp = cmp._split_by_cpic_phenotype
+    base = {"consensus_diplotype": "*2/*2 or *2/*3", "consensus_phenotype": "Intermediate Metabolizer",
+            "status": "concordant", "phenotype_tier": True, "authority": "Phenotype"}
+    # all readings one CPIC phenotype that differs from the callers' label: CPIC's phenotype is reported, label in the note
+    v = sp(dict(base), "CYP2C19")
+    assert v["consensus_phenotype"] == "Poor Metabolizer" and v["status"] == "concordant" and "callers said Intermediate" in v["note"], v
+    # same for a phase-ambiguous verdict (no phenotype_tier flag)
+    v = sp({"consensus_diplotype": "*2/*2 or *2/*3", "consensus_phenotype": "Normal Metabolizer", "status": "majority",
+            "phase_ambiguous": True}, "CYP2C19")
+    assert v["consensus_phenotype"] == "Poor Metabolizer" and v["status"] == "majority", v
+    # an " or " verdict with neither flag is still checked: a CPIC split withdraws the phenotype, level kept
+    v = sp({"consensus_diplotype": "*1/*2 or *2/*2", "consensus_phenotype": "Poor Metabolizer", "status": "majority",
+            "authority": "Phenotype", "phenotype_tier": True}, "CYP2C19")
+    assert v["status"] == cmp.SPLIT_STATUS_MAJORITY == "majority, diplotype unresolved" and v["consensus_phenotype"] == "-", v
+    assert "authority" not in v and v["phenotype_split"] and "phenotype_tier" not in v, v
+    v = sp({"consensus_diplotype": "*1/*2 or *2/*2", "consensus_phenotype": "Poor Metabolizer", "status": "concordant"}, "CYP2C19")
+    assert v["status"] == cmp.SPLIT_STATUS, v
+    # all readings Indeterminate: no phenotype, like a split
+    cmp_orig = cmp._reading_phenotype
+    try:
+        cmp._reading_phenotype = lambda g, d: (True, "Indeterminate")
+        v = sp(dict(base), "CYP2C19")
+        assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "no usable phenotype" in v["note"], v
+    finally:
+        cmp._reading_phenotype = cmp_orig
+
+
+def test_axiom_adjudicate_split_status():
+    import importlib.util
+    import os
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build_axiom_concordance.py")
+    sp = importlib.util.spec_from_file_location("bac", root)
+    m = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(m)
+    for st in ("concordant", "majority"):
+        base = m.adjudicate("CYP2C19", "*1/*2", st, "*1/*1", "*1/*1", "MISMATCH")
+        for suffix in (", diplotype unresolved",):
+            assert m.adjudicate("CYP2C19", "*1/*2", st + suffix, "*1/*1", "*1/*1", "MISMATCH") == base, st
+
+
+def test_reconcile_review_fixes():
+    R = cmp.reconcile
+    assert R._strip_allele("rs1801265+rs2297595") == "rs1801265" and R._strip_allele("*28+*80") == "*28"
+    assert R._strip_allele("c.1905+1G>A") == "c.1905+1g>a"
+    assert R.fold_legacy_letter("CYP3A5", "*3b") == "*3" and R.fold_legacy_letter("CYP3A5", "*3B") == "*3"
+    # a None (ambiguous) row in the first tables does not stop the folded lookup
+    exact, coll = R._dip_tables()["CYP3A5"]
+    k = R._dip_key("CYP3A5", "*3/*3B", False)
+    saved = exact.get(k, "absent")
+    exact[k] = None
+    try:
+        assert R.cpic_diplotype_phenotype("CYP3A5", "*3/*3B") == "Poor Metabolizer"
+    finally:
+        if saved == "absent":
+            exact.pop(k)
+        else:
+            exact[k] = saved
+    # a missing lookup file fails loud at use, naming the file, not at import
+    old = R._LEGACY_PATH, R._legacy_fold
+    R._LEGACY_PATH, R._legacy_fold = "/nonexistent/pharmvar_legacy_suballeles.json", None
+    try:
+        try:
+            R.fold_legacy_letter("CYP3A5", "*3B")
+            raise AssertionError("missing file did not raise")
+        except RuntimeError as e:
+            assert "pharmvar_legacy_suballeles.json" in str(e)
+    finally:
+        R._LEGACY_PATH, R._legacy_fold = old
 
 
 if __name__ == "__main__":

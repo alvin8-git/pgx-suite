@@ -502,7 +502,7 @@ arcasHLA needs a one-time reference build from the IMGT/HLA `hla.dat` (kallisto 
 `<arcasHLA>/dat/IMGTHLA/` (symlink it to a shared clone rather than re-downloading).
 
 > **Durable location (2026-07-16).** The host-side arcasHLA clone + its pre-built reference DB
-> now live at **`/data/alvin/ref/omnigen/tools/arcasHLA/`** (moved off scratch `/data/alvin/tmp/`
+> now live at **`<ref>/omnigen/tools/arcasHLA/`** (moved off scratch `<scratch>/`
 > so it survives a port; the 225 MB `dat/ref/hla.idx` is the key artifact). arcasHLA resolves its
 > reference **relative to its own install dir** (`rootDir = dirname(realpath(scripts/*.py)) +
 > '/../'` → `<arcasHLA>/dat/ref/hla.idx`), so the DB travels with the binary — invoke the binary
@@ -510,7 +510,7 @@ arcasHLA needs a one-time reference build from the IMGT/HLA `hla.dat` (kallisto 
 >
 > **Conda envs are rebuild-on-target.** The runtime deps (`arcaspy-env` = python3.10 + numpy/
 > scipy/pandas/biopython; `kallisto-env` = kallisto 0.44.0) remain conda environments at
-> `/data/alvin/tmp/arcaspy-env` and `/data/alvin/tmp/kallisto-env`. Conda bakes absolute prefixes
+> `<scratch>/arcaspy-env` and `<scratch>/kallisto-env`. Conda bakes absolute prefixes
 > into its envs, so they are **NOT** moved with the reference — on a port, rebuild them on the
 > target host (`conda create` per the versions above) and put both on `PATH` ahead of the arcasHLA
 > invocation. Only the reference DB is durable; the envs are reproducible.
@@ -563,15 +563,15 @@ pipeline code changed, no other gene or sample re-run):
 samtools view -b HG001.bwa.sortdup.bqsr.bam $(cat regions.txt) | samtools sort -n | \
   samtools bam2fq -1 HG001.hla.1.fq.gz -2 HG001.hla.2.fq.gz -s HG001.hla.single.fq.gz -0 /dev/null -n
 PATH=<kallisto-0.44.0>:<arcaspy-env>:$PATH \
-  /data/alvin/ref/omnigen/tools/arcasHLA/arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 -t 8 \
+  <ref>/omnigen/tools/arcasHLA/arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 -t 8 \
     -o arcas_out --temp <tmp> HG001.hla.1.fq.gz HG001.hla.2.fq.gz
 # stage arcas_out/HG001.genotype.json → results/HG001/hla2/HG001.genotype.json, then
 pgx-compare.py --gene HLA-DQA1|HLA-DQB1|HLA-DRB1 --sample HG001 --output-dir results/HG001/genes/<GENE>
 ```
 
-Reused the pre-built reference DB at `/data/alvin/ref/omnigen/tools/arcasHLA/dat/ref/hla.idx`
+Reused the pre-built reference DB at `<ref>/omnigen/tools/arcasHLA/dat/ref/hla.idx`
 (the one built for the HG002 validation, IMGT/HLA `Reference: 8d77b3dd…`); driver script kept
-at `/data/alvin/tmp/hla2_HG001/run_hla2_HG001.sh`. Note: the biocontainers `arcas-hla:0.6.0`
+at `<scratch>/hla2_HG001/run_hla2_HG001.sh`. Note: the biocontainers `arcas-hla:0.6.0`
 image ships `dat/ref/` as git-lfs **pointer stubs** (no real FASTA/index), so it cannot
 genotype as-is — the working DB is the host clone above, not the container image.
 
@@ -953,7 +953,23 @@ verdict carries the phenotype and no chosen diplotype: `consensus_diplotype` is 
 `A or B` (most callers first, then alphabetical), `diplotype_readings` maps each reading to its callers,
 `diplotype_resolved` is `false`, status stays `concordant` for the phenotype only, `n_agree` counts the callers that
 agree on the phenotype, and `note` reads "callers agree on the phenotype but not the diplotype: A (tools) or B
-(tools)". A caller's own "Indeterminate" is not a reading. Where the phenotypes also differ the gene stays
+(tools)". The phenotype is then checked against CPIC's own diplotype table for each reading (`cpic_diplotype.json`,
+`cpic_thiopurine.json`, NAT2 table; a reading CPIC cannot score is a different phenotype): when the readings'
+CPIC phenotypes differ, `consensus_phenotype` is `-`, `status` is `concordant, diplotype unresolved` (`majority, diplotype unresolved` for a majority verdict; `authority` is cleared),
+`phenotype_split` is true, `phenotype_by_reading` lists them and the note says to confirm with a targeted assay.
+DPYD readings in caller notation are translated to CPIC allele names before this lookup (`dpyd_notation_map.json`, built by
+`dpyd_notation_map_build.py` from Stargazer's shipped `star_table.tsv`/`snp_table.tsv` and the CPIC DPYD allele definitions):
+a Stargazer `*S` code maps only when its GRCh38 variant set equals exactly one CPIC allele; an Aldy `*rs<NNN>` tag maps to the
+CPIC allele defined by exactly that variant; a bare `*4`/`*6` maps to the CPIC allele carrying that bracketed name. Composite
+Aldy haplotypes (`*9A+rs...`) and codes CPIC does not define stay unscorable. The map only feeds the CPIC phenotype lookup, not
+the diplotype comparison. A lettered legacy allele name is folded to its numbered core as a last step (`*3B` as `*3`) only when
+`docker/pharmvar_legacy_suballeles.json` lists it for that gene: the table is derived (`pharmvar_legacy_build.py`) from a dated
+snapshot (`pharmvar_legacy_snapshot.json`) of PharmVar 6.2.29's rendered Legacy Label column (CYP2C19 18, CYP2C9 6, CYP2B6 22,
+CYP2D6 52, CYP3A4 5, CYP3A5 7, SLCO1B1 2, NAT2 13 folded labels; CYP4F2 and NUDT15 have none). Letters whose number differs from
+their core (CYP2C19 `*1A` = `*38.001`; CYP2D6 `*14A`; 32 NAT2 labels) are `redesignated`: never folded. Any unlisted letter, and every
+letter of TPMT/UGT1A1 (not maintained by PharmVar) and DPYD, gets no row and counts as an unscorable reading. Test:
+`test_legacy_letter_fold_table_matches_pharmvar_snapshot` (PGX_PHARMVAR_PAGES=<dir> re-parses freshly rendered pages),
+`test_legacy_letter_fold_refuses_unlisted_labels`. The same check applies to CYP2B6 phase-ambiguous verdicts. CYP2D6 and genes without a CPIC diplotype table are not checked. A caller's own "Indeterminate" is not a reading. Where the phenotypes also differ the gene stays
 `discordant`. Applies to every gene and uses only the callers' output. CYP2B6 `*2/*5` vs `*2/*2` differs between
 libraries of the same person: an inherent short-read limit.
 
@@ -1145,13 +1161,13 @@ each tool's native terminology; `—` means the field is not reported by that to
 | 16 | **Mean allele fraction** | Per-variant AF embedded in `VariantData` | `hap1_af_mean_gene` / `hap2_af_mean_gene` / `hap1_af_mean_main` / `hap2_af_mean_main` | `Coverage` (read depth per variant position) | — |
 | 17 | **Phasing method** | Beagle statistical phasing (1KGP panel) | Beagle; `BEAGLE imputed` flag (report) + `ssr` short-sequence-repeat marker | ILP joint optimisation (phasing is implicit in solution) | Graph-based variant calling (graphtyper) |
 
-### Example values for CYP2D6 — NA24385 (SPL250903104304-2), actual run
+### Example values for CYP2D6 — NA24385 (HG002_LIMS_ID), actual run
 
 All values taken directly from each tool's native output file. `—` = field not present in output.
 
 | # | Field | PyPGx (`data.tsv`) | Stargazer (`genotype-calls.tsv`) | Aldy (`CYP2D6.aldy`) | StellarPGx (`*.alleles`) |
 |---|---|---|---|---|---|
-| 1 | **Sample ID** | `SPL250903104304-2` | `SPL250903104304-2` | `T7_NA24385` | `T7_NA24385.bwa.sortdup.bqsr` (filename stem) |
+| 1 | **Sample ID** | `HG002_LIMS_ID` | `HG002_LIMS_ID` | `T7_NA24385` | `T7_NA24385.bwa.sortdup.bqsr` (filename stem) |
 | 2 | **Gene** | implicit — one run per gene | implicit | `CYP2D6` (`Gene` col) | `CYP2D6` (file header) |
 | 3 | **Diplotype** | `*2/*4` (`Genotype` col) | `*2/*4` (`hap1_main` + `hap2_main`) | `*2/*4` (`Major` col) | `*2/*4` (`Result:` section) |
 | 4 | **Haplotype 1** | `*2;` (`Haplotype1` col) | `*2` (`hap1_main`) | `*2` (first token of `Major`) | `*2` (first allele of `Result`) |
@@ -1209,7 +1225,7 @@ then calls variants directly on the graph-aligned reads.
 
 ## Concordance Results — NA24385 (HG002), 2026-03-07
 
-**Sample:** SPL250903104304-2 | BAM: T7_NA24385.bwa.sortdup.bqsr.bam (167 GB WGS, HG002/NA24385)
+**Sample:** HG002_LIMS_ID | BAM: T7_NA24385.bwa.sortdup.bqsr.bam (167 GB WGS, HG002/NA24385)
 **Run:** 26 genes, 4 parallel jobs | Wall time: 3m17s
 
 ### Overall concordance summary
