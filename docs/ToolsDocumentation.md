@@ -872,13 +872,13 @@ authority for CYP2D6** — when Cyrius returns a call, that call *is* the verdic
   falls through to the reconciled star-allele vote.
 - Cyrius reports no phenotype. The verdict phenotype is the CPIC phenotype of Cyrius's activity score
   (`reconcile.activity_score` then `reconcile.score_phenotype`), derived only for a PASS call that another caller
-  corroborates: (a) the same canonical diplotype, or (b) a diplotype with the same activity score (a caller with a
-  lettered legacy allele such as `*13C` never counts for (b)). The corroborating callers are named in
+  corroborates: (a) the same canonical diplotype, or (b) a diplotype with the same activity score (a lettered
+  legacy allele such as `*13C` or `*14A` is never stripped to its base number, so it has no score and never counts;
+  Aldy's `*36X` marker is notation and is scored). A CYP2D6 diplotype with a lettered legacy name gives no outside call. The corroborating callers are named in
   `phenotype_source`; otherwise it stays "-" and the reason is appended to the verdict `note`. Callers' own
   phenotypes are not used, except that a corroborating caller (those named in `phenotype_source`) whose own
   phenotype class differs from the derived one is named in `note`. Rule (b) is the score comparison of
-  `call_cyp2d6` plus the lettered-allele guard it lacks, so a lettered-only corroborator can reach PharmCAT as an
-  outside call while the gene card phenotype stays "-" (known limitation).
+  `call_cyp2d6`; both read `reconcile.activity_score`, which gives a lettered legacy name no score.
 
 ### Input requirements
 
@@ -932,7 +932,22 @@ CYP4F2** — genes where the star-allele callers genuinely disagree (e.g. the UG
 ### Genes covered
 
 - The suite uses PharmCAT authoritatively for **UGT1A1, CYP2B6, CYP4F2**. PharmCAT itself
-  reports a wider CPIC gene set from the same run; only these three drive the verdict here.
+  reports a wider CPIC gene set from the same run; only these three drive the verdict here. When PharmCAT
+  returns no diplotype (`Unknown/Unknown`, `No Result`) or a partial one (`*1/Unknown`) it leaves the authority rule only
+  if the other callers corroborate each other (two agree on the diplotype or phenotype); the verdict note says so.
+  A no-call from any caller on any gene abstains: not in the vote or `n_called`, named in the note.
+
+
+### Phenotype agreement without diplotype agreement
+
+When callers differ on the canonical diplotype but every phenotype-emitting caller reports the same phenotype, the
+verdict carries the phenotype and no chosen diplotype: `consensus_diplotype` is every distinct reading joined as
+`A or B` (most callers first, then alphabetical), `diplotype_readings` maps each reading to its callers,
+`diplotype_resolved` is `false`, status stays `concordant` for the phenotype only, `n_agree` counts the callers that
+agree on the phenotype, and `note` reads "callers agree on the phenotype but not the diplotype: A (tools) or B
+(tools)". A caller's own "Indeterminate" is not a reading. Where the phenotypes also differ the gene stays
+`discordant`. Applies to every gene and uses only the callers' output. CYP2B6 `*2/*5` vs `*2/*2` differs between
+libraries of the same person: an inherent short-read limit.
 
 ### Output
 

@@ -81,10 +81,15 @@ def canonicalize_allele(gene: str, tok: str) -> str:
 # verdict (consensus + n_agree) and by the PharmCAT outside-call builder. The
 # per-caller table keeps the ORIGINAL strings; nothing here is written back.
 #
-# Genes whose trailing letter is a legacy sub-allele of the same star number
-# (PharmVar CYP2D6 *4C, *6B, *10B ...). For other genes a letter can be a distinct
-# allele (TPMT *3A != *3C, DPYD *2A), so letters are never stripped there.
-LETTER_SUBALLELE_GENES = frozenset({"CYP2D6"})
+# A legacy trailing letter (CYP2D6 `*14A`, `*14B`, `*13C`, `*4N`) is never stripped or mapped.
+# PharmVar re-designated alleles that had been defined from partial sequence (Nofziger et al.
+# 2020, PharmVar GeneFocus: CYP2D6, PMID 31544239), so a letter-free star number can now be a
+# haplotype with another function (CPIC table in cpic_cyp2d6.json: `*14` decreased 0.5,
+# `*114` no function). The repo carries no cited legacy->current table, so a lettered name is
+# kept verbatim: it compares only equal to itself and has no activity score.
+# A legacy lettered allele name (`*13C`, `*4N`, `*4NX`, `*14A`, any case). `x<digit>` is a copy number and a
+# bare trailing `x`/`X` (Aldy's tandem marker, `*36X`) is notation that _clean_allele normalises: neither matches.
+LEGACY_LETTERED = re.compile(r"\*\d+(?:(?![xX](?:\d|$|[+/]))[A-Za-z])")
 UNRESOLVED = None   # norm_diplotype() result for a call that cannot be compared
 
 _VCF_CHECK_RE = re.compile(r"^(\*[0-9A-Za-z]+)\((het|hom)\)(?:\[unphased\])?$", re.I)
@@ -95,8 +100,8 @@ def _clean_allele(gene, tok: str) -> str:
 
     Rules: (1) Aldy's tandem marker is dropped (`*36X` -> `*36`; a copy number such as
     `*2x2` has digits and is kept); (2) a PharmVar sub-allele suffix is dropped
-    (`*4.021` -> `*4`); (3) for genes in LETTER_SUBALLELE_GENES a trailing letter on the
-    same star number is dropped (`*6B` -> `*6`, `*4C` -> `*4`); (4) `rsNNN` novel-variant
+    (`*4.021` -> `*4`); (3) a legacy trailing letter is NOT stripped (`*14A` stays `*14A`, never `*14`;
+    see the note above); (4) `rsNNN` novel-variant
     tags are NOT stripped: `*2+rs61737946` stays different from `*2`.
     """
     t = re.sub(r"\s+", "", tok or "")
@@ -104,8 +109,6 @@ def _clean_allele(gene, tok: str) -> str:
         t = t[:-1]
     t = re.sub(r"^(\*[0-9]+)\.[0-9]+", r"\1", t)    # (2) .021 sub-allele
     t = re.sub(r"X(?=[0-9]+$)", "x", t)             # copy number is written x2 (CPIC, PharmVar), never X2
-    if gene in LETTER_SUBALLELE_GENES:              # (3) legacy letter sub-allele
-        t = re.sub(r"^(\*[0-9]+)[A-Za-z](?=$|x[0-9]+$)", r"\1", t)
     if t.lower() in _REFERENCE:
         t = "*1"
     return t
@@ -127,8 +130,8 @@ def norm_diplotype(gene, dip: str):
          single listed allele; two or more listed alleles (`*6(het)+*60(het) [unphased]`)
          cannot be placed on haplotypes, so the call is UNRESOLVED and the caller must
          be left out of the diplotype comparison (neither agreeing nor disagreeing);
-      3. per-allele cleaning as in _clean_allele (Aldy `X` marker, `.NNN`, CYP2D6 letter
-         sub-allele; `rsNNN` tags kept as real differences);
+      3. per-allele cleaning as in _clean_allele (Aldy `X` marker, `.NNN`; a legacy
+         letter is kept as written; `rsNNN` tags kept as real differences);
       4. alleles inside a tandem (`*36+*10` == `*10+*36`) and the two haplotypes
          (`*2/*4` == `*4/*2`) are sorted.
     `-`/empty returns "-".

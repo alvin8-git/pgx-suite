@@ -31,7 +31,8 @@ def r(tool, dip, pheno="-"):
 def test_rules():
     eq("*2/*36X+*10", "*2/*36+*10")            # Aldy tandem marker
     eq("*3/*4.021", "*3/*4")                   # sub-allele suffix
-    eq("*6B/*35", "*6/*35")                    # CYP2D6 legacy letter
+    ne("*6B/*35", "*6/*35")                    # legacy letter is never the base number
+    ne("*14A/*1", "*14/*1")
     eq("*49/*36+*10", "*36+*10/*49")           # tandem + haplotype order
     eq("*2 / *4", "*4/*2")
     ne("*2/*41", "*2+rs61737946+rs61745683/*41")   # rs tags are real differences

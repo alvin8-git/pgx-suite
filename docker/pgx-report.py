@@ -1974,14 +1974,17 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
         conc = " ".join(parts)
 
     # ── CPIC resolution sentence ─────────────────────────────────────────────
-    if status == "no_call":
+    if status == "no_call" and v.get("note"):
+        res = f"No diplotype is asserted: {v['note']}."
+    elif status == "no_call":
         res = ("Region depth was below the minimum threshold, so the coverage gate suppressed "
                "all calls — no diplotype is asserted.")
     elif status == "no_data" or not called:
         res = "No caller produced a call, so no verdict could be formed."
     elif v.get("phenotype_tier"):
         res = (f"Callers reported differing diplotype strings, but ≥2 phenotype-emitting callers "
-               f"agreed on the CPIC phenotype ({pheno}); the verdict was upgraded to concordant on phenotype.")
+               f"agreed on the CPIC phenotype ({pheno}); the phenotype is concordant, the diplotype is not resolved "
+               f"and every reading is listed.")
     elif auth and auth != "-":
         why = _AUTHORITY_WHY.get(auth, f"{auth} is the designated CPIC authority for this gene")
         star_disc = any(normalize_diplotype(d) != normalize_diplotype(cons)

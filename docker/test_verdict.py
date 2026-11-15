@@ -215,7 +215,7 @@ def test_cyp2d6_corroboration_is_by_activity_score_not_spelling():
 
 
 def test_cyp2d6_lettered_legacy_allele_never_corroborates():
-    for other in ("*13C/*39", "*4NX/*4", "*36X/*39", "*13c/*39", "*4n/*4", "*36x/*10"):
+    for other in ("*13C/*39", "*4NX/*4", "*13c/*39", "*4n/*4", "*14A/*1"):
         v = _d2d6("*1/*13", others=[("Stargazer", other, "-")])
         assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, (other, v)
     v = _d2d6("*1/*13", others=[("Stargazer", "*13C/*39", "-"), ("PyPGx", "*5/*39", "-")])
@@ -227,16 +227,15 @@ def test_cyp2d6_lettered_legacy_allele_never_corroborates():
 
 def test_legacy_lettered_pattern():
     rx = cmp._LEGACY_LETTERED
-    for t in ("*13C/*39", "*4N/*4", "*36X+*10", "*13c/*39", "*4n/*4", "*36x/*10", "*4NX/*4"):
+    for t in ("*13C/*39", "*4N/*4", "*13c/*39", "*4n/*4", "*4NX/*4", "*14A/*1", "*14b/*1"):
         assert rx.search(t), t
-    for t in ("*2X2", "*10X2", "*1x2", "*68+*4", "*4.021", "*2x2/*1", "*1/*36+*10"):
+    for t in ("*2X2", "*10X2", "*1x2", "*68+*4", "*4.021", "*2x2/*1", "*1/*36+*10", "*36X+*10", "*36x/*10", "*36X/*39"):
         assert not rx.search(t), t
 
 
 def test_cyp2d6_same_diplotype_rule_survives_lettered_spelling():
-    v = _d2d6("*4/*4", others=[("Stargazer", "*4N/*4", "-")])
-    assert v["consensus_phenotype"] == "Poor Metabolizer" and v["n_agree"] == 2, v
-    assert v["phenotype_source"] == "CPIC activity score 0 from *4/*4 (same diplotype: Stargazer)", v
+    v = _d2d6("*4/*4", others=[("Stargazer", "*4N/*4", "-")])    # a lettered name is not *4: no corroboration
+    assert v["consensus_phenotype"] == "-" and v["n_agree"] == 1, v
     v = _d2d6("*1/*36+*10", others=[("Stargazer", "*1/*36X+*10", "-")])
     assert v["consensus_phenotype"] == "Normal Metabolizer" and "same diplotype: Stargazer" in v["phenotype_source"], v
     # both rules apply: the same-diplotype wording wins
@@ -262,6 +261,168 @@ def test_other_authority_gene_with_blank_phenotype_stays_blank():
     v = cmp.compute_verdict(rs, no_call=False, gene="CYP4F2")
     assert v["consensus_phenotype"] == "-" and "phenotype_source" not in v, v
 
+
+# ── PharmCAT "Unknown" is no call, not an authority answer ────────────────────
+def _pc(dip, pheno="-"):
+    return _r("PharmCAT", dip, pheno=pheno)
+
+
+def test_pharmcat_unknown_does_not_override_agreeing_callers():
+    for unk in ("Unknown/Unknown", "unknown / unknown", "No Result"):
+        rs = [_pc(unk), _r("PyPGx", "*2/*2"), _r("Stargazer", "*2/*2"), _r("Aldy", "*2/*2")]
+        v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+        assert v["consensus_diplotype"] == "*2/*2" and v["status"] == "concordant", (unk, v)
+        assert (v["n_agree"], v["n_called"]) == (3, 3), v
+        assert "PharmCAT reported no diplotype" in v["note"], v
+        assert v.get("authority") != "PharmCAT", v
+    # callers that disagree stay disagreeing: the status says so
+    rs = [_pc("Unknown/Unknown"), _r("PyPGx", "*2/*2"), _r("Stargazer", "*2/*2"), _r("Aldy", "*2/*2"),
+          _r("StellarPGx", "*2/*5", pheno="Intermediate Metabolizer")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    assert v["status"] == "majority" and (v["n_agree"], v["n_called"]) == (3, 4), v
+    # one uncorroborated caller never becomes a concordant answer: explicit no-call
+    v = cmp.compute_verdict([_pc("Unknown/Unknown"), _r("PyPGx", "*1/*3")], no_call=False, gene="CYP4F2")
+    assert v["status"] == "no_call" and v["consensus_diplotype"] == "NO_CALL" and "PyPGx *1/*3" in v["note"], v
+
+
+def test_pharmcat_real_call_stays_authority():
+    rs = [_pc("*1/*6"), _r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("Aldy", "*1/*1")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    assert v["consensus_diplotype"] == "*1/*6" and v["authority"] == "PharmCAT", v
+    assert (v["n_agree"], v["n_called"]) == (1, 4) and "note" in v and "no diplotype" not in v["note"], v
+    # on any other gene a no-call abstains too (named in the note, not counted)
+    v = cmp.compute_verdict([_pc("Unknown/Unknown"), _r("PyPGx", "*1/*2"), _r("Aldy", "*1/*2")], no_call=False, gene="NUDT15")
+    assert v["n_called"] == 2 and "PharmCAT reported no diplotype" in v["note"], v
+
+
+# ── lettered legacy names are never scored as their base star number ───────────
+def test_lettered_legacy_names_have_no_activity_score():
+    rc = cmp.reconcile
+    for t in ("*14A/*1", "*14B/*1", "*13C/*1", "*4NX/*1", "*36X/*1", "*14a/*1", "*4n/*1", "*13c/*39"):
+        base = t.split("/")[0]
+        if base == "*36X":      # Aldy's bare tandem marker, not a legacy letter: normalised, see reconcile
+            assert rc.clean_diplotype("CYP2D6", t) == "*36/*1", t
+            continue
+        assert rc.activity_score(t) is None, t
+        assert rc.canonicalize_diplotype("CYP2D6", t) != rc.canonicalize_diplotype("CYP2D6", "*1/" + base.rstrip("ABCNXabcnx")), t
+
+
+def test_copy_number_and_suballele_tokens_still_scored():
+    import json
+    rc = cmp.reconcile
+    table = json.load(open(os.path.join(HERE, "cpic_cyp2d6.json")))["alleles"]
+    assert rc.activity_score("*2X2/*1") == rc.activity_score("*2x2/*1") == table["*2x2"]["activity"] + table["*1"]["activity"]
+    assert rc.activity_score("*1x2/*1") == table["*1x2"]["activity"] + table["*1"]["activity"]
+    assert rc.activity_score("*4.021/*1") == table["*4"]["activity"] + table["*1"]["activity"]
+    assert rc.activity_score("*68+*4/*1") == table["*68+*4"]["activity"] + table["*1"]["activity"]
+    assert rc.activity_score("*36X+*10/*1") == table["*36+*10"]["activity"] + table["*1"]["activity"]
+    # the CPIC table itself says why: *14 and *114 differ in function
+    assert table["*14"]["activity"] != table["*114"]["activity"]
+
+
+# ── phenotype agreement without diplotype agreement: all readings listed, none chosen ──
+def test_phenotype_tier_lists_every_reading():
+    rs = [_r("PyPGx", "*2/*2"), _r("Stargazer", "*2/*2"), _r("Aldy", "*2/*2"), _r("StellarPGx", "*2/*5")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    assert v["consensus_diplotype"] == "*2/*2 or *2/*5", v
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and v["status"] == "concordant", v
+    assert v["diplotype_resolved"] is False and (v["n_agree"], v["n_called"]) == (4, 4), v
+    assert v["diplotype_readings"] == {"*2/*2": ["PyPGx", "Stargazer", "Aldy"], "*2/*5": ["StellarPGx"]}, v
+    assert "agree on the phenotype but not the diplotype: *2/*2 (PyPGx, Stargazer, Aldy) or *2/*5 (StellarPGx)" in v["note"], v
+    # order is by caller count, then alphabetical, whatever the input order
+    v2 = cmp.compute_verdict(list(reversed(rs)), no_call=False, gene="CYP2B6")
+    assert v2["consensus_diplotype"] == v["consensus_diplotype"], v2
+    # 2 vs 2 tie, same phenotype: alphabetical
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*4"), _r("Aldy", "*1/*4"), _r("Stargazer", "*1/*3"),
+                             _r("StellarPGx", "*1/*3")], no_call=False, gene="TPMT")
+    assert v["consensus_diplotype"] == "*1/*3 or *1/*4" and v["diplotype_resolved"] is False, v
+
+
+def test_phenotype_disagreement_stays_discordant_and_unanimous_unchanged():
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*4", pheno="Normal Metabolizer"), _r("Aldy", "*1/*4", pheno="Normal Metabolizer"),
+                             _r("Stargazer", "*1/*2", pheno="Intermediate Metabolizer"),
+                             _r("StellarPGx", "*1/*2", pheno="Intermediate Metabolizer")], no_call=False, gene="CYP2B6")
+    assert v["status"] == "discordant" and "diplotype_readings" not in v, v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*4"), _r("Aldy", "*4/*1")], no_call=False)
+    assert v["consensus_diplotype"] == "*1/*4" and "diplotype_resolved" not in v, v
+
+def test_dropped_pharmcat_no_call_leaks_neither_diplotype_nor_phenotype():
+    # HG002 CYP2B6 as stored by a production run: PharmCAT "Unknown/Unknown" with phenotype "No Result"
+    rs = [_r("PyPGx", "*2/*2", pheno="Normal Metabolizer"), _r("Stargazer", "*2/*2", pheno="normal_metabolizer"),
+          _r("Aldy", "*2/*2", pheno="Normal"), _r("StellarPGx", "*2/*5", pheno="-"),
+          _r("PharmCAT", "Unknown/Unknown", pheno="No Result")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
+    assert v["consensus_phenotype"] == "Normal Metabolizer", v
+    assert v["consensus_diplotype"] == "*2/*2 or *2/*5" and (v["n_agree"], v["n_called"]) == (3, 4), v
+    assert "PharmCAT" not in v["diplotype_readings"].get("*2/*2", []) + v["diplotype_readings"].get("*2/*5", []), v
+    # same with the phenotype column the only abstaining text, in the non-tier (vote) path
+    rs = [_r("PyPGx", "*1/*2", pheno="Normal Metabolizer"), _r("Aldy", "*1/*2", pheno="Normal Metabolizer"),
+          _r("PharmCAT", "Unknown/Unknown", pheno="No Result")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP4F2")
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and v["n_called"] == 2, v
+
+# ── review defects: abstentions, NAT2 readings, partial no-call, *36X, notes ──
+def test_nat2_phenotype_tier_readings_keep_agreed_phenotype():
+    rs = [_r("PyPGx", "*4/*5", pheno="Intermediate Metabolizer"), _r("Aldy", "*4/*5", pheno="Intermediate Metabolizer"),
+          _r("Stargazer", "*4/*6", pheno="Intermediate Metabolizer")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="NAT2")
+    assert v["consensus_diplotype"] == "*4/*5 or *4/*6" and v["consensus_phenotype"] == "Intermediate Metabolizer", v
+    rs = [_r("PyPGx", "*4/*4", pheno="Rapid Metabolizer"), _r("Aldy", "*4/*4", pheno="Rapid Metabolizer"),
+          _r("Stargazer", "*5/*6", pheno="Rapid Metabolizer")]       # readings differ in CPIC phenotype
+    v = cmp.compute_verdict(rs, no_call=False, gene="NAT2")
+    assert v["consensus_phenotype"] == "Indeterminate" and "differ in CPIC phenotype" in v["note"], v
+
+
+def test_partial_pharmcat_unknown_is_no_call_for_the_authority():
+    rs = [_pc("*1/Unknown", "Indeterminate"), _r("PyPGx", "*1/*28"), _r("Aldy", "*1/*28")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="UGT1A1")
+    assert v["consensus_diplotype"] == "*1/*28" and (v["n_agree"], v["n_called"]) == (2, 2), v
+    assert "partial diplotype" in v["note"], v
+    # one other caller only: not corroborated, PharmCAT's row stays
+    v = cmp.compute_verdict([_pc("*1/Unknown"), _r("PyPGx", "*1/*28")], no_call=False, gene="UGT1A1")
+    assert v["consensus_diplotype"] == "*1/Unknown" and v.get("authority") == "PharmCAT", v
+
+
+def test_abstaining_caller_is_not_a_dissent_or_a_count():
+    rs = [_r("PyPGx", "*1/*2"), _r("Aldy", "*1/*2"), _r("Stargazer", "Indeterminate", pheno="-")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2C9")
+    assert v["consensus_diplotype"] == "*1/*2" and (v["n_agree"], v["n_called"]) == (2, 2), v
+    assert v["status"] == "concordant" and v.get("diplotype_resolved", True) is True, v
+    assert "Stargazer" in v["note"] and v["consensus_diplotype"] != "", v
+    # PharmCAT Unknown on a non-authority gene abstains too (unanimous stays unanimous, 2-2 is not a tie)
+    rs = [_pc("Unknown/Unknown", "n/a"), _r("PyPGx", "*1/*2"), _r("Aldy", "*1/*2")]
+    v = cmp.compute_verdict(rs, no_call=False, gene="CYP2C9")
+    assert (v["status"], v["n_agree"], v["n_called"]) == ("concordant", 2, 2), v
+    # "-" / empty rows are absent, not abstentions: no note
+    v = cmp.compute_verdict([_r("PharmCAT", "-"), _r("PyPGx", "*1/*2"), _r("Aldy", "*1/*2")], no_call=False, gene="CYP2B6")
+    assert "not counted" not in v.get("note", ""), v
+
+
+def test_aldy_tandem_marker_scores_like_call_cyp2d6():
+    # Cyrius *1/*10 (no phenotype) and Aldy *1/*36X+*10 share the CPIC score but not the canonical diplotype
+    rc = cmp.reconcile
+    assert rc.activity_score("*1/*10") == rc.activity_score("*1/*36X+*10") is not None
+    v = _d2d6("*1/*10", others=[("Aldy", "*1/*36X+*10", "-")])
+    assert v["consensus_phenotype"] != "-" and "same score: Aldy" in v["phenotype_source"], v
+    v = _d2d6("*1/*10", others=[("Stargazer", "*1/*13C", "-")])
+    assert v["consensus_phenotype"] == "-", v
+
+
+def test_no_call_is_never_shown_as_a_diplotype():
+    # 1. PharmCAT-authority gene, PharmCAT no-call, the others do not corroborate each other
+    v = cmp.compute_verdict([_pc("Unknown/Unknown", "n/a"), _r("PyPGx", "*1/*3"),
+                             _r("Aldy", "*1/*4", pheno="Intermediate Metabolizer")], no_call=False, gene="CYP4F2")
+    assert v["status"] == "no_call" and v["consensus_diplotype"] == "NO_CALL" and v["consensus_phenotype"] == "-", v
+    assert "PharmCAT made no call; other callers do not corroborate each other: PyPGx *1/*3; Aldy *1/*4" in v["note"], v
+    v = cmp.compute_verdict([_pc("Unknown/Unknown", "n/a")], no_call=False, gene="CYP2B6")
+    assert v["status"] == "no_call", v
+    # 2. every caller abstains on a non-PharmCAT gene
+    v = cmp.compute_verdict([_r("PyPGx", "Indeterminate", pheno="-"), _r("Aldy", "Unknown/Unknown", pheno="-")],
+                            no_call=False, gene="CYP2C9")
+    assert v["status"] == "no_call" and v["consensus_diplotype"] == "NO_CALL" and "abstained" in v["note"], v
+    # 3. the tier helper never returns an empty diplotype
+    v = cmp._phenotype_tier_verdict([("x", "Indeterminate")], ["Aldy"], ("Normal Metabolizer", 1, "x"), 1, {})
+    assert v["status"] == "no_call" and v["consensus_diplotype"] != "", v
 
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):

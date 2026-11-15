@@ -58,7 +58,7 @@ def test_notation_only_differences():
     d, _ = _cyp2d6([("PyPGx", "*3/*4"), ("Aldy", "*3/*4.021")])
     assert d == "*3/*4", d
     d, _ = _cyp2d6([("PyPGx", "*6/*35"), ("Aldy", "*6B/*35")])
-    assert d == "*6/*35", d
+    assert d is None, d                  # a legacy letter is not the base number: no agreement
     # rs tags are a real difference (never stripped) and give no score; with only two callers
     # and no phenotype for Aldy nothing can be agreed
     d, why = _cyp2d6([("PyPGx", "*2/*41"), ("Aldy", "*2+rs61737946+rs61745683/*41")])
@@ -215,6 +215,14 @@ def test_record_and_pharmcat_columns():
         assert [x["tool"] for x in c["per_caller"]] == ["PyPGx", "Aldy", "Cyrius"]
 
 
+
+def test_lettered_name_gives_no_outside_call_at_any_level():
+    for rows in ([("PyPGx", "*1/*4N"), ("Aldy", "*1/*4n")],                     # unanimous (level a)
+                 [("PyPGx", "*1/*13C"), ("Stargazer", "*1/*13C"), ("Cyrius", "*1/*13C")]):
+        cols, rec = _decide(rows)
+        assert cols is None and rec["level"] == "-" and "lettered" in rec["why"], (rows, cols, rec)
+
+
 def main():
     with tempfile.TemporaryDirectory() as out:
         # HLA four-field input is cut to two fields; basename is not assumed
@@ -254,6 +262,7 @@ def main():
     test_giab_levels()
     test_cyrius_activity_score_level()
     test_record_and_pharmcat_columns()
+    test_lettered_name_gives_no_outside_call_at_any_level()
     print("outside-call tests: PASS")
 
 

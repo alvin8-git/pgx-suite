@@ -5,6 +5,51 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-15 — PharmCAT "Unknown" is no call; lettered legacy CYP2D6 names are never scored as the base allele
+
+- `docker/pgx-compare.py` (`_compute_verdict_core`, `_is_no_diplotype`): for the PharmCAT-authority genes (UGT1A1,
+  CYP2B6, CYP4F2) a PharmCAT diplotype with no allele call (`Unknown/Unknown`, `No Result`, empty) is dropped before the
+  authority rule and the vote, so it neither overrides the agreeing callers nor counts as a dissenting one. The
+  verdict note records it. A real PharmCAT call is unchanged. Stored results: CYP2B6 HG002 (three callers `*2/*2`,
+  StellarPGx `*2/*5`) now reads `*2/*2 or *2/*5` (see the phenotype-tier item below); CYP4F2 in two samples now follows the callers (`majority` where one caller's
+  spelling differs).
+- `docker/reconcile.py` (`_clean_allele`): the legacy trailing-letter strip for CYP2D6 is removed. `*14A`, `*14B`,
+  `*13C`, `*4N` are kept as written, so they have no activity score and match only themselves in the verdict and in
+  `call_cyp2d6` (previously `*14A` scored as `*14`, decreased function, while the current `*114` has no function in
+  the CPIC table). `*2x2`/`*2X2`, `*4.021` and Aldy's `*36X` marker are unchanged. No legacy-to-current table is
+  carried: none is available from a cited source in the repo.
+- Phenotype tier (callers differ in diplotype, every phenotype-emitting caller agrees on the phenotype): the
+  verdict no longer presents one diplotype. `consensus_phenotype` is the agreed phenotype, `consensus_diplotype`
+  lists every distinct reading ("A or B", most callers first then alphabetical, the phase-ambiguity convention),
+  `diplotype_readings` maps reading to callers, `diplotype_resolved` is false and the note names the callers per
+  reading. Status stays `concordant` for the phenotype only; `n_agree` is the number of phenotype-emitting callers
+  that agree (unchanged). A caller's own "Indeterminate" is not a reading. Generic for every gene, no reference
+  table. Unanimous diplotypes, real authority calls and the CYP2D6 authority path are untouched. Stored results:
+  48 of 2571 verdicts (DPYD 25, CYP3A5 10, NUDT15 8, CYP2C19 4, TPMT 1) change only in
+  `consensus_diplotype`, `diplotype_readings`, `diplotype_resolved`, `note`; HG002 CYP2B6 reads `*2/*2 or *2/*5`.
+  `pgx-report.py` wording updated to match.
+- Review follow-ups: (1) NAT2 CPIC phenotype is computed per "A or B" reading (same phenotype kept; otherwise
+  Indeterminate with the readings in the note). (2/3) A PharmCAT diplotype with no call or an unknown half
+  (`*1/Unknown`) leaves the authority rule only when the other callers corroborate each other (two agree on the
+  diplotype, or two agree on the phenotype); otherwise PharmCAT's row stays as before. (5/6/9) A caller whose
+  diplotype is a no-call (`Unknown/Unknown`, `Indeterminate`, `No Result`), on any gene, abstains: not in the vote,
+  not in `n_called`, named in the note; "-"/empty rows add no note. Stored results: 5 CYP2D6 verdicts (`n_called`
+  4 -> 3, one phenotype spelling, readings without the "Indeterminate" caller); 1 status change (ILMN CYP4F2
+  concordant -> majority, same as the PharmCAT no-call drop). (4) A CYP2D6 diplotype with a lettered legacy name
+  gives no outside call at any level (`call_cyp2d6`), with the reason recorded. (7) `reconcile.LEGACY_LETTERED`:
+  Aldy's bare `*36X`/`*36x` marker is notation, scored and counted by both the verdict and `call_cyp2d6`; true
+  letters (`*13C`, `*4N`, `*14A`) are not. No stored outside call changed.
+- A no-call is never shown as a diplotype: a PharmCAT-authority gene whose PharmCAT call is empty and whose other
+  callers do not corroborate each other, and a gene where every caller abstains, give the explicit `no_call` verdict
+  (`NO_CALL`, phenotype "-", reason in `note`); the tier helper never returns an empty diplotype. No stored verdict
+  changes to `no_call`.
+- Tests: `docker/test_verdict.py` (PharmCAT no-call, real call, lettered names, copy-number tokens against
+  `cpic_cyp2d6.json`); `test_normalise.py` and `test_outside_calls.py` updated (a letter is not the base number).
+- Regression over all stored verdicts (2571): 29 changed cells, all in PharmCAT no-call genes; 0 lettered-name cells
+  changed; `call_cyp2d6` output unchanged for every stored sample.
+
+---
+
 ## 2026-11-15 — CYP2D6 derived phenotype: corroboration by diplotype or activity score
 
 - `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): the phenotype Cyrius lacks is derived when Cyrius's

@@ -97,6 +97,10 @@ def _fmt_score(x):
 
 
 def call_cyp2d6(out):
+    return _no_lettered(_call_cyp2d6(out))
+
+
+def _call_cyp2d6(out):
     """-> dict(diplotype, phenotype, score, level, source, why, callers)."""
     res = {"gene": "CYP2D6", "diplotype": None, "phenotype": None, "score": None, "level": "-",
            "source": "", "why": "", "callers": []}
@@ -170,6 +174,16 @@ def call_cyp2d6(out):
         res.update(level="c", source=f"phenotype agreed {n}/{n}", phenotype=f"{info[0]['class']} Metabolizer")
         return res
     res["why"] = "callers disagree: " + desc
+    return res
+
+
+def _no_lettered(res):
+    """A diplotype with a legacy lettered allele name (`*4N`, `*13C`, `*14A`) is never passed to PharmCAT: it
+    cannot import it, and the letter has no cited mapping to a current star number."""
+    if res.get("diplotype") and reconcile.LEGACY_LETTERED.search(res["diplotype"]):
+        res.update(level="-", source="", why=f"diplotype {res['diplotype']} contains a legacy lettered allele name "
+                   "(no cited mapping to a current star allele): no outside call", diplotype=None,
+                   phenotype=None, score=None)
     return res
 
 
