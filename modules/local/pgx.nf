@@ -190,6 +190,49 @@ process OPTITYPE {   // sample level: one run types HLA-A/B/C
     """
 }
 
+process ABO_PILEUP {   // ABO from read-level evidence; the declared input of the ABO compare
+    tag "${g.gene}"
+    input:  tuple val(g), val(s)
+    output: tuple val(g), path('res')
+    script:
+    def G = "${OUT}/genes/${g.gene}"
+    """
+    nf_stage.sh
+    mkdir -p ${G}; python3 /opt/pgx/abo_pileup.py ${s.bam} ${s.ref} ${G}/abo_pileup.json
+    """
+}
+
+process MUTSERVE {
+    tag "${g.gene}"
+    input:  tuple val(g), val(s)
+    output: tuple val(g), path('res')
+    script:
+    def G = "${OUT}/genes/${g.gene}"
+    """
+    nf_stage.sh
+    mkdir -p ${G}/logs; rc=0
+    pgx-mt.sh ${s.bam} ${s.id} ${G} --ref ${s.ref} || rc=\$?
+    echo \$rc > ${G}/logs/mutserve.status
+    """
+}
+
+process HLA2 {   // sample level: one arcasHLA run types DQA1/DQB1/DRB1
+    label 'nested_apptainer'
+    cpus 4
+    memory '8 GB'
+    input:  val s
+    output: path 'res'
+    script:
+    def h = "${OUT}/hla2"
+    """
+    nf_stage.sh
+    mkdir -p ${h}; rc=0
+    pgx-hla2.sh ${s.bam} ${s.id} ${h} --ref ${s.ref} --sif /pgx/containers/arcashla.sif || rc=\$?
+    echo \$rc > ${h}/hla2.status
+    if [ \$rc -ne 0 ]; then echo "ERROR: HLA class II (arcasHLA) typing FAILED rc=\$rc -- DQA1/DQB1/DRB1 will be reported as failed, not clean. See hla2/ logs." >&2; fi
+    """
+}
+
 process PHARMCAT {   // sample level
     label 'nested_apptainer'
     cpus 4

@@ -12,7 +12,7 @@ inputs = [os.path.join(OUT, "genes", g, f"{g}_{SAMPLE}_detail.json") for g in TA
 output = os.path.join(OUT, "all_genes_summary.tsv")
 
 # HLA class II two-typer consensus (hla2/<S>.hla2_consensus.json), appended as
-# NEW trailing columns; the first seven columns are unchanged.
+# NEW trailing columns (HLA2*, then DecidedBy); the first seven columns are unchanged.
 h2 = {}   # "-" columns only when class II was not run
 cj = os.path.join(OUT, "hla2", f"{SAMPLE}.hla2_consensus.json")
 sp = os.path.join(OUT, "hla2", "hla2.status")
@@ -28,7 +28,7 @@ elif hla2_ran:
 with open(output, "w") as out:
     out.write("Gene\tStatus\tConsensusDiplotype\tConsensusPhenotype\t"
               "nAgree\tnCalled\tMeanDepth\t"
-              "HLA2Agreement\tHLA2Consensus\tHLA2Flags\n")
+              "HLA2Agreement\tHLA2Consensus\tHLA2Flags\tDecidedBy\n")
     for f in sorted(inputs):
         d = json.load(open(f))
         v = d.get("verdict", {})
@@ -41,4 +41,5 @@ with open(output, "w") as out:
             hc.get("agreement", "-"),
             "/".join(hc["consensus"]) if hc.get("consensus") else "-",
             "; ".join(hc.get("flags", [])) or "-",
+            "-" if v.get("authority") in (None, "", "Phenotype") else v["authority"],   # tool whose call is the verdict (an authority gene), else "-"
         ]) + "\n")

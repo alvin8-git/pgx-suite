@@ -1,12 +1,12 @@
 #!/usr/bin/env nextflow
 // pgx-suite on Nextflow DSL2 (port of docker/Snakefile; see docs/nextflow-port-plan.md).
-// Pilot scope: every rule except hla2, mutserve and abo_pileup (genes needing those are refused).
+// Every Snakefile rule; one sample per run.
 //
 //   nextflow run main.nf -profile docker --bam /path/HG002.bam --sample HG002 \
 //       --ref /path/hg38.fa --genes "CYP2D6 G6PD HLA-A" --outdir results
 
 include { PREFLIGHT; BCFTOOLS; ALDY; STELLARPGX; PYPGX_DEPTH; PYPGX_CONTROL; STARGAZER_GDF;
-          PYPGX; STARGAZER; CYRIUS; OPTITYPE; PHARMCAT; ALTCHECK; COMPARE; PROVENANCE;
+          PYPGX; STARGAZER; CYRIUS; OPTITYPE; PHARMCAT; ABO_PILEUP; MUTSERVE; HLA2; ALTCHECK; COMPARE; PROVENANCE;
           PHARMCAT_OUTSIDE; ALL_GENES_SUMMARY; BAMSTATS; REPORT; SANITY_GATE } from './modules/local/pgx'
 
 // docker/genes.tsv is the single source of truth, as for the Snakefile.
@@ -29,7 +29,8 @@ def readGenes(String path) {
 // Number of result trees COMPARE waits for, from the gene's flags (never waits on a tool that will not run).
 def nCompareInputs(Map g) {
     1 /* altcheck */ +
-    ['pypgx', 'stargazer', 'aldy', 'stellarpgx', 'cyrius', 'optitype', 'pharmcat'].count { g.tools.contains(it) } +
+    ['pypgx', 'stargazer', 'aldy', 'stellarpgx', 'cyrius', 'optitype', 'pharmcat', 'mutserve', 'arcashla'].count { g.tools.contains(it) } +
+    (g.gene == 'ABO' ? 1 : 0) +
     ((g.needs_vcf || g.tools.contains('vcf_check')) ? 1 : 0)
 }
 
@@ -60,8 +61,6 @@ workflow {
     def unknown = want - all*.gene
     if (unknown) error "unknown genes: ${unknown.join(' ')}"
     def target = all.findAll { want.contains(it.gene) }.sort { it.gene }
-    def notYet = target.findAll { g -> ['mutserve', 'arcashla'].any { g.tools.contains(it) } || g.gene == 'ABO' }
-    if (notYet) error "not yet ported (pilot): ${notYet*.gene.join(' ')}"
 
     // The sample map is a declared input of every process, so it is part of every task hash.
     def bamName = file(params.bam).name
@@ -78,6 +77,8 @@ workflow {
     aldy   = ALDY(withTool(genes, 'aldy'))
     stellar = STELLARPGX(withTool(genes, 'stellarpgx'))
     cyrius = CYRIUS(withTool(genes, 'cyrius'))
+    mut    = MUTSERVE(withTool(genes, 'mutserve'))
+    abo    = ABO_PILEUP(genes.filter { g, o -> g.gene == 'ABO' })
 
     // PyPGx / Stargazer: join the VCF and the hard SV-prep steps on the gene name
     pdep  = PYPGX_DEPTH(withTool(genes, 'pypgx').filter { g, o -> g.pypgx_sv })
@@ -92,14 +93,17 @@ workflow {
     alt  = ALTCHECK(ok)
     opti = OPTITYPE(ok)
     pc   = PHARMCAT(ok)
+    // like the Snakefile, arcasHLA runs only when a class II gene is requested
+    hla2 = HLA2(ok.filter { target.any { it.tools.contains('arcashla') } })
 
     // COMPARE: all trees routed to a gene, grouped with an exact expected count.
     // PharmCAT goes only to pharmcat-flag genes, the dependency the Snakefile declares. pgx-compare.py
     // also adds a PharmCAT cross-check to any other gene if pharmcat/pgx.report.json already exists,
     // which under Snakemake is a race (on a full genome PharmCAT usually finishes after the compares,
     // so the cross-check is usually absent). Here it is always absent for those genes: deterministic.
-    perGene = bcf.mix(aldy, stellar, cyrius, pypgx, starg)
-                 .mix(sampleTrees(genes, alt, null), sampleTrees(genes, opti, 'optitype'), sampleTrees(genes, pc, 'pharmcat'))
+    perGene = bcf.mix(aldy, stellar, cyrius, pypgx, starg, mut, abo)
+                 .mix(sampleTrees(genes, alt, null), sampleTrees(genes, opti, 'optitype'), sampleTrees(genes, pc, 'pharmcat'),
+                      sampleTrees(genes, hla2, 'arcashla'))
                  .map { g, r -> tuple(groupKey(g.gene, nCompareInputs(g)), g, r) }
                  .groupTuple()
                  .map { k, gs, rs -> tuple(gs[0], rs) }
@@ -114,6 +118,8 @@ workflow {
     outside = PHARMCAT_OUTSIDE(ok, inOrder([cmpTrees, pc, prov]))
     summary = ALL_GENES_SUMMARY(ok, cmpTrees, target*.gene)
     bstats  = BAMSTATS(ok)
-    report  = REPORT(ok, inOrder([cmpTrees, outside, bstats, summary]))
+    // outside last: the summary tree also carries compare's stage-1 pharmcat/ copy, which must not
+    // overwrite PHARMCAT_OUTSIDE's edited pharmcat/ and provenance.json
+    report  = REPORT(ok, inOrder([cmpTrees, bstats, summary, outside]))
     SANITY_GATE(ok, summary, report.collect().map { true })
 }

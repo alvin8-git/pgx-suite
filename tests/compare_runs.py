@@ -28,7 +28,7 @@ JSON_IGNORE_KEYS = {"generated_utc", "timestamp"}
 # Text log lines that carry wall-clock times or durations (Stargazer, Beagle).
 LOG_LINE_IGNORE = {
     r"/stargazer(_gdf)?/[^/]+\.log$": re.compile(
-        rb"^(\[INFO\] (Start|Elapsed) time:|(Start|End) time:|.*phasing time:|Total time:)"),
+        rb"^(\[INFO\] (Start|Elapsed) time:|(Start|End) time:|.*phasing time:|Total time:|.*:\s+\d+ (seconds?|minutes?|hours?)\s*$)"),
 }
 # provenance.json: engine and image tag differ by design; reference.path is the same string today.
 PROV_IGNORE = {"pipeline", ("tools", "snakemake"), ("tools", "nextflow")}
@@ -45,8 +45,20 @@ TMP_PREFIX = re.compile(r"^tmp[^/]*/")
 #  - pgx-compare.py adds a PharmCAT cross-check to non-PharmCAT genes only if PharmCAT finished
 #    first under Snakemake (undeclared dependency, a race); the Nextflow port never adds it.
 #  - The HTML report is rendered from the files above; it is "allowed" only when one of them was.
+#  - arcasHLA: the EM abundances and ranked allele pairs (evidence, not the call) change run to run;
+#    its log then differs too. mutserve's log carries its temp-folder name and progress bars.
 NONDET_DETAIL = [("tools", "PyPGx", "supporting_variants"), ("tools", "PyPGx", "mean_af"),
                  ("cross_check", "PharmCAT")]
+NONDET_HLA2 = ("pairs", "abundance")
+#  - OptiType: the ILP objective differs in the last floating-point digit (508.9480000000001 vs
+#    508.94800000000015); alleles and read count are compared exactly, the objective to 6 decimals.
+OBJECTIVE = re.compile(r"(Objective=|\t)(\d+\.\d+)(?=\s|$)")
+round_obj = lambda s: OBJECTIVE.sub(lambda m: f"{m.group(1)}{float(m.group(2)):.6f}", s)
+NONDET_LOGS = {   # log file -> lines masked before comparing (only consulted when bytes differ)
+    r"/hla2/arcashla_genotype\.log$": re.compile(
+        r"tmp_\w+|arcas_[0-9a-f-]+|EM converged after \d+ iterations|^\t\t.*\n", re.M),   # \t\t = abundance/pair tables
+    r"/mt-rnr1/mutserve\.log$": re.compile(r"tmp_\w+|^.*\x1b.*\n|^Execution Time:.*$", re.M),   # \x1b = progress-bar lines
+}
 
 
 def files(root):
@@ -102,9 +114,14 @@ def html_text(p):
 
 def relaxed(a, b, rel):
     """True if a and b are equal once the tool-nondeterminism rules above are applied."""
+    if re.search(r"(^|/)optitype/[^/]+_result\.tsv$", rel):
+        return round_obj(open(a).read()) == round_obj(open(b).read())
     if rel.endswith("_detail.json"):
         da, db = load_json(a, rel), load_json(b, rel)
         for d in (da, db):
+            ot = d.get("tools", {}).get("OptiType", {})
+            if isinstance(ot.get("allele_score"), str):
+                ot["allele_score"] = round_obj(ot["allele_score"])
             for path in NONDET_DETAIL:
                 node = d
                 for k in path[:-1]:
@@ -126,6 +143,21 @@ def relaxed(a, b, rel):
                 out[n] = lines
             return out
         return rows(a) == rows(b)
+    if rel.endswith(".hla2_consensus.json"):
+        def calls(p):
+            d = load_json(p, rel)
+            for g in d.get("genes", {}).values():
+                for k in NONDET_HLA2:
+                    g.get("support", {}).get("arcashla", {}).pop(k, None)
+            for g in d.get("arcashla_verbose", {}).values():
+                for k in NONDET_HLA2:
+                    g.pop(k, None)
+            return d
+        return calls(a) == calls(b)
+    for pat, rx in NONDET_LOGS.items():
+        if re.search(pat, "/" + rel):
+            mask = lambda p: rx.sub("", open(p, errors="replace").read())
+            return mask(a) == mask(b)
     if re.search(r"/stargazer/report\.tsv$", "/" + rel):
         norm = lambda p: [[",".join(sorted(c.split(","))) for c in ln.rstrip("\n").split("\t")]
                           for ln in open(p)]
