@@ -1,8 +1,8 @@
 # pgx-suite: Snakemake to Nextflow DSL2 port plan
 
-Status: **ported and validated** (see [Validation results](#validation-results)). Every Snakefile rule has a
-Nextflow process; Snakemake stays the default engine, Nextflow is opt-in. Validated with image
-`pgx-suite:211aa10`, Nextflow 25.10.4.
+Status: **ported and validated; Nextflow is the default engine** (`run_pgx_suite.sh --engine snakemake`
+keeps the Snakefile). See [Validation results](#validation-results). Validated with image
+`pgx-suite:211aa10`, Nextflow 25.10.4; rechecked after the PharmCAT race fix with `pgx-suite:604e20e`.
 
 ## Validation results
 
@@ -48,13 +48,16 @@ class was seen between two Snakemake runs or between repeated runs of the tool o
   they are why the criterion is "equals a Snakemake run".
 - Aldy: equal-scoring solutions printed in either order (CYP2A6 on HG004: 3 of 11 runs outside any engine).
 - mutserve: temp-folder name, progress bars and run time in its log.
-- The PharmCAT cross-check race below (it also changes the NUDT15 note text on HG007).
+- The PharmCAT cross-check race below, before its fix (it also changed the NUDT15 note text on HG007).
 
 Findings:
-- **Snakefile race (not fixed; owner decision).** `pgx-compare.py` adds a PharmCAT cross-check to any gene
-  if `pharmcat/pgx.report.json` already exists, but only `pharmcat`-flag genes declare that dependency. The
-  port routes PharmCAT only to the declared genes, so it never adds it: deterministic, and the Snakemake
-  output is one of its two possible outcomes.
+- **PharmCAT race (fixed in `604e20e`).** `pgx-compare.py` adds a PharmCAT cross-check to any gene PharmCAT
+  reports, but only `pharmcat`-flag genes declared PharmCAT as an input, so under Snakemake the cross-check
+  (and the NUDT15 note text) depended on which job finished first; the port at the time never added it.
+  PharmCAT is now an input of every gene in both engines, and a PharmCAT `Unknown` call (HLA before outside
+  calls, MT-RNR1) gives no cross-check. Rechecked through `run_pgx_suite.sh` on HG002 and HG007: both engines
+  0 differences with the cross-check compared strictly (15 genes carry it); verdict status, diplotype and
+  phenotype unchanged for every gene, and HG007's NUDT15 note now always names PharmCAT's evidence.
 - **Port bugs found and fixed during validation:** (1) values computed in helper functions are not part of
   a task's hash, so an early version reused one BAM's results for another on `-resume`; every process now
   takes the sample map as a declared input. (2) `REPORT` merged the summary tree after
@@ -64,7 +67,7 @@ Findings:
   after changing the order in `main.nf`, run without `-resume`.
 - Snakemake creates a rule's output folder before it runs; `COMPARE` does the same explicitly.
 
-Not done: multi-sample runs (the COMPARE group key must include the sample); `run_pgx_suite.sh --engine`;
+Not done: multi-sample runs (the COMPARE group key must include the sample);
 rootful/offline/SGE profiles; OmniGen `html`/`validate-pgx` on both trees; the open questions in section 7.
 
 Goal: run pgx-suite on the same workflow engine as SVcaller and poly-suite (Nextflow), with a leaner

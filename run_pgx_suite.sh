@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # run_pgx_suite.sh — Host-side launcher for the pgx-suite Docker pipeline
 #
-# Runs the full 31-gene PGx star-allele + HLA typing + mtDNA pipeline for a single
-# WGS sample by launching the pgx-suite Docker container with appropriate
-# volume mounts, forwarding to pgx-all-genes.sh inside.
+# Runs every gene in docker/genes.tsv for one WGS sample. Default engine: Nextflow on the
+# host (main.nf), one container per step. --engine snakemake runs the Snakefile inside one
+# container instead; both give the same results (docs/nextflow-port-plan.md).
 #
 # Usage:
 #   run_pgx_suite.sh <BAM|CRAM> [options]
@@ -12,9 +12,11 @@
 #   ./run_pgx_suite.sh /data/samples/NA12878.bam
 #   ./run_pgx_suite.sh /data/samples/NA12878.cram --output /data/pgx_out
 #   ./run_pgx_suite.sh /data/samples/NA12878.bam  --jobs 8 --output /data/out
+#   ./run_pgx_suite.sh /data/samples/NA12878.bam  --engine snakemake
 #
 # Requirements:
 #   - Docker with --privileged support
+#   - Java 17+ for the default Nextflow engine (./nextflow downloads itself on first use)
 #   - pgx-suite:latest image (docker build -t pgx-suite:latest .)
 #   - Resource directories under this repo (see PATHS section below)
 #
@@ -72,6 +74,8 @@ REF_DIR="${SCRIPT_DIR}/GRCh38"
 JOBS=4
 IMAGE="pgx-suite:latest"
 OUTPUT_HOST=""
+ENGINE="nextflow"
+RESUME=""
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -83,16 +87,19 @@ Usage: $(basename "$0") <BAM|CRAM> [options]
 Options:
   --output DIR       Parent output directory on host; results go into DIR/<SAMPLE>/
                      (default parent: <repo>/results/)
-  --jobs N           Genes to run in parallel  (default: 4)
+  --jobs N           CPUs to use               (default: 4)
   --image NAME       Docker image to use       (default: pgx-suite:latest)
+  --engine NAME      nextflow (default) or snakemake
+  --resume           nextflow only: reuse finished steps of an earlier run of the same sample
   -h, --help         Show this help
 
 Outputs written to <output>/<SAMPLE>/:
   <SAMPLE>_pgx_report.html      Standalone single-file HTML report (all genes embedded)
-  Genes/<GENE>/                 Per-gene tool outputs, comparison TSV, detail JSON
-  log/all_genes_summary.tsv     Concordance summary across all 31 genes
-  log/bam_stats.json            Coverage statistics (mosdepth per-gene depth)
-  log/<GENE>.log                Per-gene stdout/stderr logs
+  all_genes_summary.tsv         One line per gene: verdict, consensus diplotype and phenotype
+  genes/<GENE>/                 Per-gene tool outputs, comparison TSV, detail JSON, logs/
+  bam_stats.json                Coverage statistics
+  provenance.json               Image, tool versions, reference
+  pipeline_info/                nextflow only: trace, timeline and resource report
 
 Fixed resource directories (expected under ${SCRIPT_DIR}/):
   StellarPGx/              StellarPGx Nextflow pipeline
@@ -115,10 +122,17 @@ while [[ $# -gt 0 ]]; do
         --output) OUTPUT_HOST="$2"; shift 2 ;;
         --jobs)   JOBS="$2";        shift 2 ;;
         --image)  IMAGE="$2";       shift 2 ;;
+        --engine) ENGINE="$2";      shift 2 ;;
+        --resume) RESUME="-resume"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) _err "Unknown argument: $1"; usage; exit 1 ;;
     esac
 done
+
+case "$ENGINE" in
+    nextflow|snakemake) ;;
+    *) _err "--engine must be nextflow or snakemake, not '${ENGINE}'"; exit 1 ;;
+esac
 
 # ── Resolve to absolute path ──────────────────────────────────────────────────
 INPUT_HOST="$(realpath "$INPUT_HOST")"
@@ -166,6 +180,13 @@ if ! docker image inspect "$IMAGE" &>/dev/null 2>&1; then
 fi
 echo -e "  Image        ${C_GREEN}found${C_RESET}   ${C_DIM}${IMAGE}${C_RESET}"
 
+if [[ "$ENGINE" == "nextflow" ]]; then
+    if ! command -v java &>/dev/null; then
+        _err "'java' not found in PATH (Nextflow needs Java 17+). Install it, or use --engine snakemake."; exit 1
+    fi
+    echo -e "  Java         ${C_GREEN}found${C_RESET}   ${C_DIM}$(java -version 2>&1 | head -1)${C_RESET}"
+fi
+
 # ── Derive sample name and output path ────────────────────────────────────────
 SAMPLE="$(basename "$INPUT_HOST" | cut -d'.' -f1)"
 
@@ -193,35 +214,46 @@ START_TS=$(date '+%Y-%m-%d %H:%M:%S')
 # ── Banner ────────────────────────────────────────────────────────────────────
 echo -e "
 ${C_BOLD_CYAN}╔══════════════════════════════════════════════════════════════════════╗
-║              PGx Suite — 31-gene pharmacogenomics pipeline           ║
+║                PGx Suite — pharmacogenomics pipeline                 ║
 ╚══════════════════════════════════════════════════════════════════════╝${C_RESET}
   ${C_BOLD}Sample :${C_RESET}  ${C_YELLOW}${SAMPLE}${C_RESET}
   ${C_BOLD}Input  :${C_RESET}  ${C_DIM}${INPUT_HOST}${C_RESET}
   ${C_BOLD}Output :${C_RESET}  ${C_DIM}${OUTPUT_HOST}${C_RESET}
   ${C_BOLD}Image  :${C_RESET}  ${C_DIM}${IMAGE}${C_RESET}
-  ${C_BOLD}Jobs   :${C_RESET}  ${JOBS} genes in parallel
+  ${C_BOLD}Engine :${C_RESET}  ${ENGINE}
+  ${C_BOLD}CPUs   :${C_RESET}  ${JOBS}
   ${C_BOLD}Started:${C_RESET}  ${START_TS}"
 
-# ── Run the Docker container ──────────────────────────────────────────────────
-_stage "Launching pipeline (Snakemake inside container)"
-echo -e "  ${C_DIM}Container output follows — gene results stream in as they complete${C_RESET}\n"
-
-docker run \
-    --privileged \
-    --rm \
-    -v "${STELLARPGX_DIR}:/pgx/stellarpgx" \
-    -v "${CONTAINERS_DIR}:/pgx/containers" \
-    -v "${BUNDLE_DIR}:/pgx/bundle" \
-    -v "${REF_DIR}:/pgx/ref:ro" \
-    -v "${INPUT_DIR_HOST}:/pgx/data:ro" \
-    -v "${OUTPUT_HOST}:/pgx/results" \
-    "$IMAGE" \
-    snakemake \
-        -s /opt/pgx/Snakefile \
-        --cores "$JOBS" \
-        --config bam="$INPUT_CONTAINER" outdir=/pgx/results ref=/pgx/ref/hg38.fa sample="$SAMPLE"
-
-RC=$?
+# ── Run the pipeline ──────────────────────────────────────────────────────────
+RC=0
+if [[ "$ENGINE" == "nextflow" ]]; then
+    _stage "Launching pipeline (Nextflow, one container per step)"
+    # Launch folder and work folder per sample, beside the results: -resume finds its cache there,
+    # and concurrent samples do not share one.
+    NF_HOME="$(dirname "$OUTPUT_HOST")/.nextflow-run/${SAMPLE}"
+    mkdir -p "$NF_HOME"
+    ( cd "$NF_HOME" && "${SCRIPT_DIR}/nextflow" run "${SCRIPT_DIR}/main.nf" -profile docker $RESUME \
+        --bam "$INPUT_HOST" --sample "$SAMPLE" --ref "${REF_DIR}/hg38.fa" \
+        --pgx_image "$IMAGE" --max_cpus "$JOBS" --outdir "$(dirname "$OUTPUT_HOST")" \
+        -work-dir "${NF_HOME}/work" ) || RC=$?
+else
+    _stage "Launching pipeline (Snakemake inside one container)"
+    echo -e "  ${C_DIM}Container output follows — gene results stream in as they complete${C_RESET}\n"
+    docker run \
+        --privileged \
+        --rm \
+        -v "${STELLARPGX_DIR}:/pgx/stellarpgx" \
+        -v "${CONTAINERS_DIR}:/pgx/containers" \
+        -v "${BUNDLE_DIR}:/pgx/bundle" \
+        -v "${REF_DIR}:/pgx/ref:ro" \
+        -v "${INPUT_DIR_HOST}:/pgx/data:ro" \
+        -v "${OUTPUT_HOST}:/pgx/results" \
+        "$IMAGE" \
+        snakemake \
+            -s /opt/pgx/Snakefile \
+            --cores "$JOBS" \
+            --config bam="$INPUT_CONTAINER" outdir=/pgx/results ref=/pgx/ref/hg38.fa sample="$SAMPLE" || RC=$?
+fi
 
 # ── Final summary ─────────────────────────────────────────────────────────────
 ELAPSED=$(_elapsed)
@@ -244,13 +276,16 @@ echo -e "${C_BOLD_CYAN}╔══════════════════
 
   ${C_BOLD}Outputs :${C_RESET}
     ${C_BOLD_GREEN}▸${C_RESET} HTML report  ${C_DIM}${OUTPUT_HOST}/${SAMPLE}_pgx_report.html${C_RESET}
-    ${C_BOLD_GREEN}▸${C_RESET} Summary TSV  ${C_DIM}${OUTPUT_HOST}/log/all_genes_summary.tsv${C_RESET}
-    ${C_BOLD_GREEN}▸${C_RESET} Gene results ${C_DIM}${OUTPUT_HOST}/Genes/<GENE>/${C_RESET}
-    ${C_BOLD_GREEN}▸${C_RESET} Logs         ${C_DIM}${OUTPUT_HOST}/log/<GENE>.log${C_RESET}"
+    ${C_BOLD_GREEN}▸${C_RESET} Summary TSV  ${C_DIM}${OUTPUT_HOST}/all_genes_summary.tsv${C_RESET}
+    ${C_BOLD_GREEN}▸${C_RESET} Gene results ${C_DIM}${OUTPUT_HOST}/genes/<GENE>/${C_RESET}"
 
 if [[ $RC -ne 0 ]]; then
-    echo -e "\n  ${C_BOLD_YELLOW}Check per-gene logs for details:${C_RESET}"
-    echo -e "    ${C_DIM}ls ${OUTPUT_HOST}/log/*.log${C_RESET}"
+    echo -e "\n  ${C_BOLD_YELLOW}Check the logs for details:${C_RESET}"
+    if [[ "$ENGINE" == "nextflow" ]]; then
+        echo -e "    ${C_DIM}${NF_HOME}/.nextflow.log${C_RESET}"
+    else
+        echo -e "    ${C_DIM}ls ${OUTPUT_HOST}/genes/*/logs/${C_RESET}"
+    fi
 fi
 
 echo ""

@@ -56,11 +56,12 @@ The host launcher wires up every Docker mount for you. Point it at your BAM:
     --jobs 4
 ```
 
-What happens: the launcher starts the container, Snakemake expands one rule graph
-over all 31 genes (`--jobs` controls how many run at once), each caller runs as a
-non-fatal rule, `pgx-compare.py` reconciles them into a verdict per gene, BAM QC runs,
-and `pgx-report.py` writes the HTML. On a 30-50× WGS this takes a few minutes; the
-gene results stream to the console as they complete.
+What happens: the launcher starts Nextflow (`main.nf`, the default engine; `--engine snakemake`
+runs the Snakefile instead, with the same results), which runs every gene in `docker/genes.tsv`
+(`--jobs` sets the CPUs). Each caller runs as a non-fatal step in the pgx-suite container,
+`pgx-compare.py` reconciles them into a verdict per gene, BAM QC runs, and `pgx-report.py` writes
+the HTML. On GIAB HG002 and HG007 WGS with 16 CPUs this took about 16 minutes, with other runs
+sharing the host.
 
 > A single caller failing (StellarPGx is the usual one) does **not** stop the run —
 > that gene is still reported, with the failed tool marked `failed`.

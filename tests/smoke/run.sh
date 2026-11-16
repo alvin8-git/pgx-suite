@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Smoke test: run the Snakemake pipeline on a small GIAB HG002 slice (4 genes)
+# Smoke test: run the pipeline on a small GIAB HG002 slice (4 genes)
 # and check the reconciled verdict and diplotype of each gene.
 #
 #   tests/smoke/run.sh [REF_DIR]
 #
 # REF_DIR  directory holding hg38.fa + hg38.fa.fai (default: <repo>/GRCh38)
-# env:     IMAGE (default pgx-suite:latest), SMOKE_OUT (default <repo>/results/smoke),
-#          CORES (default 4)
+# env:     ENGINE (nextflow, the default, or snakemake), IMAGE (default pgx-suite:latest),
+#          SMOKE_OUT (default <repo>/results/smoke), CORES (default 4)
 # Needs the same resources as run_pgx_suite.sh: the built image, StellarPGx/,
 # StellarPGx/containers/ (stellarpgx-dev.sif, pharmcat.sif) and pypgx/pypgx-bundle/.
 # Exit 0 = every expected value matched; 1 = mismatch; 2 = pipeline or setup failure.
@@ -26,6 +26,14 @@ done
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 start=$(date +%s)
+RES="$OUT"
+if [[ "${ENGINE:-nextflow}" == "nextflow" ]]; then
+    RES="$OUT/HG002"   # Nextflow publishes to <outdir>/<sample>/
+    ( cd "$OUT" && "$REPO/nextflow" run "$REPO/main.nf" -profile test,docker -ansi-log false \
+        --pgx_image "$IMAGE" --ref "$REF_DIR/hg38.fa" --genes "$GENES" --max_cpus "${CORES:-4}" \
+        --outdir "$OUT" -work-dir "$OUT/.nf-work" ) \
+        > "$OUT/smoke.log" 2>&1 || { echo "smoke: pipeline failed, see $OUT/smoke.log" >&2; exit 2; }
+else
 docker run --privileged --rm \
     -v "$REPO/StellarPGx:/pgx/stellarpgx" \
     -v "$REPO/StellarPGx/containers:/pgx/containers" \
@@ -38,12 +46,13 @@ docker run --privileged --rm \
         --config bam=/pgx/data/HG002.smoke.bam outdir=/pgx/results sample=HG002 \
                  genes="$GENES" \
     > "$OUT/smoke.log" 2>&1 || { echo "smoke: pipeline failed, see $OUT/smoke.log" >&2; exit 2; }
+fi
 
 # Compare status, diplotype, nAgree, nCalled per gene against expected.tsv
 fail=0
 while IFS=$'\t' read -r gene want; do
     [[ "$gene" == \#* || -z "$gene" ]] && continue
-    got="$(awk -F'\t' -v g="$gene" '$1==g {print $2"\t"$3"\t"$5"\t"$6}' "$OUT/all_genes_summary.tsv")"
+    got="$(awk -F'\t' -v g="$gene" '$1==g {print $2"\t"$3"\t"$5"\t"$6}' "$RES/all_genes_summary.tsv")"
     if [[ "$got" == "$want" ]]; then
         printf 'PASS  %-8s %s\n' "$gene" "${want//$'\t'/ }"
     else
@@ -52,8 +61,8 @@ while IFS=$'\t' read -r gene want; do
     fi
 done < "$HERE/expected.tsv"
 
-[[ -s "$OUT/HG002_pgx_report.html" ]] || { echo "FAIL  HTML report not written"; fail=1; }
-grep -q '"alt_aware": "yes"' "$OUT/alt_aware.json" && echo "PASS  altcheck alt_aware=yes" \
+[[ -s "$RES/HG002_pgx_report.html" ]] || { echo "FAIL  HTML report not written"; fail=1; }
+grep -q '"alt_aware": "yes"' "$RES/alt_aware.json" && echo "PASS  altcheck alt_aware=yes" \
     || { echo "FAIL  altcheck did not report alt_aware=yes"; fail=1; }
-echo "smoke: $(( $(date +%s) - start )) s, output in $OUT"
+echo "smoke (${ENGINE:-nextflow}): $(( $(date +%s) - start )) s, output in $RES"
 exit $fail
