@@ -11,4 +11,4 @@ set -euo pipefail
 OUT=$(realpath -m "${1:?usage: build-t1k-index.sh OUT_DIR [IMAGE]}"); IMG="${2:-pgx-suite:latest}"
 mkdir -p "$OUT"
 docker run --rm --entrypoint bash -v "$OUT:/out" -v "$(realpath "$HLA_DAT"):/in/hla.dat:ro" "$IMG" \
-    -c 'perl /opt/t1k/t1k-build.pl -o /out -d /in/hla.dat && ls -l /out/hlaidx_dna_seq.fa'
+    -c 'perl /opt/t1k/t1k-build.pl -o /out --prefix hlaidx -d /in/hla.dat && ls -l /out/hlaidx_dna_seq.fa'
