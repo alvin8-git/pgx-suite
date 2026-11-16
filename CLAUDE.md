@@ -20,10 +20,15 @@ docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
 ./docker/docker-run.sh -- bash /opt/pgx/test.sh
 
 # Full pipeline, all genes, one sample — host-side launcher (handles all mounts):
-./run_pgx_suite.sh /path/to/sample.bam [--ref REF.fa] [--output DIR] [--jobs N]
+./run_pgx_suite.sh /path/to/sample.bam [--output DIR] [--jobs N] [--engine nextflow|snakemake] [--resume]
 ```
 
-Inside the container the orchestrator is **Snakemake** (`/opt/pgx/Snakefile`):
+The default engine is **Nextflow** on the host (`main.nf`, `modules/local/pgx.nf`, `bin/`): one container per
+step, same commands as the Snakefile. Its output must stay equal to a Snakemake run: check a change with
+`tests/smoke/run.sh` (both `ENGINE=nextflow` and `ENGINE=snakemake`) and `tests/compare_runs.py` on a full sample
+(results in `docs/nextflow-port-plan.md`). A change to a Snakefile rule needs the same change in its process.
+
+The fallback engine is **Snakemake** inside the container (`/opt/pgx/Snakefile`):
 - All genes: `snakemake -s /opt/pgx/Snakefile --cores N --config bam=/pgx/data/<sample>.bam outdir=/pgx/results`
 - One gene (debug): add `genes="CYP2D6"` to `--config` (space-separated for several).
 - CRAM input: also pass `depth_bam=<extracted-region-bam>` (see the `depth_bam` note in the Snakefile).

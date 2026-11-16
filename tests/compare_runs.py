@@ -42,13 +42,10 @@ TMP_PREFIX = re.compile(r"^tmp[^/]*/")
 #  - PyPGx: the per-allele evidence column VariantData (and what pgx-compare.py derives from it)
 #    changes run to run; Genotype/Phenotype do not.
 #  - Stargazer: candidate-allele lists in report.tsv come out in a different order.
-#  - pgx-compare.py adds a PharmCAT cross-check to non-PharmCAT genes only if PharmCAT finished
-#    first under Snakemake (undeclared dependency, a race); the Nextflow port never adds it.
 #  - The HTML report is rendered from the files above; it is "allowed" only when one of them was.
 #  - arcasHLA: the EM abundances and ranked allele pairs (evidence, not the call) change run to run;
 #    its log then differs too. mutserve's log carries its temp-folder name and progress bars.
-NONDET_DETAIL = [("tools", "PyPGx", "supporting_variants"), ("tools", "PyPGx", "mean_af"),
-                 ("cross_check", "PharmCAT")]
+NONDET_DETAIL = [("tools", "PyPGx", "supporting_variants"), ("tools", "PyPGx", "mean_af")]
 NONDET_HLA2 = ("pairs", "abundance")
 #  - OptiType: the ILP objective differs in the last floating-point digit (508.9480000000001 vs
 #    508.94800000000015); alleles and read count are compared exactly, the objective to 6 decimals.
@@ -158,8 +155,6 @@ def relaxed(a, b, rel):
                     node = node.get(k, {}) if isinstance(node, dict) else {}
                 if isinstance(node, dict):
                     node.pop(path[-1], None)
-            if d.get("cross_check") == {}:
-                d.pop("cross_check")
         return da == db
     if rel.endswith(".zip") and "/pypgx/" in "/" + rel:
         def rows(p):

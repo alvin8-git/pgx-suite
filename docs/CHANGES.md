@@ -5,6 +5,18 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-16 (Nextflow is the default engine; PharmCAT cross-check race fixed)
+
+- `run_pgx_suite.sh --engine nextflow|snakemake`, default `nextflow`; `--resume` for Nextflow. Printed output
+  paths now match the real layout, and a failed run reaches the end-of-run summary.
+- `tests/smoke/run.sh` runs Nextflow by default, `ENGINE=snakemake` for the Snakefile; both pass (62 s / 47 s).
+- PharmCAT is a declared input of every gene's compare (Snakefile and `main.nf`). `pgx-compare.py` adds an
+  informational PharmCAT cross-check to every gene PharmCAT reports; before, only `pharmcat`-flag genes waited
+  for PharmCAT, so the cross-check and the NUDT15 note text depended on job order. A PharmCAT `Unknown` call
+  now gives no cross-check (`test_pharmcat.py`). HG002 and HG007 through the launcher: both engines 0
+  differences, 15 genes carry the cross-check, no verdict status, diplotype or phenotype changed.
+- `tests/compare_runs.py` no longer allows a cross-check difference.
+
 ## 2026-11-16 (Nextflow engine, opt-in)
 
 - `main.nf`, `modules/local/pgx.nf`, `nextflow.config`, `bin/`: a Nextflow DSL2 port of `docker/Snakefile`, one
