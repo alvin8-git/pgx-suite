@@ -14,7 +14,7 @@ same results.
 ## Quick start
 
 ```bash
-git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git   # see "Known install issue"
+git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git
 cd pgx-suite
 docker build --build-arg PGX_VERSION=$(git rev-parse --short HEAD) -t pgx-suite:latest .
 # put the reference data in place: GRCh38/, pypgx/pypgx-bundle/, StellarPGx/containers/ (see Reference data)
@@ -23,11 +23,6 @@ tests/smoke/run.sh                                      # 4 genes on a 6.6 MB HG
 ```
 
 Open `results/<sample>/<sample>_pgx_report.html` in a browser; it works offline.
-
-> **Known install issue.** The `pypgx` submodule points at commit `a7dc471`, which holds local
-> pandas 2.x fixes and is not on the upstream repository. A fresh `git clone --recurse-submodules`
-> therefore stops with `upload-pack: not our ref a7dc471...`, and `docker build` needs that commit.
-> Until the patched commit is published, the build only works from an existing checkout that has it.
 
 ## What it does and does not do
 
@@ -99,11 +94,15 @@ and the ABO/HLA class II contract files. Keep their schemas stable.
 ## Installation
 
 ```bash
-git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git   # see "Known install issue"
+git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git
 cd pgx-suite
 docker build --build-arg PGX_VERSION=$(git rev-parse --short HEAD) -t pgx-suite:latest .
 docker run --rm pgx-suite:latest bash /opt/pgx/test.sh   # tool checks, no data needed (a few minutes)
 ```
+
+The `pypgx` submodule is [alvin8-git/pypgx](https://github.com/alvin8-git/pypgx), branch
+`pgx-suite-patches`: upstream PyPGx 0.26.0 plus three pandas 2.x fixes. Already cloned without
+submodules? Run `git submodule update --init --recursive`.
 
 `test.sh` prints `Results: 21 PASSED | 2 FAILED`, with 4 checks skipped because no SIFs are mounted.
 The two failures (`omnigen_addons imports`, `abo_allele_defs.json UNVALIDATED`) are out-of-date
@@ -370,7 +369,7 @@ Only problems recorded in this repo's docs and history.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `git clone --recurse-submodules` fails: `not our ref a7dc471...` in `pypgx` | the patched pypgx commit is not public | see [Known install issue](#quick-start) |
+| `docker build` fails copying `pypgx/` | submodules not checked out | `git submodule update --init --recursive` |
 | `'java' not found in PATH` | Nextflow needs Java 17+ | install Java, or use `--engine snakemake` |
 | CYP2D6 and other paralog genes `no_call`, "not ALT-aware" banner | BAM aligned without ALT contigs or with minimap2 | Re-align with bwa-mem against GRCh38 with ALT contigs and the `.alt` file |
 | `FATAL: could not open image` | SIF folder not mounted | Keep the SIFs in `StellarPGx/containers/` (mounted at `/pgx/containers`) |
@@ -397,7 +396,7 @@ The repository and the image contain third-party code with its own terms:
 
 | Component | Licence (as stated in the repo) |
 |---|---|
-| PyPGx (submodule) | MIT (`pypgx/LICENSE`) |
+| PyPGx (submodule, fork with pandas 2.x fixes) | MIT (`pypgx/LICENSE`) |
 | StellarPGx (submodule) | MIT (`StellarPGx/LICENSE`) |
 | Stargazer 2.0.3 (vendored) | University of Washington, non-commercial (`stargazer-grc38-2.0.3/LICENSE`) |
 | Aldy 4.8.3 (pip) | Aldy/IURTC licence, academic and non-commercial use (`pip show aldy`) |

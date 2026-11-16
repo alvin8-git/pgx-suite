@@ -1,6 +1,7 @@
 [submodule "pypgx"]
 	path = pypgx
-	url = https://github.com/sbslee/pypgx
+	url = https://github.com/alvin8-git/pypgx.git
+	branch = pgx-suite-patches
 [submodule "StellarPGx"]
 	path = StellarPGx
 	url = https://github.com/SBIMB/StellarPGx.git
