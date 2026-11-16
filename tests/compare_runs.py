@@ -114,6 +114,29 @@ def html_text(p):
 
 def relaxed(a, b, rel):
     """True if a and b are equal once the tool-nondeterminism rules above are applied."""
+    #  - arcasHLA lists a locus' two alleles in either order (1 run in 10 for HG001 B, also when the
+    #    same Nextflow task is rerun); compared as unordered pairs.
+    if re.search(r"(^|/)hla2/[^/]+\.genotype\.json$", rel):
+        pairs = lambda p: {k: sorted(v) if isinstance(v, list) else v for k, v in load_json(p, rel).items()}
+        return pairs(a) == pairs(b)
+    #  - Aldy prints equal-scoring solutions' alleles in either order and assigns variants to copy 0/1
+    #    accordingly (seen in 3 of 11 runs of CYP2A6 on HG004 outside any engine); compared as sets,
+    #    the Major/Minor call strictly.
+    if re.search(r"(^|/)aldy/[^/]+\.aldy$", rel):
+        def aldy(p):
+            sol, rows = [], []
+            for ln in open(p):
+                if ln.startswith("#Solution"):
+                    head, _, rest = ln.partition(":")
+                    alle, _, tail = rest.partition(";")
+                    sol.append((head, tuple(sorted(re.findall(r"\*\([^)]*\)|\*[^,]+", alle))), tail))
+                elif ln.startswith("#"):
+                    sol.append(ln)
+                else:
+                    c = ln.rstrip("\n").split("\t")
+                    rows.append(tuple(c[:5] + c[6:]) if len(c) > 6 else tuple(c))   # drop Copy
+            return sol, sorted(rows)
+        return aldy(a) == aldy(b)
     if re.search(r"(^|/)optitype/[^/]+_result\.tsv$", rel):
         return round_obj(open(a).read()) == round_obj(open(b).read())
     if rel.endswith("_detail.json"):
@@ -122,6 +145,13 @@ def relaxed(a, b, rel):
             ot = d.get("tools", {}).get("OptiType", {})
             if isinstance(ot.get("allele_score"), str):
                 ot["allele_score"] = round_obj(ot["allele_score"])
+            al = d.get("tools", {}).get("Aldy", {})   # same Aldy order rule as above
+            if isinstance(al.get("supporting_variants"), list):
+                al["supporting_variants"] = sorted(   # drop the copy label (0/1 swaps with the order)
+                    ({k: v for k, v in sv.items() if k != "allele"} if isinstance(sv, dict) else sv
+                     for sv in al["supporting_variants"]), key=json.dumps)
+            if isinstance(al.get("dbsnp_ids"), str):
+                al["dbsnp_ids"] = sorted(al["dbsnp_ids"].split(", "))
             for path in NONDET_DETAIL:
                 node = d
                 for k in path[:-1]:

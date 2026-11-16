@@ -5,6 +5,19 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-16 (Nextflow engine, opt-in)
+
+- `main.nf`, `modules/local/pgx.nf`, `nextflow.config`, `bin/`: a Nextflow DSL2 port of `docker/Snakefile`, one
+  process per rule with the same commands, container paths and status-file convention. Snakemake stays the
+  default; the Snakefile and pipeline scripts are unchanged.
+- Validation (image `211aa10`): on HG001 to HG007, all genes, the Nextflow output equals a Snakemake run file for
+  file; every remaining difference is tool nondeterminism also seen between two Snakemake runs or repeated tool
+  runs (arcasHLA, Aldy, OptiType, PyPGx, Stargazer/Beagle, mutserve logs, the PharmCAT cross-check race).
+  Details and wall times: `docs/nextflow-port-plan.md`, "Validation results".
+- `tests/compare_runs.py`: compares two result trees, lists allowed tool nondeterminism separately.
+- Found, not fixed (owner decision): the Snakefile does not declare PharmCAT as an input of non-PharmCAT genes,
+  yet `pgx-compare.py` adds a PharmCAT cross-check to them when PharmCAT finished first.
+
 ## 2026-11-15 (code-review fixes, split rule and lookups)
 
 Fixes to the uncommitted split-phenotype / CPIC-table work after a /code-review medium.

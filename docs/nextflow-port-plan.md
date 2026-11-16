@@ -1,42 +1,71 @@
 # pgx-suite: Snakemake to Nextflow DSL2 port plan
 
-Status: **Phase 0 and Phase 1 pilot done** (see [Pilot results](#pilot-results)); Snakemake stays the
-default engine. Written against HEAD `f1eeadb`; pilot run with image `pgx-suite:b53f121`, Nextflow 25.10.4.
+Status: **ported and validated** (see [Validation results](#validation-results)). Every Snakefile rule has a
+Nextflow process; Snakemake stays the default engine, Nextflow is opt-in. Validated with image
+`pgx-suite:211aa10`, Nextflow 25.10.4.
 
-## Pilot results
+## Validation results
 
-Pilot code: `main.nf`, `modules/local/pgx.nf`, `nextflow.config`, `bin/` (the Snakefile's inline `run:`
-blocks moved verbatim), comparison tool `tests/compare_runs.py`. Genes needing `hla2`, `mutserve` or
-`abo_pileup` are refused ("not yet ported"). One sample per run.
+Code: `main.nf`, `modules/local/pgx.nf`, `nextflow.config`, `bin/` (the Snakefile's inline `run:` blocks
+moved verbatim), comparison tool `tests/compare_runs.py`. One sample per run.
+
+**Criterion:** Nextflow reproduces a Snakemake result: on every GIAB sample, all genes, its output equals a
+Snakemake run of the same image file for file (`compare_runs.py`: 0 differences). Because some tools are
+not reproducible run to run, Snakemake was run twice per sample.
+
+| Sample | Nextflow vs Snakemake run 1 | vs run 2 | Snakemake run 1 vs run 2 | Wall time Snakemake 1 / 2 / Nextflow |
+|---|---|---|---|---|
+| HG001 | 0 differences | 0 | 0 | 1246 / 1282 / 1092 s |
+| HG002 | 0 | 0 | 0 | 1340 / 1203 / 1075 s |
+| HG003 | 0 | 0 | 0 | 1127 / 1183 / 860 s |
+| HG004 | 0 | 0 | 0 | 1040 / 1007 / 956 s |
+| HG005 | 0 | 0 | 0 | 1170 / 1023 / 917 s |
+| HG006 | 0 | 0 | 0 | 1184 / 984 / 961 s |
+| HG007 | 8 | **0** | 8 (the same 8 files) | 486 / 397 / 377 s |
+
+Wall times: 16 CPUs per run, the Snakemake and Nextflow runs of a sample concurrently, two samples at a time.
+
+Other checks (same image):
 
 | Check | Result |
 |---|---|
-| Snakemake vs Snakemake, HG002 WGS, CYP2D6 G6PD HLA-A (determinism pre-check, 5.3) | 0 differences, 6 allowed |
-| Injected diplotype change | detected |
-| Nextflow vs Snakemake, smoke slice (CYP2C19 CYP3A5 NAT2 VKORC1) | 0 differences, 2 allowed |
-| Nextflow vs Snakemake run 1 / run 2, HG002 WGS, CYP2D6 G6PD HLA-A | 0 / 0 differences (6 / 5 allowed) |
-| `-resume` with a different BAM | 0 tasks cached (all 28 rerun) |
-| `-resume` with the same BAM | 28 cached, 4 s, outputs identical |
-| Aldy forced to fail (slice, CYP2C19) | both engines: Aldy `failed`, gene still called; outputs identical |
-| OptiType forced to fail (WGS, HLA-A) | both engines: `optitype.status` 1, HLA-A `no_data`, report written, sanity gate fails as designed; 0 differences, 2 allowed |
-| Wall time, 8 CPUs, WGS 3 genes | Snakemake 352 s / 399 s, Nextflow 304 s |
+| Calls reported by OmniGen for HG001 to HG007 (2026-11-16 regeneration: actionable PGx genes, HLA class I and II, ABO) | Nextflow 75/75 match; Snakemake 74/75 (HG007 DQB1 third field, below) |
+| Unit tests `docker/test_*.py` (13), `compare_runs.py --selftest` | pass |
+| Truncated BAM | both engines stop before any caller (`PREFLIGHT` / startup check), exit 1 |
+| Nextflow killed after 2 tasks, then `-resume` (smoke slice) | 2 tasks reused, rest rerun; 0 differences vs Snakemake |
+| `-resume` with a different BAM / the same BAM (pilot) | 0 cached / all cached, outputs identical |
+| Aldy forced to fail (slice) / OptiType forced to fail (WGS) (pilot) | identical on both engines; failed tool reported as `failed`, report written |
 
-"Allowed" differences are tool nondeterminism already seen between two Snakemake runs, listed by
-`compare_runs.py`, never silently accepted: PyPGx `VariantData` evidence column (calls unchanged),
-Stargazer candidate-list order, log timestamps, and the PharmCAT cross-check below.
+"Allowed" differences are tool nondeterminism, listed by `compare_runs.py`, never silently accepted. Each
+class was seen between two Snakemake runs or between repeated runs of the tool outside any engine:
+- PyPGx: the `VariantData` evidence column (calls unchanged).
+- Stargazer: candidate-allele list order; Beagle step durations in its logs.
+- OptiType: the ILP objective's last floating-point digit (alleles and read count compared exactly).
+- arcasHLA: EM abundances and ranked pairs; allele order within a locus (HG001 B: 1 run in 10, also when
+  the same Nextflow task was rerun three times). Its third-field call is **not** reproducible either: HG007
+  DQB1 was `03:03:02/03:03:38` in Snakemake run 2, Nextflow and the earlier server run, `03:03:02/03:03:02`
+  in Snakemake run 1 (two-field consensus `DQB1*03:03` in all). Call-level differences are never "allowed";
+  they are why the criterion is "equals a Snakemake run".
+- Aldy: equal-scoring solutions printed in either order (CYP2A6 on HG004: 3 of 11 runs outside any engine).
+- mutserve: temp-folder name, progress bars and run time in its log.
+- The PharmCAT cross-check race below (it also changes the NUDT15 note text on HG007).
 
 Findings:
 - **Snakefile race (not fixed; owner decision).** `pgx-compare.py` adds a PharmCAT cross-check to any gene
-  if `pharmcat/pgx.report.json` already exists, but only `pharmcat`-flag genes declare that dependency. On a
-  full HG002 Snakemake run 1 of 42 genes had the cross-check. The port routes PharmCAT only to the declared
-  genes, so it never adds it: deterministic, and the Snakemake output is one of its two possible outcomes.
-- **Port cache bug (fixed).** Values computed in helper functions are not part of a task's hash; an early
-  version reused smoke-slice results for the WGS BAM on `-resume`. Every process now takes the sample map
-  as a declared input.
+  if `pharmcat/pgx.report.json` already exists, but only `pharmcat`-flag genes declare that dependency. The
+  port routes PharmCAT only to the declared genes, so it never adds it: deterministic, and the Snakemake
+  output is one of its two possible outcomes.
+- **Port bugs found and fixed during validation:** (1) values computed in helper functions are not part of
+  a task's hash, so an early version reused one BAM's results for another on `-resume`; every process now
+  takes the sample map as a declared input. (2) `REPORT` merged the summary tree after
+  `PHARMCAT_OUTSIDE`'s, so a stale stage-1 `pharmcat/` overwrote the outside-call results;
+  `PHARMCAT_OUTSIDE` now merges last. The 3-gene pilot could not show (2): none of its genes route PharmCAT.
+- `-resume` does not notice a change that only reorders a process's input files (the merge order above);
+  after changing the order in `main.nf`, run without `-resume`.
 - Snakemake creates a rule's output folder before it runs; `COMPARE` does the same explicitly.
 
-Not done (Phase 2+): `hla2`, `mutserve`, `abo_pileup`; multi-sample runs (the COMPARE group key must
-include the sample); `run_pgx_suite.sh --engine`; rootful/offline/SGE profiles; the full validation set.
+Not done: multi-sample runs (the COMPARE group key must include the sample); `run_pgx_suite.sh --engine`;
+rootful/offline/SGE profiles; OmniGen `html`/`validate-pgx` on both trees; the open questions in section 7.
 
 Goal: run pgx-suite on the same workflow engine as SVcaller and poly-suite (Nextflow), with a leaner
 deployment, while producing **the same results** as the current Snakemake pipeline. The port is accepted

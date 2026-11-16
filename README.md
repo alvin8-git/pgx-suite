@@ -70,9 +70,17 @@ and the ABO/HLA class II contract files. Keep their schemas stable.
 | Disk | image 2 GB + resources about 6 GB (table below) + about 45 MB output per sample | yes |
 | Input | GRCh38 BAM or CRAM with index, aligned by bwa-mem against a reference with ALT contigs | yes |
 
-Nextflow 25.10.4 is also in the image, but only because StellarPGx is itself a Nextflow pipeline.
-Porting pgx-suite from Snakemake to Nextflow (the engine of SVcaller and poly-suite) is a
-**proposal only**: a draft plan exists but is not committed, and nothing has been converted.
+Snakemake inside the container is the default engine. A Nextflow port (`main.nf`, the engine of SVcaller
+and poly-suite) runs the same commands in the same image and is opt-in. On HG001 to HG007, all genes, its
+output equals a Snakemake run file for file; see
+[docs/nextflow-port-plan.md](docs/nextflow-port-plan.md#validation-results). It needs Nextflow 25.10 or
+later on the host and runs one sample per run:
+
+```bash
+./nextflow run main.nf -profile docker --bam /path/HG002.bam --sample HG002 \
+    --ref /path/hg38.fa --pgx_image pgx-suite:latest --outdir results     # add --genes "CYP2D6 NAT2" for a subset
+./nextflow run main.nf -profile test,docker --pgx_image pgx-suite:latest  # the smoke-test slice
+```
 
 ## Installation
 
