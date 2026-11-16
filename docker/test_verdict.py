@@ -717,6 +717,68 @@ def test_unscorable_reading_with_an_extra_deviating_component_is_a_split():
     assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
 
 
+def test_extra_variant_tag_votes_only_when_its_cpic_function_is_normal():
+    R = cmp.reconcile
+    four = lambda aldy: [_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"), _r("Aldy", aldy)]
+    # Aldy *1/*1+rs67376798 (DPYD c.2846A>T, Decreased function) no longer votes as *1/*1
+    assert R.canonicalize_diplotype("DPYD", "*1/*1+rs67376798") != R.canonicalize_diplotype("DPYD", "*1/*1")
+    assert [x[1:] for x in R.canonical_tags("DPYD", "*1/*1+rs67376798")] == [("rs67376798", "Decreased function")]
+    v = cmp.compute_verdict(four("*1/*1+rs67376798"), no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and v["status"] != "concordant", v          # was a 4/4 concordant Normal
+    assert "Aldy *1/*1+rs67376798: tag rs67376798 is Decreased function in CPIC's allele table" in v["note"], v
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"),
+                             _r("Aldy", "*1/*1+rs67376798", pheno="Intermediate Metabolizer")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] != "Normal Metabolizer" or v["status"] != "concordant", v
+    # all-Normal tags: unchanged, still one reading, no note
+    v = cmp.compute_verdict(four("*1/*1+rs1801159"), no_call=False, gene="DPYD")
+    assert v["status"] == "concordant" and (v["n_agree"], v["n_called"]) == (4, 4) and "tag" not in v.get("note", ""), v
+    # a tag CPIC's table does not give: its own reading
+    v = cmp.compute_verdict(four("*1/*1+rs0000001"), no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and "tag rs0000001 is unknown" in v["note"], v
+    # a gene with a synonym map but no function table keeps every tag (nothing can be shown Normal)
+    with _stub(R, "_allele_functions", lambda g: None):
+        assert R.canonicalize_diplotype("DPYD", "*1/*1+rs1801159") != R.canonicalize_diplotype("DPYD", "*1/*1")
+        assert [x[1:] for x in R.canonical_tags("DPYD", "*1/*1+rs1801159")] == [("rs1801159", "unknown")]
+    # two callers on the tagged reading are a reading of their own, not a vote for *1/*1
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("PharmCAT", "*1/*1"),
+                             _r("Aldy", "*1/*1+rs67376798"), _r("Stargazer", "*1/*1+rs67376798")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and v["status"] != "concordant", v
+
+
+def test_tag_vote_review_fixes():
+    R = cmp.reconcile
+    c = lambda d, g="DPYD": R.canonicalize_diplotype(g, d)
+    # (1) an HGVS tag keeps its own `+` and resolves (c.1905+1G>A is *2A, No function)
+    assert R._split_tags("*1+c.1905+1G>A") == ("*1", ["c.1905+1g>a"]), R._split_tags("*1+c.1905+1G>A")
+    assert c("*1/*1+c.1905+1G>A") == c("*1/*1+rs3918290") != c("*1/*1")
+    assert [x[2] for x in R.canonical_tags("DPYD", "*1/*1+c.1905+1G>A")] == ["No function"]
+    assert R._strip_allele("c.1905+1G>A") == "c.1905+1g>a"
+    # (4) only the blocking tags are in the key; a Normal tag beside them is dropped
+    assert c("*1/*1+rs1801159+rs67376798") == c("*1/*1+rs67376798")
+    # (5) one variant in three notations is one key
+    assert c("*1/*1+rs67376798") == c("*1/*1+*rs67376798") == c("*1/*1+c.2846A>T") != c("*1/*1")
+    # (3) the "not counted" note only names a caller whose key differs from the consensus reading
+    same = cmp.compute_verdict([_r(t, "*1/*1+rs67376798") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="DPYD")
+    assert "not counted as agreeing" not in same["note"] and "keeps a tag that is not Normal function" in same["note"], same
+    alone = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"),
+                                 _r("Aldy", "*1/*1+rs67376798", pheno="Intermediate Metabolizer")], no_call=False, gene="DPYD")
+    assert alone["status"] == "majority" and alone["note"].count("not counted as agreeing") == 1 and "Aldy *1/*1+rs67376798" in alone["note"], alone
+    assert "PyPGx *1/*1:" not in alone["note"], alone
+    # (6) TPMT: a Normal-function tag does not stop the CPIC lookup; a tag the table does not give does (and is named)
+    assert R.thiopurine_phenotype("TPMT", "*1/*3A+*1") == R.thiopurine_phenotype("TPMT", "*1/*3A") is not None
+    assert R.thiopurine_phenotype("TPMT", "*1/*3A+rs1142345") is None
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*3A+rs1142345"), _r("Stargazer", "*1/*3A")], no_call=False, gene="TPMT")
+    assert "rs1142345 is unknown in CPIC's allele table" in v["note"], v
+    dock = open(os.path.join(HERE, "..", "Dockerfile"), encoding="utf-8").read()
+    for f in ("cpic_diplotype.json", "dpyd_notation_map.json", "allele_synonyms.json"):
+        assert f"COPY docker/{f}" in dock, f      # canonicalize_allele needs these at run time; a missing one fails loud
+    # (7) the tag list comes from the keys the vote used: an unplaceable call and a VCF-check call have none
+    assert R.canonical_tags("DPYD", "*1(het)+*2A(het) [unphased]") == [] and R.canonicalize_diplotype("DPYD", "*1(het)+*2A(het) [unphased]") is R.UNRESOLVED
+    assert R.canonical_tags("DPYD", "*2A(het)") == [] and R.canonical_tags("DPYD", "-") == []
+    # (8) the cleaned component is returned by _component_function
+    assert R._component_function("DPYD", "rs0000001")[0] == "*rs0000001"
+
+
 def test_unscorable_reading_backed_by_more_callers_is_a_split():
     base = {"consensus_diplotype": "*1/*1 or *1/*1+rs1801159", "consensus_phenotype": "Normal Metabolizer",
             "status": "concordant", "phenotype_tier": True, "authority": "Phenotype"}

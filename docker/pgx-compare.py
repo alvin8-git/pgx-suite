@@ -2303,11 +2303,40 @@ def _split_by_cpic_phenotype(v, gene):
     return v
 
 
+def _tag_notes(v, results, gene):
+    """Owner 2026-11-16: a tag that canonicalising would drop but that is not Normal function in CPIC's allele table
+    (or is unknown there) stays in the caller's key (reconcile.canonical_tags, the same keys the vote used). A caller
+    whose key then differs from every consensus reading is named as not agreeing; a tag carried by the consensus
+    reading itself is named as kept in that reading."""
+    cons = {reconcile.canonicalize_diplotype(gene, x.strip()) for x in v.get("consensus_diplotype", "").split(" or ")}
+    apart, kept = [], []
+    for r in results:
+        if r.status != "ok" or r.diplotype in ("-", ""):
+            continue
+        tags = reconcile.canonical_tags(gene, r.diplotype)
+        if not tags:
+            continue
+        what = "; ".join(f"tag {t} is {fn} in CPIC's allele table" for _, t, fn in tags)
+        (kept if reconcile.canonicalize_diplotype(gene, r.diplotype) in cons else apart).append(
+            f"{r.tool} {r.diplotype}: {what}")
+    notes = []
+    if apart:
+        notes.append("not counted as agreeing with the diplotype without the tag (" + "; ".join(apart) + ")")
+    if kept:
+        notes.append("the reading keeps a tag that is not Normal function (" + "; ".join(kept) + ")")
+    if notes:
+        v = dict(v)
+        v["note"] = "; ".join(x for x in [v.get("note", "")] + notes if x)
+    return v
+
+
 def compute_verdict(results: list[CallerResult], no_call: bool,
                     gene: str | None = None, informational: dict | None = None) -> dict[str, Any]:
     """Gene-level verdict; NAT2's and TPMT/NUDT15's phenotype is the CPIC lookup, CYP2D6's (without Cyrius) the
     outside-call agreement rule."""
     v = _compute_verdict_core(results, no_call, gene)
+    if v.get("status") in ("concordant", "majority", "discordant"):
+        v = _tag_notes(v, results, gene)
     if gene == "CYP2D6" and v.get("status") in ("concordant", "majority", "discordant") \
             and v.get("authority") != "Cyrius":
         v = _cyp2d6_agreed_phenotype(v, results)
