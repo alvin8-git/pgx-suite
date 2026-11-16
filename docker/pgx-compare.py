@@ -2300,6 +2300,8 @@ def pharmcat_cross_check(output_dir: str, gene: str, sample: str,
     r = parse_pharmcat(output_dir, gene, sample)
     if r.status != "ok" or r.diplotype in ("-", ""):
         return None
+    if all(a.strip() == "Unknown" for a in r.diplotype.split("/")):   # PharmCAT did not call it
+        return None
     v_ph = _norm_phenotype(verdict.get("consensus_phenotype", ""))
     p_ph = _norm_phenotype(r.phenotype)
     return {

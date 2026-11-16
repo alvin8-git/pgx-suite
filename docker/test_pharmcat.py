@@ -84,6 +84,13 @@ def main():
         # differs: verdict phenotype disagrees -> surfaced as a review flag, not an error
         xc2 = c.pharmcat_cross_check(gd, "CYP2C19", "S1", {"consensus_phenotype": "Normal Metabolizer"})
         assert xc2 and xc2["agrees"] is False, xc2
+        # PharmCAT did not call the gene ("Unknown/Unknown" for HLA before outside calls,
+        # "Unknown" for MT-RNR1) -> no cross-check, not a disagreement
+        _write_report(root, {"HLA-A": {"sourceDiplotypes": [{"label": "Unknown/Unknown", "phenotypes": []}]},
+                             "MT-RNR1": {"sourceDiplotypes": [{"label": "Unknown", "phenotypes": []}]}})
+        for g in ("HLA-A", "MT-RNR1"):
+            gdx = os.path.join(root, "genes", g); os.makedirs(gdx, exist_ok=True)
+            assert c.pharmcat_cross_check(gdx, g, "S1", {"consensus_phenotype": "-"}) is None, g
         # authoritative gene -> None (it's the verdict there, not a cross-check)
         _write_report(root, {"UGT1A1": {"sourceDiplotypes": [{"label": "*1/*1", "phenotypes": ["Normal"]}]}})
         gdu = os.path.join(root, "genes", "UGT1A1"); os.makedirs(gdu)

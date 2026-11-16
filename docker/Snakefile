@@ -383,8 +383,11 @@ def compare_inputs(w):
         ins["abo_pileup"] = G("ABO", "abo_pileup.json")
     if _flag(g, "optitype"):   # sample-level dependency; OptiType types all HLA class I once
         ins["optitype"] = os.path.join(OUT, "optitype", "optitype.status")
-    if _flag(g, "pharmcat"):   # sample-level dependency; PharmCAT runs once
-        ins["pharmcat"] = os.path.join(OUT, "pharmcat", "pharmcat.status")
+    # PharmCAT (sample level, runs once) is an input of EVERY gene: it is the caller for
+    # pharmcat-flag genes and an informational cross-check (pgx-compare.pharmcat_cross_check)
+    # for the others. Declaring it only for pharmcat genes made the cross-check depend on
+    # which job finished first (a race).
+    ins["pharmcat"] = os.path.join(OUT, "pharmcat", "pharmcat.status")
     if _flag(g, "arcashla"):   # sample-level dependency; arcasHLA types all HLA once
         ins["hla2"] = os.path.join(OUT, "hla2", "hla2.status")
     return ins

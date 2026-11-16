@@ -29,7 +29,8 @@ def readGenes(String path) {
 // Number of result trees COMPARE waits for, from the gene's flags (never waits on a tool that will not run).
 def nCompareInputs(Map g) {
     1 /* altcheck */ +
-    ['pypgx', 'stargazer', 'aldy', 'stellarpgx', 'cyrius', 'optitype', 'pharmcat', 'mutserve', 'arcashla'].count { g.tools.contains(it) } +
+    1 /* pharmcat */ +
+    ['pypgx', 'stargazer', 'aldy', 'stellarpgx', 'cyrius', 'optitype', 'mutserve', 'arcashla'].count { g.tools.contains(it) } +
     (g.gene == 'ABO' ? 1 : 0) +
     ((g.needs_vcf || g.tools.contains('vcf_check')) ? 1 : 0)
 }
@@ -97,12 +98,10 @@ workflow {
     hla2 = HLA2(ok.filter { target.any { it.tools.contains('arcashla') } })
 
     // COMPARE: all trees routed to a gene, grouped with an exact expected count.
-    // PharmCAT goes only to pharmcat-flag genes, the dependency the Snakefile declares. pgx-compare.py
-    // also adds a PharmCAT cross-check to any other gene if pharmcat/pgx.report.json already exists,
-    // which under Snakemake is a race (on a full genome PharmCAT usually finishes after the compares,
-    // so the cross-check is usually absent). Here it is always absent for those genes: deterministic.
+    // PharmCAT goes to every gene, as in the Snakefile: the caller for pharmcat genes, an informational
+    // cross-check for the others.
     perGene = bcf.mix(aldy, stellar, cyrius, pypgx, starg, mut, abo)
-                 .mix(sampleTrees(genes, alt, null), sampleTrees(genes, opti, 'optitype'), sampleTrees(genes, pc, 'pharmcat'),
+                 .mix(sampleTrees(genes, alt, null), sampleTrees(genes, opti, 'optitype'), sampleTrees(genes, pc, null),
                       sampleTrees(genes, hla2, 'arcashla'))
                  .map { g, r -> tuple(groupKey(g.gene, nCompareInputs(g)), g, r) }
                  .groupTuple()
