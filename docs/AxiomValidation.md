@@ -41,25 +41,25 @@ This is a substantial methodology change from the previous (4-tool, per-tool-vot
 
 ### 2.1 Samples & Sequencing QC
 
-Thirteen samples with prior Axiom microarray PGx genotyping were sequenced by WGS on two platforms. Five samples (P_62, P_93, P_670, P_1143, P_2000) had both Axiom P6 and P9 genotyping; for these, the P9 result (broader gene coverage incl. CYP2D6) is the primary Axiom reference. Depth/duplication figures below are from the full-BAM QC of the original sequencing.
+Thirteen samples with prior Axiom microarray PGx genotyping were sequenced by WGS on two platforms. Five samples (sample E, sample F, sample G, sample H, sample I) had both Axiom P6 and P9 genotyping; for these, the P9 result (broader gene coverage incl. CYP2D6) is the primary Axiom reference. Depth/duplication figures below are from the full-BAM QC of the original sequencing.
 
 | Sample | Axiom Software | ILMN Depth (Dup%) | MGI Depth (Dup%) |
 |--------|---------------|-------------------|------------------|
-| EQ_2017 | P6 | 45.3x (39.7%) | 33.9x (20.8%) |
-| EQ_2021 | P6 | 35.6x (35.7%) | 32.9x (15.5%) |
-| EQ-H05 | P6 | 30.4x (20.0%) | 28.4x (6.6%) |
-| H_342 | P6 | 30.4x (18.5%) | 43.1x (9.0%) |
-| P_62 | P9+P6 | 31.6x (29.4%) | 28.1x (25.3%) |
-| P_93 | P9+P6 | 49.8x (43.7%) | 31.7x (8.0%) |
-| P_670 | P9+P6 | 35.8x (25.9%) | 31.8x (9.0%) |
-| P_1143 | P9+P6 | 40.1x (24.4%) | 33.7x (7.2%) |
-| P_2000 | P9+P6 | 38.8x (37.9%) | 39.6x (9.5%) |
-| P_2483 | P6 | 39.2x (35.8%) | 35.0x (17.4%) |
-| P_2505 | P6 | 35.1x (19.5%) | 31.4x (6.2%) |
-| P_2820 | P6 | 39.5x (36.4%) | 29.3x (7.8%) |
-| P_2912 | P6 | 35.8x (38.9%) | 34.0x (38.3%) |
+| sample A | P6 | 45.3x (39.7%) | 33.9x (20.8%) |
+| sample B | P6 | 35.6x (35.7%) | 32.9x (15.5%) |
+| sample C | P6 | 30.4x (20.0%) | 28.4x (6.6%) |
+| sample D | P6 | 30.4x (18.5%) | 43.1x (9.0%) |
+| sample E | P9+P6 | 31.6x (29.4%) | 28.1x (25.3%) |
+| sample F | P9+P6 | 49.8x (43.7%) | 31.7x (8.0%) |
+| sample G | P9+P6 | 35.8x (25.9%) | 31.8x (9.0%) |
+| sample H | P9+P6 | 40.1x (24.4%) | 33.7x (7.2%) |
+| sample I | P9+P6 | 38.8x (37.9%) | 39.6x (9.5%) |
+| sample J | P6 | 39.2x (35.8%) | 35.0x (17.4%) |
+| sample K | P6 | 35.1x (19.5%) | 31.4x (6.2%) |
+| sample L | P6 | 39.5x (36.4%) | 29.3x (7.8%) |
+| sample M | P6 | 35.8x (38.9%) | 34.0x (38.3%) |
 
-All sequencing is 150 bp paired-end. ILMN libraries show higher duplication (18-44%) than MGI (6-38%); P_2912 is high on both (a sample-level PCR property).
+All sequencing is 150 bp paired-end. ILMN libraries show higher duplication (18-44%) than MGI (6-38%); sample M is high on both (a sample-level PCR property).
 
 ### 2.2 Genes Evaluated
 
@@ -142,7 +142,7 @@ This adjudication is why the headline 73.0% understates true performance: **42 o
 
 ### 5.2 CYP2D6 -- SV-aware authority; Cyrius abstention (17% raw)
 
-CYP2D6 is now adjudicated by **Cyrius** (paralog/CNV/hybrid-aware). Validation finding: Cyrius produces a definitive call (e.g. P_93 `*1/*13`, H_342 `*36+*10/*36+*10`) and otherwise **abstains** (`None`) on ambiguous copy-number backgrounds -- this is genuine caller behaviour, reproduced identically on full BAM and targeted extraction. When Cyrius abstains, the star-allele consensus stands and most residual differences are hybrid-allele **nomenclature** (`*36+*10` vs `*36-*10`, `*68` hybrids, `xN` vs specific copy number) tagged `review`, with a minority `ngs_unresolved` where the complex SV background cannot be resolved from short reads. No genuine functional miscalls were observed.
+CYP2D6 is now adjudicated by **Cyrius** (paralog/CNV/hybrid-aware). Validation finding: Cyrius produces a definitive call (e.g. sample F `*1/*13`, sample D `*36+*10/*36+*10`) and otherwise **abstains** (`None`) on ambiguous copy-number backgrounds -- this is genuine caller behaviour, reproduced identically on full BAM and targeted extraction. When Cyrius abstains, the star-allele consensus stands and most residual differences are hybrid-allele **nomenclature** (`*36+*10` vs `*36-*10`, `*68` hybrids, `xN` vs specific copy number) tagged `review`, with a minority `ngs_unresolved` where the complex SV background cannot be resolved from short reads. No genuine functional miscalls were observed.
 
 ### 5.3 VKORC1 -- Single-SNP, array-authoritative (54% raw; notation noise)
 
@@ -181,7 +181,7 @@ The two platforms are **equivalent** at the verdict level (1.8 pp apart; per-gen
 
 Legend: Y concordant, ~ partial (review/nomenclature), N mismatch, -- no Axiom data. Columns suffixed .M = MGI, .I = ILMN. (Full machine-readable source: `staging/validation_tables.md`.)
 
-| Gene | EQ-H05.M | EQ_2017.M | EQ_2021.M | H_342.M | P_1143.M | P_2000.M | P_2483.M | P_2505.M | P_2820.M | P_2912.M | P_62.M | P_670.M | P_93.M | EQ-H05.I | EQ_2017.I | EQ_2021.I | H-342.I | P-2912.I | P_1143.I | P_2000.I | P_2483.I | P_2505.I | P_2820.I | P_62.I | P_670.I | P_93.I |
+| Gene | sample C.M | sample A.M | sample B.M | sample D.M | sample H.M | sample I.M | sample J.M | sample K.M | sample L.M | sample M.M | sample E.M | sample G.M | sample F.M | sample C.I | sample A.I | sample B.I | sample D.I | sample M.I | sample H.I | sample I.I | sample J.I | sample K.I | sample L.I | sample E.I | sample G.I | sample F.I |
 |------|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | ABCG2 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | CYP2C19 | Y | Y | Y | Y | Y | Y | Y | ~ | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ~ | Y | Y | Y | Y |

@@ -118,3 +118,71 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
 | `ctx stats` | Call the `ctx_stats` MCP tool and display the full output verbatim |
 | `ctx doctor` | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |
+
+## Owner decisions (OmniGen suite)
+
+Decisions recorded 2026-11-15. Each is a rule plus its reason.
+
+### Suite-wide
+1. Reference data is never written from memory. Allele-function and activity tables, thresholds, coordinates and
+   gene lists come from a cited authoritative file (CPIC, PharmVar, ClinGen, GIAB) and carry a test that compares the
+   repo's table with that source. Reason: values written from memory were shown as normal on every report.
+2. A new or changed pipeline step is proven by running it on real input before commit; unit tests alone are not proof.
+   Reason: a step that passed its tests failed on every production sample.
+3. ERROR is never NEGATIVE: a step that did not run, failed, abstained or was capped is reported as such, never as
+   normal, clean or none found.
+4. A result that is not confident, or that has evidence against it, is not reported as a finding.
+5. Reportability follows curation (ClinGen, ACMG SF, GenCC, PanelApp; CPIC/PharmGKB for drug response); ClinVar is
+   cited, never decisive. Deterministic lookups only; no LLM or ad-hoc curation.
+6. What short reads at ~30x cannot resolve is stated as a limit, not hidden.
+7. Changes to this repo are made by an agent working in this repo, which also updates this repo's docs.
+8. The owner approves every commit and push; run `/code-review medium` before each push.
+9. Temporary files go in a per-project folder outside `/tmp`, one sub-folder per task. Long jobs run detached. Never `pkill -f`.
+10. This public repo carries no private sample names, paths, hostnames or credentials (GIAB ids are fine).
+
+### pgx-suite
+- CYP2D6: Cyrius is the authority. When Cyrius gives a diplotype but no phenotype, the phenotype is the CPIC
+  activity-score phenotype of that diplotype, derived only when Cyrius's filter is PASS and another caller supports
+  it by the same canonical diplotype or the same activity score. Otherwise it stays "-" with the reason in the note.
+  Voting over callers' own phenotype tables was rejected (one caller could decide). When Cyrius gave no usable call,
+  the verdict's CYP2D6 phenotype is the one the PharmCAT outside call carries (`reconcile.cyp2d6_agreement`: all callers
+  agree, same score, same CPIC class from every caller's score, or >= 3 callers sharing one exact score, none of the scoreable callers reporting an explicit Indeterminate), else `-` with the reason; NUDT15 callers that disagree on a defining allele give `-` (no tool decides NUDT15); the gene row and the drug
+  table never differ. TPMT and NUDT15 phenotypes are the CPIC diplotype-table row (`cpic_thiopurine.json`). Authority-decided
+  verdicts name the tool in `authority` (the `DecidedBy` summary column); `n_agree` is then not a caller vote. A verdict's phenotype
+  comes only from callers whose diplotype is the consensus one; callers split on a NUDT15 allele or its zygosity give `-`.
+- DPYD notation map (2026-11-15): Stargazer `*S` codes and Aldy `*rs<NNN>` tags are scored only through `docker/dpyd_notation_map.json`,
+  derived from Stargazer's shipped allele table and CPIC's allele definitions (a code maps only to one CPIC allele with the same
+  variant set; composite or undefined ones stay unscorable, never guessed). Owner decision 2026-11-15: a composite Aldy DPYD
+  haplotype (`*9A+rsX`) stays `-`; activity scores are never summed across its parts. Reason: 14 of 22 DPYD calls lost their phenotype to notation only.
+- Legacy letter fold (2026-11-15): a lettered allele folds to its numbered core only when `docker/pharmvar_legacy_suballeles.json`
+  (`fold`, derived by `pharmvar_legacy_build.py` from the dated snapshot `pharmvar_legacy_snapshot.json` of PharmVar 6.2.29's
+  rendered Legacy Label column) lists it for that gene (`*2B` -> `*2` for CYP2C19, `*3B` -> `*3` for CYP3A5). An unlisted letter is
+  unscorable and counts toward the split rule. A letter whose number differs from its core now (CYP2C19 `*1A` = `*38.001`) is `redesignated`,
+  never folded. TPMT and UGT1A1 are not maintained by PharmVar, DPYD is listed by rsID: nothing folds there. Reason: a blanket
+  letter strip would turn a re-designated or distinct allele into the wrong star.
+- Lettered legacy allele names (`*14A`, `*14B`, `*13C`, `*4N`, `*4NX`, any case) are never scored as their base star
+  number: `reconcile` keeps the letter, so the name has no activity score and matches only itself, in the verdict and
+  in `pgx_outside_calls.call_cyp2d6` alike. The repo carries no cited legacy-to-current table; adding one needs a
+  CPIC/PharmVar source and a comparison test. Copy-number tokens (`*2x2`, `*2X2`), sub-allele dots (`*4.021`) and
+  Aldy's bare tandem marker (`*36X`, notation, not a legacy letter) still normalise and score, in the verdict and
+  in `call_cyp2d6` alike.
+- A caller diplotype with no allele call (`Unknown/Unknown`, `Indeterminate`, `No Result`) abstains on every gene:
+  it is not in the vote or `n_called` and is named in the verdict note. For the PharmCAT-authority genes (UGT1A1,
+  CYP2B6, CYP4F2) a PharmCAT no-call or partial call (`*1/Unknown`) stops being the authority only when the other
+  callers corroborate each other (two agree on the diplotype or on the phenotype); otherwise the gene is an explicit
+  no-call (`NO_CALL`, reason in the note): a no-call is never shown as a diplotype and one uncorroborated caller
+  never becomes a concordant answer.
+- A CYP2D6 diplotype with a lettered legacy name gives no PharmCAT outside call at any level.
+- Diplotype disagreement with phenotype agreement: the phenotype is shown, every reading is listed (`A or B`,
+  `diplotype_readings`, `diplotype_resolved: false`), no reading is chosen. CYP2B6 `*2/*5` vs `*2/*2` differs between
+  libraries of the same person: an inherent short-read limit.
+- CYP2B6 phase ambiguity: both readings are printed; no phase is asserted.
+- Owner decision 2026-11-15: when the consensus lists two or more diplotype readings and CPIC maps them to different
+  phenotypes (CPIC diplotype tables in `docker/`; a reading CPIC cannot score counts as different), the phenotype is `-`,
+  the note names each reading's phenotype and "confirm with a targeted assay", and the status is
+  `concordant, diplotype unresolved` (a majority verdict: `majority, diplotype unresolved`), never plain `concordant`; authority
+  and DecidedBy are cleared (nothing decided the phenotype). Readings that all give one usable CPIC phenotype report CPIC's
+  phenotype (CPIC decides medicine response; a differing caller label goes in the note); all-Indeterminate readings count as a
+  split. The rule applies to every `A or B` verdict of a gene with a CPIC table, whatever tier made it. CYP2D6 is unchanged.
+- Known limits: CPIC has no activity value for some CYP2D6 alleles (`*134`, `*43`, `*86`, `*106`, `*61`, `*160`);
+  CPIC defines no CYP4F2 phenotype; CYP2B6 phase near CYP2B7 and CYP2D6 copy number need long reads or a targeted assay.

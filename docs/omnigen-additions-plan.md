@@ -296,7 +296,7 @@ host. Reference built with `arcasHLA reference --rebuild` from **IMGT/HLA 3.63.0
 (fetched from the EBI IPD-IMGT/HLA FTP because the ANHIG GitHub LFS budget was exhausted).
 Input = the HG002 30–40X MHC reads extracted at `chr6:28,510,020-33,480,577`
 (`HG002.hla.{1,2}.fq.gz`). Command:
-`arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 R1 R2 -o hla2/` (temp under `/data/alvin/tmp`).
+`arcasHLA genotype -g A,B,C,DPB1,DQA1,DQB1,DRB1 R1 R2 -o hla2/` (temp under a scratch directory).
 
 Truth = **Chin et al. 2020, "A Diploid Assembly-based Benchmark for Variants in the MHC",
 Suppl. Table 4** (HG002 clinical trio-phased typing). Concordance at 2-field

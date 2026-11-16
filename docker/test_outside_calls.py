@@ -58,7 +58,7 @@ def test_notation_only_differences():
     d, _ = _cyp2d6([("PyPGx", "*3/*4"), ("Aldy", "*3/*4.021")])
     assert d == "*3/*4", d
     d, _ = _cyp2d6([("PyPGx", "*6/*35"), ("Aldy", "*6B/*35")])
-    assert d == "*6/*35", d
+    assert d is None, d                  # a legacy letter is not the base number: no agreement
     # rs tags are a real difference (never stripped) and give no score; with only two callers
     # and no phenotype for Aldy nothing can be agreed
     d, why = _cyp2d6([("PyPGx", "*2/*41"), ("Aldy", "*2+rs61737946+rs61745683/*41")])
@@ -140,7 +140,8 @@ def test_giab_levels():
     rows = [(t, "*2/*41") for t in ("PyPGx", "Stargazer", "StellarPGx", "Cyrius")]
     rows.append(("Aldy", "*2+rs61737946+rs61745683/*41", "Indeterminate"))
     cols, rec = _decide([r for r in rows if r[0] != "Cyrius"])
-    assert cols is None and "Indeterminate" in rec["why"], (cols, rec)
+    # (owner decision 2026-11-15) three callers share score 1.25: level m passes the score; Indeterminate is named
+    assert rec["level"] == "m" and cols == ("", "", "1.25") and "dissenting: Aldy=" in rec["why"], (cols, rec)
     # with Cyrius present the three callers on *2/*41 are enough for (e); the Indeterminate caller does not
     # block it but is listed
     cols, rec = _decide(rows)
@@ -149,7 +150,8 @@ def test_giab_levels():
     # is left out of the comparison -> omitted (review 2026-11-12: a caller is never silently ignored)
     rows[-1] = ("Aldy", "*2+rs61737946+rs61745683/*41")
     cols, rec = _decide([r for r in rows if r[0] != "Cyrius"])
-    assert cols is None and "no CPIC activity score" in rec["why"], (cols, rec)
+    # (level m, owner decision 2026-11-15: three callers share 1.25; the unscored caller is named as dissenting)
+    assert rec["level"] == "m" and "dissenting: Aldy=" in rec["why"], (cols, rec)
     # an allele CPIC does not score (*79): the caller's own "Normal" label is never used -> omitted
     cols, rec = _decide([("PyPGx", "*2/*2"), ("Stargazer", "*2/*79", "Normal Metabolizer"),
                          ("Aldy", "*1/*2")])
@@ -183,8 +185,9 @@ def test_cyrius_activity_score_level():
     assert rec["level"] != "e" and cols is None, (cols, rec)
     cols, rec = _decide([("PyPGx", "*1/*10"), ("Stargazer", "*1/*10"), ("Aldy", "*1/*10"),
                          ("StellarPGx", "*1/*36+*10"), ("Cyrius", "*1/*36+*36+*10")])
-    assert oc.reconcile.activity_score("*1/*36+*36+*10") is None
-    assert rec["level"] != "e", (cols, rec)
+    # tandem repeats fold into CPIC keys (`*36x2+*10`, 0.25): Cyrius *1/*36+*36+*10 now scores 1.25 like the others
+    assert oc.reconcile.activity_score("*1/*36+*36+*10") == 1.25
+    assert rec["level"] == "b" and cols == ("", "", "1.25"), (cols, rec)
     # provenance carries the audit note
     with tempfile.TemporaryDirectory() as out:
         table(out, "CYP2D6", [(t, d, "ok") for t, d in (("PyPGx", "*2/*2"), ("Aldy", "*2/*79"),
@@ -194,6 +197,35 @@ def test_cyrius_activity_score_level():
         oc.update_provenance(out, recs)
         c = {r["gene"]: r for r in json.load(open(os.path.join(out, "provenance.json")))["pharmcat_outside_calls"]}["CYP2D6"]
         assert c["passed"] and c["level"] == "e" and c["activity_score"] == 3.0 and "dissenting" in c["note"], c
+
+
+def test_tandem_spellings_fold_into_cpic_keys():
+    rc = oc.reconcile
+    table = json.load(open(os.path.join(HERE, "cpic_cyp2d6.json")))["alleles"]
+    # repeated tandem parts -> CPIC keys that exist in the CPIC table (cpic_cyp2d6.json = CPIC API allele table)
+    for raw, key in [("*36+*36+*10", "*36x2+*10"), ("*36+*36", "*36x2"), ("*2+*2", "*2x2"), ("*36x2+*36", "*36x3"),
+                     ("*10+*36+*36", "*10+*36x2"), ("*1+*1", "*1x2")]:
+        assert rc.clean_diplotype("CYP2D6", f"{raw}/*1").split("/")[0] == key, (raw, rc.clean_diplotype("CYP2D6", raw + "/*1"))
+    for key in ("*36x2+*10", "*36x2", "*2x2", "*1x2"):
+        assert key in table, key
+    assert rc.activity_score("*36+*36+*10/*1") == table["*36x2+*10"]["activity"] + 1.0 == 1.25
+    assert rc.activity_score("*36+*10/*36+*36") == 0.25 and rc.activity_score("*36+*36/*36+*36") == 0.0
+    assert rc.activity_score("*1+*1/*10+*10") == 2.5     # Aldy's spelling: *1x2 (2.0) + *10x2 (0.5)
+    assert rc.clean_diplotype("CYP2D6", "*2+rs1/*1") == "*2+rs1/*1"      # an rs tag is never folded
+    # CPIC `x>=3` rows apply to N>=3: `*1x≥3` / `*2x≥3` activity ≥3.0 (a lower bound), `*4x≥3` 0.0 (exact)
+    assert table["*1x≥3"]["activity"] is None and table["*1x≥3"]["activity_min"] == 3.0
+    assert table["*4x≥3"]["activity"] == 0.0
+    assert rc.activity_score("*1x3/*10") is None and rc.activity_lower_bound("*1x3/*10") == 3.25
+    assert rc.activity_lower_bound("*2x4/*1") == 4.0 and rc.activity_lower_bound("*2x2/*1") is None
+    assert rc.bound_phenotype(3.25) == "Ultrarapid Metabolizer" and rc.bound_phenotype(2.0) is None
+    assert rc.activity_score("*4x3/*1") == 1.0 and rc.activity_score("*41x3/*1") == 1.75   # exact N row wins
+    assert rc.activity_score("*1x2/*2x2") == 4.0 and rc.activity_score("*10x3/*1") is None  # CPIC has no *10x3 / *10x≥3
+    # outside call: the folded spelling is what PharmCAT receives
+    d, _ = _cyp2d6([("PyPGx", "*1/*36+*36+*10"), ("Aldy", "*1/*36x2+*10")])
+    assert d == "*1/*36x2+*10", d
+    # a lower-bound caller joins level c through its CPIC class: all Ultrarapid -> phenotype only
+    cols, rec = _decide([("PyPGx", "*1x3/*10"), ("Aldy", "*2x2/*2x2"), ("Stargazer", "*2x2/*1x2")])
+    assert rec["level"] == "c" and cols == ("", "Ultrarapid Metabolizer", ""), (cols, rec)
 
 
 def test_record_and_pharmcat_columns():
@@ -213,6 +245,14 @@ def test_record_and_pharmcat_columns():
         c = g["CYP2D6"]
         assert c["passed"] and c["level"] == "b" and c["activity_score"] == 0.0 and c["diplotype"] is None
         assert [x["tool"] for x in c["per_caller"]] == ["PyPGx", "Aldy", "Cyrius"]
+
+
+
+def test_lettered_name_gives_no_outside_call_at_any_level():
+    for rows in ([("PyPGx", "*1/*4N"), ("Aldy", "*1/*4n")],                     # unanimous (level a)
+                 [("PyPGx", "*1/*13C"), ("Stargazer", "*1/*13C"), ("Cyrius", "*1/*13C")]):
+        cols, rec = _decide(rows)
+        assert cols is None and rec["level"] == "-" and "lettered" in rec["why"], (rows, cols, rec)
 
 
 def main():
@@ -254,6 +294,7 @@ def main():
     test_giab_levels()
     test_cyrius_activity_score_level()
     test_record_and_pharmcat_columns()
+    test_lettered_name_gives_no_outside_call_at_any_level()
     print("outside-call tests: PASS")
 
 

@@ -1,0 +1,989 @@
+{
+ "source": "docker/pharmvar_legacy_snapshot.json (PharmVar gene pages, Legacy Label column), derived by pharmvar_legacy_build.py",
+ "checked": "2026-11-15",
+ "fold": {
+  "CYP2C19": {
+   "*1B": {
+    "pharmvar_suballele": "CYP2C19*1.002",
+    "pharmvar_id": "PV00076",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1C": {
+    "pharmvar_suballele": "CYP2C19*1.003",
+    "pharmvar_id": "PV00077",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2A": {
+    "pharmvar_suballele": "CYP2C19*2.001",
+    "pharmvar_id": "PV03122",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2B": {
+    "pharmvar_suballele": "CYP2C19*2.002",
+    "pharmvar_id": "PV03123",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2C": {
+    "pharmvar_suballele": "CYP2C19*2.003",
+    "pharmvar_id": "PV03117",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2D": {
+    "pharmvar_suballele": "CYP2C19*2.004",
+    "pharmvar_id": "PV03118",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2E": {
+    "pharmvar_suballele": "CYP2C19*2.005",
+    "pharmvar_id": "PV03115",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2F": {
+    "pharmvar_suballele": "CYP2C19*2.006",
+    "pharmvar_id": "PV03116",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2G": {
+    "pharmvar_suballele": "CYP2C19*2.007",
+    "pharmvar_id": "PV03120",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2H": {
+    "pharmvar_suballele": "CYP2C19*2.008",
+    "pharmvar_id": "PV03121",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2J": {
+    "pharmvar_suballele": "CYP2C19*2.009",
+    "pharmvar_id": "PV03119",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3A": {
+    "pharmvar_suballele": "CYP2C19*3.001",
+    "pharmvar_id": "PV00085",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3B": {
+    "pharmvar_suballele": "CYP2C19*3.002",
+    "pharmvar_id": "PV00079",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3C": {
+    "pharmvar_suballele": "CYP2C19*3.003",
+    "pharmvar_id": "PV00082",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4A": {
+    "pharmvar_suballele": "CYP2C19*4.001",
+    "pharmvar_id": "PV00113",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4B": {
+    "pharmvar_suballele": "CYP2C19*4.002",
+    "pharmvar_id": "PV00855",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5A": {
+    "pharmvar_suballele": "CYP2C19*5.001",
+    "pharmvar_id": "PV02132",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5B": {
+    "pharmvar_suballele": "CYP2C19*5.002",
+    "pharmvar_id": "PV02133",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP2C9": {
+   "*1A": {
+    "pharmvar_suballele": "CYP2C9*1.001",
+    "pharmvar_id": "PV00030",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2C": {
+    "pharmvar_suballele": "CYP2C9*2.003",
+    "pharmvar_id": "PV00045",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3A": {
+    "pharmvar_suballele": "CYP2C9*3.001",
+    "pharmvar_id": "PV01776",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3B": {
+    "pharmvar_suballele": "CYP2C9*3.002",
+    "pharmvar_id": "PV01777",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*11A": {
+    "pharmvar_suballele": "CYP2C9*11.001",
+    "pharmvar_id": "PV00059",
+    "core_allele": "*11",
+    "pharmvar_version": "6.2.29"
+   },
+   "*11B": {
+    "pharmvar_suballele": "CYP2C9*11.002",
+    "pharmvar_id": "PV01319",
+    "core_allele": "*11",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP2B6": {
+   "*1A": {
+    "pharmvar_suballele": "CYP2B6*1.001",
+    "pharmvar_id": "PV00739",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1D": {
+    "pharmvar_suballele": "CYP2B6*1.003",
+    "pharmvar_id": "PV00828",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1E": {
+    "pharmvar_suballele": "CYP2B6*1.004",
+    "pharmvar_id": "PV00827",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1F": {
+    "pharmvar_suballele": "CYP2B6*1.005",
+    "pharmvar_id": "PV00826",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1G": {
+    "pharmvar_suballele": "CYP2B6*1.006",
+    "pharmvar_id": "PV00825",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1H": {
+    "pharmvar_suballele": "CYP2B6*1.007",
+    "pharmvar_id": "PV01403",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1J": {
+    "pharmvar_suballele": "CYP2B6*1.008",
+    "pharmvar_id": "PV02862",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1K": {
+    "pharmvar_suballele": "CYP2B6*1.009",
+    "pharmvar_id": "PV02863",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1L": {
+    "pharmvar_suballele": "CYP2B6*1.010",
+    "pharmvar_id": "PV00813",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1M": {
+    "pharmvar_suballele": "CYP2B6*1.011",
+    "pharmvar_id": "PV00812",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1N": {
+    "pharmvar_suballele": "CYP2B6*1.012",
+    "pharmvar_id": "PV02864",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2A": {
+    "pharmvar_suballele": "CYP2B6*2.001",
+    "pharmvar_id": "PV00819",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2B": {
+    "pharmvar_suballele": "CYP2B6*2.002",
+    "pharmvar_id": "PV01926",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4D": {
+    "pharmvar_suballele": "CYP2B6*4.002",
+    "pharmvar_id": "PV00791",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5A": {
+    "pharmvar_suballele": "CYP2B6*5.001",
+    "pharmvar_id": "PV02870",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5B": {
+    "pharmvar_suballele": "CYP2B6*5.002",
+    "pharmvar_id": "PV00779",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5C": {
+    "pharmvar_suballele": "CYP2B6*5.003",
+    "pharmvar_id": "PV00784",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6A": {
+    "pharmvar_suballele": "CYP2B6*6.001",
+    "pharmvar_id": "PV00799",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6B": {
+    "pharmvar_suballele": "CYP2B6*6.002",
+    "pharmvar_id": "PV01398",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6C": {
+    "pharmvar_suballele": "CYP2B6*6.003",
+    "pharmvar_id": "PV00800",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*17A": {
+    "pharmvar_suballele": "CYP2B6*17.001",
+    "pharmvar_id": "PV02882",
+    "core_allele": "*17",
+    "pharmvar_version": "6.2.29"
+   },
+   "*17B": {
+    "pharmvar_suballele": "CYP2B6*17.002",
+    "pharmvar_id": "PV00786",
+    "core_allele": "*17",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP2D6": {
+   "*1A": {
+    "pharmvar_suballele": "CYP2D6*1.001",
+    "pharmvar_id": "PV00126",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1B": {
+    "pharmvar_suballele": "CYP2D6*1.002",
+    "pharmvar_id": "PV00125",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1C": {
+    "pharmvar_suballele": "CYP2D6*1.003",
+    "pharmvar_id": "PV00128",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1D": {
+    "pharmvar_suballele": "CYP2D6*1.004",
+    "pharmvar_id": "PV00127",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1E": {
+    "pharmvar_suballele": "CYP2D6*1.005",
+    "pharmvar_id": "PV00124",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2A": {
+    "pharmvar_suballele": "CYP2D6*2.001",
+    "pharmvar_id": "PV02536",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2B": {
+    "pharmvar_suballele": "CYP2D6*2.002",
+    "pharmvar_id": "PV00150",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2C": {
+    "pharmvar_suballele": "CYP2D6*2.003",
+    "pharmvar_id": "PV00149",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2D": {
+    "pharmvar_suballele": "CYP2D6*2.004",
+    "pharmvar_id": "PV03050",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2E": {
+    "pharmvar_suballele": "CYP2D6*2.005",
+    "pharmvar_id": "PV02537",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2F": {
+    "pharmvar_suballele": "CYP2D6*2.006",
+    "pharmvar_id": "PV00147",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2G": {
+    "pharmvar_suballele": "CYP2D6*2.007",
+    "pharmvar_id": "PV00146",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2H": {
+    "pharmvar_suballele": "CYP2D6*2.008",
+    "pharmvar_id": "PV00148",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2K": {
+    "pharmvar_suballele": "CYP2D6*2.009",
+    "pharmvar_id": "PV02838",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2L": {
+    "pharmvar_suballele": "CYP2D6*2.010",
+    "pharmvar_id": "PV02538",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*2M": {
+    "pharmvar_suballele": "CYP2D6*2.011",
+    "pharmvar_id": "PV02539",
+    "core_allele": "*2",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3A": {
+    "pharmvar_suballele": "CYP2D6*3.001",
+    "pharmvar_id": "PV00221",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3B": {
+    "pharmvar_suballele": "CYP2D6*3.002",
+    "pharmvar_id": "PV00220",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4A": {
+    "pharmvar_suballele": "CYP2D6*4.001",
+    "pharmvar_id": "PV02557",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4B": {
+    "pharmvar_suballele": "CYP2D6*4.002",
+    "pharmvar_id": "PV00237",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4C": {
+    "pharmvar_suballele": "CYP2D6*4.003",
+    "pharmvar_id": "PV00236",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4D": {
+    "pharmvar_suballele": "CYP2D6*4.004",
+    "pharmvar_id": "PV00847",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4E": {
+    "pharmvar_suballele": "CYP2D6*4.005",
+    "pharmvar_id": "PV00254",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4F": {
+    "pharmvar_suballele": "CYP2D6*4.006",
+    "pharmvar_id": "PV00257",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4G": {
+    "pharmvar_suballele": "CYP2D6*4.007",
+    "pharmvar_id": "PV00256",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4H": {
+    "pharmvar_suballele": "CYP2D6*4.008",
+    "pharmvar_id": "PV02884",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4J": {
+    "pharmvar_suballele": "CYP2D6*4.009",
+    "pharmvar_id": "PV00253",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4K": {
+    "pharmvar_suballele": "CYP2D6*4.010",
+    "pharmvar_id": "PV00252",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4L": {
+    "pharmvar_suballele": "CYP2D6*4.011",
+    "pharmvar_id": "PV00248",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4M": {
+    "pharmvar_suballele": "CYP2D6*4.012",
+    "pharmvar_id": "PV02558",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4N": {
+    "pharmvar_suballele": "CYP2D6*4.013",
+    "pharmvar_id": "PV02559",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*4P": {
+    "pharmvar_suballele": "CYP2D6*4.014",
+    "pharmvar_id": "PV02560",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6A": {
+    "pharmvar_suballele": "CYP2D6*6.001",
+    "pharmvar_id": "PV00714",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6B": {
+    "pharmvar_suballele": "CYP2D6*6.002",
+    "pharmvar_id": "PV00196",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6C": {
+    "pharmvar_suballele": "CYP2D6*6.003",
+    "pharmvar_id": "PV00195",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6D": {
+    "pharmvar_suballele": "CYP2D6*6.004",
+    "pharmvar_id": "PV00712",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*10A": {
+    "pharmvar_suballele": "CYP2D6*10.001",
+    "pharmvar_id": "PV00179",
+    "core_allele": "*10",
+    "pharmvar_version": "6.2.29"
+   },
+   "*10B": {
+    "pharmvar_suballele": "CYP2D6*10.002",
+    "pharmvar_id": "PV02576",
+    "core_allele": "*10",
+    "pharmvar_version": "6.2.29"
+   },
+   "*10D": {
+    "pharmvar_suballele": "CYP2D6*10.003",
+    "pharmvar_id": "PV02577",
+    "core_allele": "*10",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14B": {
+    "pharmvar_suballele": "CYP2D6*14.001",
+    "pharmvar_id": "PV00138",
+    "core_allele": "*14",
+    "pharmvar_version": "6.2.29"
+   },
+   "*21A": {
+    "pharmvar_suballele": "CYP2D6*21.001",
+    "pharmvar_id": "PV02827",
+    "core_allele": "*21",
+    "pharmvar_version": "6.2.29"
+   },
+   "*21B": {
+    "pharmvar_suballele": "CYP2D6*21.002",
+    "pharmvar_id": "PV02828",
+    "core_allele": "*21",
+    "pharmvar_version": "6.2.29"
+   },
+   "*35A": {
+    "pharmvar_suballele": "CYP2D6*35.001",
+    "pharmvar_id": "PV02590",
+    "core_allele": "*35",
+    "pharmvar_version": "6.2.29"
+   },
+   "*35B": {
+    "pharmvar_suballele": "CYP2D6*35.002",
+    "pharmvar_id": "PV02591",
+    "core_allele": "*35",
+    "pharmvar_version": "6.2.29"
+   },
+   "*45A": {
+    "pharmvar_suballele": "CYP2D6*45.001",
+    "pharmvar_id": "PV02531",
+    "core_allele": "*45",
+    "pharmvar_version": "6.2.29"
+   },
+   "*45B": {
+    "pharmvar_suballele": "CYP2D6*45.002",
+    "pharmvar_id": "PV02532",
+    "core_allele": "*45",
+    "pharmvar_version": "6.2.29"
+   },
+   "*46A": {
+    "pharmvar_suballele": "CYP2D6*46.001",
+    "pharmvar_id": "PV02606",
+    "core_allele": "*46",
+    "pharmvar_version": "6.2.29"
+   },
+   "*46B": {
+    "pharmvar_suballele": "CYP2D6*46.002",
+    "pharmvar_id": "PV02607",
+    "core_allele": "*46",
+    "pharmvar_version": "6.2.29"
+   },
+   "*56A": {
+    "pharmvar_suballele": "CYP2D6*56.001",
+    "pharmvar_id": "PV02612",
+    "core_allele": "*56",
+    "pharmvar_version": "6.2.29"
+   },
+   "*56B": {
+    "pharmvar_suballele": "CYP2D6*56.002",
+    "pharmvar_id": "PV02613",
+    "core_allele": "*56",
+    "pharmvar_version": "6.2.29"
+   },
+   "*94A": {
+    "pharmvar_suballele": "CYP2D6*94.001",
+    "pharmvar_id": "PV00118",
+    "core_allele": "*94",
+    "pharmvar_version": "6.2.29"
+   },
+   "*94B": {
+    "pharmvar_suballele": "CYP2D6*94.002",
+    "pharmvar_id": "PV00116",
+    "core_allele": "*94",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP3A4": {
+   "*1B": {
+    "pharmvar_suballele": "CYP3A4*1.001",
+    "pharmvar_id": "PV01494",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1A": {
+    "pharmvar_suballele": "CYP3A4*1.002",
+    "pharmvar_id": "PV01515",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1E": {
+    "pharmvar_suballele": "CYP3A4*1.003",
+    "pharmvar_id": "PV01495",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1M": {
+    "pharmvar_suballele": "CYP3A4*1.004",
+    "pharmvar_id": "PV01504",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1T": {
+    "pharmvar_suballele": "CYP3A4*1.005",
+    "pharmvar_id": "PV01489",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP3A5": {
+   "*1A": {
+    "pharmvar_suballele": "CYP3A5*1.001",
+    "pharmvar_id": "PV01356",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*1D": {
+    "pharmvar_suballele": "CYP3A5*1.002",
+    "pharmvar_id": "PV01348",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3A": {
+    "pharmvar_suballele": "CYP3A5*3.001",
+    "pharmvar_id": "PV01340",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3B": {
+    "pharmvar_suballele": "CYP3A5*3.002",
+    "pharmvar_id": "PV01338",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3D": {
+    "pharmvar_suballele": "CYP3A5*3.003",
+    "pharmvar_id": "PV01353",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3F": {
+    "pharmvar_suballele": "CYP3A5*3.004",
+    "pharmvar_id": "PV01358",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   },
+   "*3J": {
+    "pharmvar_suballele": "CYP3A5*3.006",
+    "pharmvar_id": "PV01349",
+    "core_allele": "*3",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "SLCO1B1": {
+   "*1A": {
+    "pharmvar_suballele": "SLCO1B1*1.001",
+    "pharmvar_id": "PV01664",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*15C": {
+    "pharmvar_suballele": "SLCO1B1*15.002",
+    "pharmvar_id": "PV01687",
+    "core_allele": "*15",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "NAT2": {
+   "*5C": {
+    "pharmvar_suballele": "NAT2*5.001",
+    "pharmvar_id": "PV02482",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5B": {
+    "pharmvar_suballele": "NAT2*5.002",
+    "pharmvar_id": "PV02491",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5F": {
+    "pharmvar_suballele": "NAT2*5.003",
+    "pharmvar_id": "PV02438",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5W": {
+    "pharmvar_suballele": "NAT2*5.004",
+    "pharmvar_id": "PV02484",
+    "core_allele": "*5",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6B": {
+    "pharmvar_suballele": "NAT2*6.001",
+    "pharmvar_id": "PV02455",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6A": {
+    "pharmvar_suballele": "NAT2*6.002",
+    "pharmvar_id": "PV02439",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6D": {
+    "pharmvar_suballele": "NAT2*6.003",
+    "pharmvar_id": "PV02474",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6E": {
+    "pharmvar_suballele": "NAT2*6.004",
+    "pharmvar_id": "PV02463",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6L": {
+    "pharmvar_suballele": "NAT2*6.005",
+    "pharmvar_id": "PV02468",
+    "core_allele": "*6",
+    "pharmvar_version": "6.2.29"
+   },
+   "*7A": {
+    "pharmvar_suballele": "NAT2*7.001",
+    "pharmvar_id": "PV02460",
+    "core_allele": "*7",
+    "pharmvar_version": "6.2.29"
+   },
+   "*7B": {
+    "pharmvar_suballele": "NAT2*7.002",
+    "pharmvar_id": "PV02487",
+    "core_allele": "*7",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14A": {
+    "pharmvar_suballele": "NAT2*14.001",
+    "pharmvar_id": "PV02447",
+    "core_allele": "*14",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14B": {
+    "pharmvar_suballele": "NAT2*14.002",
+    "pharmvar_id": "PV02435",
+    "core_allele": "*14",
+    "pharmvar_version": "6.2.29"
+   }
+  }
+ },
+ "redesignated": {
+  "CYP2C19": {
+   "*1A": {
+    "pharmvar_suballele": "CYP2C19*38.001",
+    "pharmvar_id": "PV02146",
+    "core_allele": "*38",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "CYP2D6": {
+   "*14A": {
+    "pharmvar_suballele": "CYP2D6*114.001",
+    "pharmvar_id": "PV00140",
+    "core_allele": "*114",
+    "pharmvar_version": "6.2.29"
+   }
+  },
+  "NAT2": {
+   "*12A": {
+    "pharmvar_suballele": "NAT2*1.001",
+    "pharmvar_id": "PV02453",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12B": {
+    "pharmvar_suballele": "NAT2*1.002",
+    "pharmvar_id": "PV02458",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12C": {
+    "pharmvar_suballele": "NAT2*1.003",
+    "pharmvar_id": "PV02456",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12I": {
+    "pharmvar_suballele": "NAT2*1.004",
+    "pharmvar_id": "PV02486",
+    "core_allele": "*1",
+    "pharmvar_version": "6.2.29"
+   },
+   "*11A": {
+    "pharmvar_suballele": "NAT2*4.002",
+    "pharmvar_id": "PV02431",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*13A": {
+    "pharmvar_suballele": "NAT2*4.003",
+    "pharmvar_id": "PV02432",
+    "core_allele": "*4",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14D": {
+    "pharmvar_suballele": "NAT2*15.001",
+    "pharmvar_id": "PV02471",
+    "core_allele": "*15",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5D": {
+    "pharmvar_suballele": "NAT2*16.001",
+    "pharmvar_id": "PV02478",
+    "core_allele": "*16",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5A": {
+    "pharmvar_suballele": "NAT2*16.002",
+    "pharmvar_id": "PV02465",
+    "core_allele": "*16",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14F": {
+    "pharmvar_suballele": "NAT2*29.001",
+    "pharmvar_id": "PV02480",
+    "core_allele": "*29",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14C": {
+    "pharmvar_suballele": "NAT2*29.002",
+    "pharmvar_id": "PV02462",
+    "core_allele": "*29",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5E": {
+    "pharmvar_suballele": "NAT2*30.001",
+    "pharmvar_id": "PV02445",
+    "core_allele": "*30",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5L": {
+    "pharmvar_suballele": "NAT2*31.001",
+    "pharmvar_id": "PV02430",
+    "core_allele": "*31",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5O": {
+    "pharmvar_suballele": "NAT2*32.001",
+    "pharmvar_id": "PV02442",
+    "core_allele": "*32",
+    "pharmvar_version": "6.2.29"
+   },
+   "*5N": {
+    "pharmvar_suballele": "NAT2*33.001",
+    "pharmvar_id": "PV02483",
+    "core_allele": "*33",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6C": {
+    "pharmvar_suballele": "NAT2*34.001",
+    "pharmvar_id": "PV02476",
+    "core_allele": "*34",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6M": {
+    "pharmvar_suballele": "NAT2*35.001",
+    "pharmvar_id": "PV02448",
+    "core_allele": "*35",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6P": {
+    "pharmvar_suballele": "NAT2*36.001",
+    "pharmvar_id": "PV02492",
+    "core_allele": "*36",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6K": {
+    "pharmvar_suballele": "NAT2*37.001",
+    "pharmvar_id": "PV02436",
+    "core_allele": "*37",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6H": {
+    "pharmvar_suballele": "NAT2*38.001",
+    "pharmvar_id": "PV02464",
+    "core_allele": "*38",
+    "pharmvar_version": "6.2.29"
+   },
+   "*6O": {
+    "pharmvar_suballele": "NAT2*39.001",
+    "pharmvar_id": "PV02433",
+    "core_allele": "*39",
+    "pharmvar_version": "6.2.29"
+   },
+   "*7C": {
+    "pharmvar_suballele": "NAT2*40.001",
+    "pharmvar_id": "PV02451",
+    "core_allele": "*40",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12E": {
+    "pharmvar_suballele": "NAT2*41.001",
+    "pharmvar_id": "PV02489",
+    "core_allele": "*41",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12F": {
+    "pharmvar_suballele": "NAT2*42.001",
+    "pharmvar_id": "PV02469",
+    "core_allele": "*42",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12G": {
+    "pharmvar_suballele": "NAT2*43.001",
+    "pharmvar_id": "PV02454",
+    "core_allele": "*43",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12H": {
+    "pharmvar_suballele": "NAT2*44.001",
+    "pharmvar_id": "PV02485",
+    "core_allele": "*44",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12J": {
+    "pharmvar_suballele": "NAT2*45.001",
+    "pharmvar_id": "PV02472",
+    "core_allele": "*45",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14E": {
+    "pharmvar_suballele": "NAT2*46.001",
+    "pharmvar_id": "PV02449",
+    "core_allele": "*46",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14G": {
+    "pharmvar_suballele": "NAT2*46.002",
+    "pharmvar_id": "PV02470",
+    "core_allele": "*46",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14I": {
+    "pharmvar_suballele": "NAT2*46.003",
+    "pharmvar_id": "PV02461",
+    "core_allele": "*46",
+    "pharmvar_version": "6.2.29"
+   },
+   "*14H": {
+    "pharmvar_suballele": "NAT2*47.001",
+    "pharmvar_id": "PV02446",
+    "core_allele": "*47",
+    "pharmvar_version": "6.2.29"
+   },
+   "*12D": {
+    "pharmvar_suballele": "NAT2*48.001",
+    "pharmvar_id": "PV02452",
+    "core_allele": "*48",
+    "pharmvar_version": "6.2.29"
+   }
+  }
+ },
+ "not_folded_genes": [
+  "TPMT",
+  "UGT1A1",
+  "DPYD"
+ ]
+}

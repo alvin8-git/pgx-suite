@@ -44,7 +44,7 @@ def main():
         seen[v["hgvs_c"]] = v
 
     # regression anchor: the validation variant the star-allele callers all missed
-    assert "c.1021G>A" in seen, "c.1021G>A (P_2000 validation variant) missing from table"
+    assert "c.1021G>A" in seen, "c.1021G>A (sample I validation variant) missing from table"
     assert seen["c.1021G>A"]["pos"] == 38448712 and seen["c.1021G>A"]["alt"] == "A"
 
     # parser is registered and degrades gracefully without a VCF

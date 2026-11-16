@@ -137,6 +137,8 @@ def adjudicate(gene, consensus, status, p6, p9, match):
     if gene in SNP_REF:
         return ("array_authoritative",
                 "single-SNP locus; array genotypes this directly, NGS adds notation noise")
+    # a split call ("concordant/majority, diplotype unresolved") adjudicates like its base status
+    status = (status or "").split(",")[0].strip()
     arr_variant = bool(array_variant_alleles(p6, p9))
     ngs_vc = pipeline_variant_count(consensus)
     # array reference, NGS callers agree on a variant -> array panel gap
@@ -245,7 +247,7 @@ def main():
     ap.add_argument("--results", default="results")
     ap.add_argument("--axiom-sample", default=None,
                     help="Sample key to look up in Axiom.xlsx when it differs from "
-                         "the results dir name (e.g. ILMN 'H-342' dir vs Axiom 'H_342')")
+                         "the results dir name (e.g. a results dir named with a hyphen vs the Axiom sheet's underscore form)")
     ap.add_argument("--selftest", action="store_true", help="run assertion checks and exit")
     args = ap.parse_args()
 

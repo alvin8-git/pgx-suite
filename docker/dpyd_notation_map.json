@@ -1,0 +1,2678 @@
+{
+ "DPYD": {
+  "aldy": {
+   "*rs111858276": {
+    "cpic": "c.1484A>G",
+    "rsid": "rs111858276"
+   },
+   "*rs112766203": {
+    "cpic": "c.2279C>T",
+    "rsid": "rs112766203"
+   },
+   "*rs114096998": {
+    "cpic": "c.3067C>A",
+    "rsid": "rs114096998"
+   },
+   "*rs115232898": {
+    "cpic": "c.557A>G",
+    "rsid": "rs115232898"
+   },
+   "*rs137999090": {
+    "cpic": "c.2021G>A",
+    "rsid": "rs137999090"
+   },
+   "*rs138391898": {
+    "cpic": "c.1519G>A",
+    "rsid": "rs138391898"
+   },
+   "*rs138545885": {
+    "cpic": "c.1990G>T",
+    "rsid": "rs138545885"
+   },
+   "*rs138616379": {
+    "cpic": "c.1775G>A",
+    "rsid": "rs138616379"
+   },
+   "*rs139459586": {
+    "cpic": "c.2978T>G",
+    "rsid": "rs139459586"
+   },
+   "*rs139834141": {
+    "cpic": "c.498G>A",
+    "rsid": "rs139834141"
+   },
+   "*rs140114515": {
+    "cpic": "c.3049G>A",
+    "rsid": "rs140114515"
+   },
+   "*rs140602333": {
+    "cpic": "c.1180C>T",
+    "rsid": "rs140602333"
+   },
+   "*rs141044036": {
+    "cpic": "c.2872A>G",
+    "rsid": "rs141044036"
+   },
+   "*rs141462178": {
+    "cpic": "c.343A>G",
+    "rsid": "rs141462178"
+   },
+   "*rs142512579": {
+    "cpic": "c.1294G>A",
+    "rsid": "rs142512579"
+   },
+   "*rs142619737": {
+    "cpic": "c.1615G>A",
+    "rsid": "rs142619737"
+   },
+   "*rs143154602": {
+    "cpic": "c.1057C>T",
+    "rsid": "rs143154602"
+   },
+   "*rs143815742": {
+    "cpic": "c.1181G>T",
+    "rsid": "rs143815742"
+   },
+   "*rs144395748": {
+    "cpic": "c.1358C>G",
+    "rsid": "rs144395748"
+   },
+   "*rs145112791": {
+    "cpic": "c.934C>T",
+    "rsid": "rs145112791"
+   },
+   "*rs145529148": {
+    "cpic": "c.2915A>G",
+    "rsid": "rs145529148"
+   },
+   "*rs145548112": {
+    "cpic": "c.2161G>A",
+    "rsid": "rs145548112"
+   },
+   "*rs145773863": {
+    "cpic": "c.1777G>A",
+    "rsid": "rs145773863"
+   },
+   "*rs146356975": {
+    "cpic": "c.868A>G",
+    "rsid": "rs146356975"
+   },
+   "*rs146529561": {
+    "cpic": "c.2186C>T",
+    "rsid": "rs146529561"
+   },
+   "*rs147545709": {
+    "cpic": "c.2656C>T",
+    "rsid": "rs147545709"
+   },
+   "*rs147601618": {
+    "cpic": "c.1796T>C",
+    "rsid": "rs147601618"
+   },
+   "*rs148799944": {
+    "cpic": "c.3061G>C",
+    "rsid": "rs148799944"
+   },
+   "*rs148994843": {
+    "cpic": "c.1543G>A",
+    "rsid": "rs148994843"
+   },
+   "*rs150036960": {
+    "cpic": "c.46C>G",
+    "rsid": "rs150036960"
+   },
+   "*rs150385342": {
+    "cpic": "c.313G>A",
+    "rsid": "rs150385342"
+   },
+   "*rs150437414": {
+    "cpic": "c.929T>C",
+    "rsid": "rs150437414"
+   },
+   "*rs17376848": {
+    "cpic": "c.1896T>C",
+    "rsid": "rs17376848"
+   },
+   "*rs1801158": {
+    "cpic": "c.1601G>A (*4)",
+    "rsid": "rs1801158"
+   },
+   "*rs1801159": {
+    "cpic": "c.1627A>G (*5)",
+    "rsid": "rs1801159"
+   },
+   "*rs1801160": {
+    "cpic": "c.2194G>A (*6)",
+    "rsid": "rs1801160"
+   },
+   "*rs1801265": {
+    "cpic": "c.85T>C (*9A)",
+    "rsid": "rs1801265"
+   },
+   "*rs1801266": {
+    "cpic": "c.703C>T (*8)",
+    "rsid": "rs1801266"
+   },
+   "*rs1801267": {
+    "cpic": "c.2657G>A (*9B)",
+    "rsid": "rs1801267"
+   },
+   "*rs1801268": {
+    "cpic": "c.2983G>T (*10)",
+    "rsid": "rs1801268"
+   },
+   "*rs183385770": {
+    "cpic": "c.1024G>A",
+    "rsid": "rs183385770"
+   },
+   "*rs186169810": {
+    "cpic": "c.1314T>G",
+    "rsid": "rs186169810"
+   },
+   "*rs190951787": {
+    "cpic": "c.1577C>G",
+    "rsid": "rs190951787"
+   },
+   "*rs199549923": {
+    "cpic": "c.1403C>A",
+    "rsid": "rs199549923"
+   },
+   "*rs199634007": {
+    "cpic": "c.2336C>A",
+    "rsid": "rs199634007"
+   },
+   "*rs200064537": {
+    "cpic": "c.1260T>A",
+    "rsid": "rs200064537"
+   },
+   "*rs200562975": {
+    "cpic": "c.451A>G",
+    "rsid": "rs200562975"
+   },
+   "*rs200687447": {
+    "cpic": "c.2482G>A",
+    "rsid": "rs200687447"
+   },
+   "*rs201018345": {
+    "cpic": "c.967G>A",
+    "rsid": "rs201018345"
+   },
+   "*rs201035051": {
+    "cpic": "c.2623A>C",
+    "rsid": "rs201035051"
+   },
+   "*rs201615754": {
+    "cpic": "c.1682G>T",
+    "rsid": "rs201615754"
+   },
+   "*rs202144771": {
+    "cpic": "c.2977C>T",
+    "rsid": "rs202144771"
+   },
+   "*rs2297595": {
+    "cpic": "c.496A>G",
+    "rsid": "rs2297595"
+   },
+   "*rs3918289": {
+    "cpic": "c.1905C>G",
+    "rsid": "rs3918289"
+   },
+   "*rs3918290": {
+    "cpic": "c.1905+1G>A (*2A)",
+    "rsid": "rs3918290"
+   },
+   "*rs45589337": {
+    "cpic": "c.775A>G",
+    "rsid": "rs45589337"
+   },
+   "*rs55674432": {
+    "cpic": "c.2639G>T",
+    "rsid": "rs55674432"
+   },
+   "*rs55886062": {
+    "cpic": "c.1679T>G (*13)",
+    "rsid": "rs55886062"
+   },
+   "*rs55971861": {
+    "cpic": "c.1906A>C",
+    "rsid": "rs55971861"
+   },
+   "*rs56005131": {
+    "cpic": "c.2303C>A",
+    "rsid": "rs56005131"
+   },
+   "*rs57918000": {
+    "cpic": "c.1371C>T",
+    "rsid": "rs57918000"
+   },
+   "*rs59086055": {
+    "cpic": "c.1774C>T",
+    "rsid": "rs59086055"
+   },
+   "*rs60139309": {
+    "cpic": "c.2582A>G",
+    "rsid": "rs60139309"
+   },
+   "*rs60511679": {
+    "cpic": "c.2195T>G",
+    "rsid": "rs60511679"
+   },
+   "*rs61622928": {
+    "cpic": "c.1218G>A",
+    "rsid": "rs61622928"
+   },
+   "*rs6670886": {
+    "cpic": "c.525G>A",
+    "rsid": "rs6670886"
+   },
+   "*rs67376798": {
+    "cpic": "c.2846A>T",
+    "rsid": "rs67376798"
+   },
+   "*rs72547601": {
+    "cpic": "c.2933A>G",
+    "rsid": "rs72547601"
+   },
+   "*rs72547602": {
+    "cpic": "c.2921A>T",
+    "rsid": "rs72547602"
+   },
+   "*rs72549303": {
+    "cpic": "c.1898delC (*3)",
+    "rsid": "rs72549303"
+   },
+   "*rs72549304": {
+    "cpic": "c.1475C>T",
+    "rsid": "rs72549304"
+   },
+   "*rs72549305": {
+    "cpic": "c.1108A>G",
+    "rsid": "rs72549305"
+   },
+   "*rs72549306": {
+    "cpic": "c.1003G>T (*11)",
+    "rsid": "rs72549306"
+   },
+   "*rs72549307": {
+    "cpic": "c.632A>G",
+    "rsid": "rs72549307"
+   },
+   "*rs72549308": {
+    "cpic": "c.601A>C",
+    "rsid": "rs72549308"
+   },
+   "*rs72549309": {
+    "cpic": "c.295_298delTCAT (*7)",
+    "rsid": "rs72549309"
+   },
+   "*rs72549310": {
+    "cpic": "c.61C>T",
+    "rsid": "rs72549310"
+   },
+   "*rs72975710": {
+    "cpic": "c.1349C>T",
+    "rsid": "rs72975710"
+   },
+   "*rs75017182": {
+    "cpic": "c.1129-5923C>G",
+    "rsid": "rs75017182"
+   },
+   "*rs764666241": {
+    "cpic": "c.1278G>T",
+    "rsid": "rs764666241"
+   },
+   "*rs78060119": {
+    "cpic": "c.1156G>T (*12)",
+    "rsid": "rs78060119"
+   },
+   "*rs80081766": {
+    "cpic": "c.62G>A",
+    "rsid": "rs80081766"
+   }
+  },
+  "cpic_star_names": {
+   "*10": {
+    "cpic": "c.2983G>T (*10)"
+   },
+   "*11": {
+    "cpic": "c.1003G>T (*11)"
+   },
+   "*12": {
+    "cpic": "c.1156G>T (*12)"
+   },
+   "*13": {
+    "cpic": "c.1679T>G (*13)"
+   },
+   "*2a": {
+    "cpic": "c.1905+1G>A (*2A)"
+   },
+   "*3": {
+    "cpic": "c.1898delC (*3)"
+   },
+   "*4": {
+    "cpic": "c.1601G>A (*4)"
+   },
+   "*5": {
+    "cpic": "c.1627A>G (*5)"
+   },
+   "*6": {
+    "cpic": "c.2194G>A (*6)"
+   },
+   "*7": {
+    "cpic": "c.295_298delTCAT (*7)"
+   },
+   "*8": {
+    "cpic": "c.703C>T (*8)"
+   },
+   "*9a": {
+    "cpic": "c.85T>C (*9A)"
+   },
+   "*9b": {
+    "cpic": "c.2657G>A (*9B)"
+   }
+  },
+  "stargazer": {
+   "*s10": {
+    "cpic": "c.85T>C (*9A)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801265"
+    ],
+    "stargazer_core": [
+     "97883329:A>G"
+    ]
+   },
+   "*s100": {
+    "cpic": "c.313G>A",
+    "method": "rsid",
+    "rsid": [
+     "rs150385342"
+    ],
+    "stargazer_core": [
+     "97740400:C>A"
+    ]
+   },
+   "*s11": {
+    "cpic": "c.2657G>A (*9B)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801267"
+    ],
+    "stargazer_core": [
+     "97098598:C>T"
+    ]
+   },
+   "*s110": {
+    "cpic": "c.2482G>A",
+    "method": "rsid",
+    "rsid": [
+     "rs200687447"
+    ],
+    "stargazer_core": [
+     "97193209:C>G"
+    ]
+   },
+   "*s115": {
+    "cpic": "c.1682G>T",
+    "method": "rsid",
+    "rsid": [
+     "rs201615754"
+    ],
+    "stargazer_core": [
+     "97515784:C>T"
+    ]
+   },
+   "*s12": {
+    "cpic": "c.2983G>T (*10)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801268"
+    ],
+    "stargazer_core": [
+     "97079071:C>A"
+    ]
+   },
+   "*s13": {
+    "cpic": "c.1003G>T (*11)",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549306"
+    ],
+    "stargazer_core": [
+     "97593343:C>A"
+    ]
+   },
+   "*s14": {
+    "cpic": "c.1156G>T (*12)",
+    "method": "position+alt",
+    "rsid": [
+     "rs78060119"
+    ],
+    "stargazer_core": [
+     "97573943:C>A"
+    ]
+   },
+   "*s15": {
+    "cpic": "c.1679T>G (*13)",
+    "method": "position+alt",
+    "rsid": [
+     "rs55886062"
+    ],
+    "stargazer_core": [
+     "97515787:A>C"
+    ]
+   },
+   "*s16": {
+    "cpic": "c.1129-5923C>G, c.1236G>A (HapB3)",
+    "method": "position+alt",
+    "rsid": [
+     "rs56038477",
+     "rs75017182"
+    ],
+    "stargazer_core": [
+     "97573863:C>T",
+     "97579893:G>C"
+    ]
+   },
+   "*s17": {
+    "cpic": "c.2846A>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs67376798"
+    ],
+    "stargazer_core": [
+     "97082391:T>A"
+    ]
+   },
+   "*s170": {
+    "cpic": "c.1679T>G (*13)",
+    "method": "rsid",
+    "rsid": [
+     "rs55886062"
+    ],
+    "stargazer_core": [
+     "97515787:A>T"
+    ]
+   },
+   "*s18": {
+    "cpic": "c.557A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs115232898"
+    ],
+    "stargazer_core": [
+     "97699474:T>C"
+    ]
+   },
+   "*s19": {
+    "cpic": "c.62G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs80081766"
+    ],
+    "stargazer_core": [
+     "97883352:C>T"
+    ]
+   },
+   "*s191": {
+    "cpic": "c.1003G>T (*11)",
+    "method": "rsid",
+    "rsid": [
+     "rs72549306"
+    ],
+    "stargazer_core": [
+     "97593343:C>T"
+    ]
+   },
+   "*s192": {
+    "cpic": "c.1349C>T",
+    "method": "rsid",
+    "rsid": [
+     "rs72975710"
+    ],
+    "stargazer_core": [
+     "97549735:G>C"
+    ]
+   },
+   "*s20": {
+    "cpic": "c.496A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs2297595"
+    ],
+    "stargazer_core": [
+     "97699535:T>C"
+    ]
+   },
+   "*s21": {
+    "cpic": "c.1218G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs61622928"
+    ],
+    "stargazer_core": [
+     "97573881:C>T"
+    ]
+   },
+   "*s22": {
+    "cpic": "c.1896T>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs17376848"
+    ],
+    "stargazer_core": [
+     "97450068:A>G"
+    ]
+   },
+   "*s23": {
+    "cpic": "c.46C>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs150036960"
+    ],
+    "stargazer_core": [
+     "97883368:G>C"
+    ]
+   },
+   "*s24": {
+    "cpic": "c.61C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549310"
+    ],
+    "stargazer_core": [
+     "97883353:G>A"
+    ]
+   },
+   "*s25": {
+    "cpic": "c.313G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs150385342"
+    ],
+    "stargazer_core": [
+     "97740400:C>T"
+    ]
+   },
+   "*s26": {
+    "cpic": "c.343A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs141462178"
+    ],
+    "stargazer_core": [
+     "97721650:T>C"
+    ]
+   },
+   "*s27": {
+    "cpic": "c.451A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs200562975"
+    ],
+    "stargazer_core": [
+     "97721542:T>C"
+    ]
+   },
+   "*s28": {
+    "cpic": "c.498G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs139834141"
+    ],
+    "stargazer_core": [
+     "97699533:C>T"
+    ]
+   },
+   "*s29": {
+    "cpic": "c.601A>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549308"
+    ],
+    "stargazer_core": [
+     "97699430:T>G"
+    ]
+   },
+   "*s3": {
+    "cpic": "c.1905+1G>A (*2A)",
+    "method": "position+alt",
+    "rsid": [
+     "rs3918290"
+    ],
+    "stargazer_core": [
+     "97450058:C>T"
+    ]
+   },
+   "*s30": {
+    "cpic": "c.632A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549307"
+    ],
+    "stargazer_core": [
+     "97699399:T>C"
+    ]
+   },
+   "*s31": {
+    "cpic": "c.775A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs45589337"
+    ],
+    "stargazer_core": [
+     "97679170:T>C"
+    ]
+   },
+   "*s32": {
+    "cpic": "c.868A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs146356975"
+    ],
+    "stargazer_core": [
+     "97595149:T>C"
+    ]
+   },
+   "*s33": {
+    "cpic": "c.929T>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs150437414"
+    ],
+    "stargazer_core": [
+     "97595088:A>G"
+    ]
+   },
+   "*s34": {
+    "cpic": "c.934C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs145112791"
+    ],
+    "stargazer_core": [
+     "97595083:G>A"
+    ]
+   },
+   "*s35": {
+    "cpic": "c.967G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs201018345"
+    ],
+    "stargazer_core": [
+     "97593379:C>T"
+    ]
+   },
+   "*s36": {
+    "cpic": "c.1024G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs183385770"
+    ],
+    "stargazer_core": [
+     "97593322:C>T"
+    ]
+   },
+   "*s37": {
+    "cpic": "c.1057C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs143154602"
+    ],
+    "stargazer_core": [
+     "97593289:G>A"
+    ]
+   },
+   "*s38": {
+    "cpic": "c.1108A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549305"
+    ],
+    "stargazer_core": [
+     "97593238:T>C"
+    ]
+   },
+   "*s39": {
+    "cpic": "c.1181G>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs143815742"
+    ],
+    "stargazer_core": [
+     "97573918:C>A"
+    ]
+   },
+   "*s4": {
+    "cpic": "c.1898delC (*3)",
+    "method": "rsid",
+    "rsid": [
+     "rs72549303"
+    ],
+    "stargazer_core": [
+     "97450065:TG>T"
+    ]
+   },
+   "*s40": {
+    "cpic": "c.1180C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs140602333"
+    ],
+    "stargazer_core": [
+     "97573919:G>A"
+    ]
+   },
+   "*s41": {
+    "cpic": "c.1260T>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs200064537"
+    ],
+    "stargazer_core": [
+     "97573839:A>T"
+    ]
+   },
+   "*s42": {
+    "cpic": "c.1278G>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs764666241"
+    ],
+    "stargazer_core": [
+     "97573821:C>A"
+    ]
+   },
+   "*s43": {
+    "cpic": "c.1294G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs142512579"
+    ],
+    "stargazer_core": [
+     "97573805:C>T"
+    ]
+   },
+   "*s44": {
+    "cpic": "c.1314T>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs186169810"
+    ],
+    "stargazer_core": [
+     "97573785:A>C"
+    ]
+   },
+   "*s45": {
+    "cpic": "c.1349C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs72975710"
+    ],
+    "stargazer_core": [
+     "97549735:G>A"
+    ]
+   },
+   "*s46": {
+    "cpic": "c.1358C>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs144395748"
+    ],
+    "stargazer_core": [
+     "97549726:G>C"
+    ]
+   },
+   "*s47": {
+    "cpic": "c.1403C>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs199549923"
+    ],
+    "stargazer_core": [
+     "97549681:G>T"
+    ]
+   },
+   "*s48": {
+    "cpic": "c.1475C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs72549304"
+    ],
+    "stargazer_core": [
+     "97549609:G>A"
+    ]
+   },
+   "*s49": {
+    "cpic": "c.1484A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs111858276"
+    ],
+    "stargazer_core": [
+     "97549600:T>C"
+    ]
+   },
+   "*s5": {
+    "cpic": "c.1601G>A (*4)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801158"
+    ],
+    "stargazer_core": [
+     "97515865:C>T"
+    ]
+   },
+   "*s50": {
+    "cpic": "c.1519G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs138391898"
+    ],
+    "stargazer_core": [
+     "97549565:C>T"
+    ]
+   },
+   "*s51": {
+    "cpic": "c.1543G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs148994843"
+    ],
+    "stargazer_core": [
+     "97515923:C>T"
+    ]
+   },
+   "*s52": {
+    "cpic": "c.1577C>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs190951787"
+    ],
+    "stargazer_core": [
+     "97515889:G>C"
+    ]
+   },
+   "*s53": {
+    "cpic": "c.1615G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs142619737"
+    ],
+    "stargazer_core": [
+     "97515851:C>T"
+    ]
+   },
+   "*s54": {
+    "cpic": "c.1682G>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs201615754"
+    ],
+    "stargazer_core": [
+     "97515784:C>A"
+    ]
+   },
+   "*s55": {
+    "cpic": "c.1775G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs138616379"
+    ],
+    "stargazer_core": [
+     "97450189:C>T"
+    ]
+   },
+   "*s56": {
+    "cpic": "c.1774C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs59086055"
+    ],
+    "stargazer_core": [
+     "97450190:G>A"
+    ]
+   },
+   "*s57": {
+    "cpic": "c.1777G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs145773863"
+    ],
+    "stargazer_core": [
+     "97450187:C>T"
+    ]
+   },
+   "*s58": {
+    "cpic": "c.1796T>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs147601618"
+    ],
+    "stargazer_core": [
+     "97450168:A>G"
+    ]
+   },
+   "*s59": {
+    "cpic": "c.1905C>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs3918289"
+    ],
+    "stargazer_core": [
+     "97450059:G>C"
+    ]
+   },
+   "*s6": {
+    "cpic": "c.1627A>G (*5)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801159"
+    ],
+    "stargazer_core": [
+     "97515839:T>C"
+    ]
+   },
+   "*s60": {
+    "cpic": "c.1906A>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs55971861"
+    ],
+    "stargazer_core": [
+     "97382461:T>G"
+    ]
+   },
+   "*s61": {
+    "cpic": "c.1990G>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs138545885"
+    ],
+    "stargazer_core": [
+     "97373629:C>A"
+    ]
+   },
+   "*s62": {
+    "cpic": "c.2021G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs137999090"
+    ],
+    "stargazer_core": [
+     "97373598:C>T"
+    ]
+   },
+   "*s63": {
+    "cpic": "c.2161G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs145548112"
+    ],
+    "stargazer_core": [
+     "97306195:C>T"
+    ]
+   },
+   "*s64": {
+    "cpic": "c.2186C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs146529561"
+    ],
+    "stargazer_core": [
+     "97305372:G>A"
+    ]
+   },
+   "*s65": {
+    "cpic": "c.2195T>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs60511679"
+    ],
+    "stargazer_core": [
+     "97305363:A>C"
+    ]
+   },
+   "*s66": {
+    "cpic": "c.2279C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs112766203"
+    ],
+    "stargazer_core": [
+     "97305279:G>A"
+    ]
+   },
+   "*s67": {
+    "cpic": "c.2303C>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs56005131"
+    ],
+    "stargazer_core": [
+     "97234991:G>T"
+    ]
+   },
+   "*s68": {
+    "cpic": "c.2336C>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs199634007"
+    ],
+    "stargazer_core": [
+     "97234958:G>T"
+    ]
+   },
+   "*s69": {
+    "cpic": "c.2482G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs200687447"
+    ],
+    "stargazer_core": [
+     "97193209:C>T"
+    ]
+   },
+   "*s7": {
+    "cpic": "c.2194G>A (*6)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801160"
+    ],
+    "stargazer_core": [
+     "97305364:C>T"
+    ]
+   },
+   "*s70": {
+    "cpic": "c.2582A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs60139309"
+    ],
+    "stargazer_core": [
+     "97193109:T>C"
+    ]
+   },
+   "*s71": {
+    "cpic": "c.2623A>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs201035051"
+    ],
+    "stargazer_core": [
+     "97098632:T>G"
+    ]
+   },
+   "*s72": {
+    "cpic": "c.2639G>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs55674432"
+    ],
+    "stargazer_core": [
+     "97098616:C>A"
+    ]
+   },
+   "*s73": {
+    "cpic": "c.2656C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs147545709"
+    ],
+    "stargazer_core": [
+     "97098599:G>A"
+    ]
+   },
+   "*s74": {
+    "cpic": "c.2872A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs141044036"
+    ],
+    "stargazer_core": [
+     "97082365:T>C"
+    ]
+   },
+   "*s75": {
+    "cpic": "c.2915A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs145529148"
+    ],
+    "stargazer_core": [
+     "97079139:T>C"
+    ]
+   },
+   "*s76": {
+    "cpic": "c.2921A>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs72547602"
+    ],
+    "stargazer_core": [
+     "97079133:T>A"
+    ]
+   },
+   "*s77": {
+    "cpic": "c.2933A>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs72547601"
+    ],
+    "stargazer_core": [
+     "97079121:T>C"
+    ]
+   },
+   "*s78": {
+    "cpic": "c.2978T>G",
+    "method": "position+alt",
+    "rsid": [
+     "rs139459586"
+    ],
+    "stargazer_core": [
+     "97079076:A>C"
+    ]
+   },
+   "*s79": {
+    "cpic": "c.2977C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs202144771"
+    ],
+    "stargazer_core": [
+     "97079077:G>A"
+    ]
+   },
+   "*s80": {
+    "cpic": "c.3049G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs140114515"
+    ],
+    "stargazer_core": [
+     "97079005:C>T"
+    ]
+   },
+   "*s81": {
+    "cpic": "c.3061G>C",
+    "method": "position+alt",
+    "rsid": [
+     "rs148799944"
+    ],
+    "stargazer_core": [
+     "97078993:C>G"
+    ]
+   },
+   "*s82": {
+    "cpic": "c.3067C>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs114096998"
+    ],
+    "stargazer_core": [
+     "97078987:G>T"
+    ]
+   },
+   "*s83": {
+    "cpic": "c.525G>A",
+    "method": "position+alt",
+    "rsid": [
+     "rs6670886"
+    ],
+    "stargazer_core": [
+     "97699506:C>T"
+    ]
+   },
+   "*s84": {
+    "cpic": "c.1371C>T",
+    "method": "position+alt",
+    "rsid": [
+     "rs57918000"
+    ],
+    "stargazer_core": [
+     "97549713:G>A"
+    ]
+   },
+   "*s85": {
+    "cpic": "c.2279C>T",
+    "method": "rsid",
+    "rsid": [
+     "rs112766203"
+    ],
+    "stargazer_core": [
+     "97305279:G>C"
+    ]
+   },
+   "*s86": {
+    "cpic": "c.3067C>A",
+    "method": "rsid",
+    "rsid": [
+     "rs114096998"
+    ],
+    "stargazer_core": [
+     "97078987:G>A"
+    ]
+   },
+   "*s9": {
+    "cpic": "c.703C>T (*8)",
+    "method": "position+alt",
+    "rsid": [
+     "rs1801266"
+    ],
+    "stargazer_core": [
+     "97691776:G>A"
+    ]
+   },
+   "*s94": {
+    "cpic": "c.1181G>T",
+    "method": "rsid",
+    "rsid": [
+     "rs143815742"
+    ],
+    "stargazer_core": [
+     "97573918:C>T"
+    ]
+   },
+   "*s98": {
+    "cpic": "c.1358C>G",
+    "method": "rsid",
+    "rsid": [
+     "rs144395748"
+    ],
+    "stargazer_core": [
+     "97549726:G>T"
+    ]
+   }
+  },
+  "unscorable_stargazer": {
+   "*s101": "CPIC defines no allele with exactly this variant set",
+   "*s102": "CPIC defines no allele with exactly this variant set",
+   "*s103": "CPIC defines no allele with exactly this variant set",
+   "*s104": "CPIC defines no allele with exactly this variant set",
+   "*s105": "CPIC defines no allele with exactly this variant set",
+   "*s106": "CPIC defines no allele with exactly this variant set",
+   "*s107": "CPIC defines no allele with exactly this variant set",
+   "*s108": "CPIC defines no allele with exactly this variant set",
+   "*s109": "CPIC defines no allele with exactly this variant set",
+   "*s111": "CPIC defines no allele with exactly this variant set",
+   "*s112": "CPIC defines no allele with exactly this variant set",
+   "*s113": "CPIC defines no allele with exactly this variant set",
+   "*s114": "CPIC defines no allele with exactly this variant set",
+   "*s116": "CPIC defines no allele with exactly this variant set",
+   "*s117": "CPIC defines no allele with exactly this variant set",
+   "*s118": "CPIC defines no allele with exactly this variant set",
+   "*s119": "CPIC defines no allele with exactly this variant set",
+   "*s120": "CPIC defines no allele with exactly this variant set",
+   "*s121": "CPIC defines no allele with exactly this variant set",
+   "*s122": "CPIC defines no allele with exactly this variant set",
+   "*s123": "CPIC defines no allele with exactly this variant set",
+   "*s124": "CPIC defines no allele with exactly this variant set",
+   "*s125": "CPIC defines no allele with exactly this variant set",
+   "*s126": "CPIC defines no allele with exactly this variant set",
+   "*s127": "CPIC defines no allele with exactly this variant set",
+   "*s128": "CPIC defines no allele with exactly this variant set",
+   "*s129": "CPIC defines no allele with exactly this variant set",
+   "*s130": "CPIC defines no allele with exactly this variant set",
+   "*s131": "CPIC defines no allele with exactly this variant set",
+   "*s132": "CPIC defines no allele with exactly this variant set",
+   "*s133": "CPIC defines no allele with exactly this variant set",
+   "*s134": "CPIC defines no allele with exactly this variant set",
+   "*s135": "CPIC defines no allele with exactly this variant set",
+   "*s136": "CPIC defines no allele with exactly this variant set",
+   "*s137": "CPIC defines no allele with exactly this variant set",
+   "*s138": "CPIC defines no allele with exactly this variant set",
+   "*s139": "CPIC defines no allele with exactly this variant set",
+   "*s140": "CPIC defines no allele with exactly this variant set",
+   "*s141": "CPIC defines no allele with exactly this variant set",
+   "*s142": "CPIC defines no allele with exactly this variant set",
+   "*s143": "CPIC defines no allele with exactly this variant set",
+   "*s144": "CPIC defines no allele with exactly this variant set",
+   "*s145": "CPIC defines no allele with exactly this variant set",
+   "*s146": "CPIC defines no allele with exactly this variant set",
+   "*s147": "CPIC defines no allele with exactly this variant set",
+   "*s148": "CPIC defines no allele with exactly this variant set",
+   "*s149": "CPIC defines no allele with exactly this variant set",
+   "*s150": "CPIC defines no allele with exactly this variant set",
+   "*s151": "CPIC defines no allele with exactly this variant set",
+   "*s152": "CPIC defines no allele with exactly this variant set",
+   "*s153": "CPIC defines no allele with exactly this variant set",
+   "*s154": "CPIC defines no allele with exactly this variant set",
+   "*s155": "CPIC defines no allele with exactly this variant set",
+   "*s156": "CPIC defines no allele with exactly this variant set",
+   "*s157": "CPIC defines no allele with exactly this variant set",
+   "*s158": "CPIC defines no allele with exactly this variant set",
+   "*s159": "CPIC defines no allele with exactly this variant set",
+   "*s160": "CPIC defines no allele with exactly this variant set",
+   "*s161": "CPIC defines no allele with exactly this variant set",
+   "*s162": "CPIC defines no allele with exactly this variant set",
+   "*s163": "CPIC defines no allele with exactly this variant set",
+   "*s164": "CPIC defines no allele with exactly this variant set",
+   "*s165": "CPIC defines no allele with exactly this variant set",
+   "*s166": "CPIC defines no allele with exactly this variant set",
+   "*s167": "CPIC defines no allele with exactly this variant set",
+   "*s168": "CPIC defines no allele with exactly this variant set",
+   "*s169": "CPIC defines no allele with exactly this variant set",
+   "*s171": "CPIC defines no allele with exactly this variant set",
+   "*s172": "CPIC defines no allele with exactly this variant set",
+   "*s173": "CPIC defines no allele with exactly this variant set",
+   "*s174": "CPIC defines no allele with exactly this variant set",
+   "*s175": "CPIC defines no allele with exactly this variant set",
+   "*s176": "CPIC defines no allele with exactly this variant set",
+   "*s177": "CPIC defines no allele with exactly this variant set",
+   "*s178": "CPIC defines no allele with exactly this variant set",
+   "*s179": "CPIC defines no allele with exactly this variant set",
+   "*s180": "CPIC defines no allele with exactly this variant set",
+   "*s181": "CPIC defines no allele with exactly this variant set",
+   "*s182": "CPIC defines no allele with exactly this variant set",
+   "*s183": "CPIC defines no allele with exactly this variant set",
+   "*s184": "CPIC defines no allele with exactly this variant set",
+   "*s185": "CPIC defines no allele with exactly this variant set",
+   "*s186": "CPIC defines no allele with exactly this variant set",
+   "*s187": "CPIC defines no allele with exactly this variant set",
+   "*s188": "CPIC defines no allele with exactly this variant set",
+   "*s189": "CPIC defines no allele with exactly this variant set",
+   "*s190": "CPIC defines no allele with exactly this variant set",
+   "*s193": "CPIC defines no allele with exactly this variant set",
+   "*s194": "CPIC defines no allele with exactly this variant set",
+   "*s195": "CPIC defines no allele with exactly this variant set",
+   "*s196": "CPIC defines no allele with exactly this variant set",
+   "*s197": "CPIC defines no allele with exactly this variant set",
+   "*s198": "CPIC defines no allele with exactly this variant set",
+   "*s199": "CPIC defines no allele with exactly this variant set",
+   "*s200": "CPIC defines no allele with exactly this variant set",
+   "*s201": "CPIC defines no allele with exactly this variant set",
+   "*s202": "CPIC defines no allele with exactly this variant set",
+   "*s203": "CPIC defines no allele with exactly this variant set",
+   "*s204": "CPIC defines no allele with exactly this variant set",
+   "*s205": "CPIC defines no allele with exactly this variant set",
+   "*s206": "CPIC defines no allele with exactly this variant set",
+   "*s207": "CPIC defines no allele with exactly this variant set",
+   "*s208": "CPIC defines no allele with exactly this variant set",
+   "*s209": "CPIC defines no allele with exactly this variant set",
+   "*s210": "CPIC defines no allele with exactly this variant set",
+   "*s211": "CPIC defines no allele with exactly this variant set",
+   "*s212": "CPIC defines no allele with exactly this variant set",
+   "*s213": "CPIC defines no allele with exactly this variant set",
+   "*s214": "CPIC defines no allele with exactly this variant set",
+   "*s215": "CPIC defines no allele with exactly this variant set",
+   "*s216": "CPIC defines no allele with exactly this variant set",
+   "*s217": "CPIC defines no allele with exactly this variant set",
+   "*s218": "CPIC defines no allele with exactly this variant set",
+   "*s219": "CPIC defines no allele with exactly this variant set",
+   "*s220": "CPIC defines no allele with exactly this variant set",
+   "*s221": "CPIC defines no allele with exactly this variant set",
+   "*s222": "CPIC defines no allele with exactly this variant set",
+   "*s223": "CPIC defines no allele with exactly this variant set",
+   "*s224": "CPIC defines no allele with exactly this variant set",
+   "*s225": "CPIC defines no allele with exactly this variant set",
+   "*s226": "CPIC defines no allele with exactly this variant set",
+   "*s227": "CPIC defines no allele with exactly this variant set",
+   "*s228": "CPIC defines no allele with exactly this variant set",
+   "*s229": "CPIC defines no allele with exactly this variant set",
+   "*s230": "CPIC defines no allele with exactly this variant set",
+   "*s231": "CPIC defines no allele with exactly this variant set",
+   "*s232": "CPIC defines no allele with exactly this variant set",
+   "*s233": "CPIC defines no allele with exactly this variant set",
+   "*s234": "CPIC defines no allele with exactly this variant set",
+   "*s235": "CPIC defines no allele with exactly this variant set",
+   "*s236": "CPIC defines no allele with exactly this variant set",
+   "*s237": "CPIC defines no allele with exactly this variant set",
+   "*s238": "CPIC defines no allele with exactly this variant set",
+   "*s239": "CPIC defines no allele with exactly this variant set",
+   "*s240": "CPIC defines no allele with exactly this variant set",
+   "*s241": "CPIC defines no allele with exactly this variant set",
+   "*s242": "CPIC defines no allele with exactly this variant set",
+   "*s243": "CPIC defines no allele with exactly this variant set",
+   "*s244": "CPIC defines no allele with exactly this variant set",
+   "*s245": "CPIC defines no allele with exactly this variant set",
+   "*s246": "CPIC defines no allele with exactly this variant set",
+   "*s247": "CPIC defines no allele with exactly this variant set",
+   "*s248": "CPIC defines no allele with exactly this variant set",
+   "*s249": "CPIC defines no allele with exactly this variant set",
+   "*s250": "CPIC defines no allele with exactly this variant set",
+   "*s251": "CPIC defines no allele with exactly this variant set",
+   "*s252": "CPIC defines no allele with exactly this variant set",
+   "*s253": "CPIC defines no allele with exactly this variant set",
+   "*s254": "CPIC defines no allele with exactly this variant set",
+   "*s255": "CPIC defines no allele with exactly this variant set",
+   "*s256": "CPIC defines no allele with exactly this variant set",
+   "*s257": "CPIC defines no allele with exactly this variant set",
+   "*s258": "CPIC defines no allele with exactly this variant set",
+   "*s259": "CPIC defines no allele with exactly this variant set",
+   "*s260": "CPIC defines no allele with exactly this variant set",
+   "*s261": "CPIC defines no allele with exactly this variant set",
+   "*s262": "CPIC defines no allele with exactly this variant set",
+   "*s263": "CPIC defines no allele with exactly this variant set",
+   "*s264": "CPIC defines no allele with exactly this variant set",
+   "*s265": "CPIC defines no allele with exactly this variant set",
+   "*s266": "CPIC defines no allele with exactly this variant set",
+   "*s267": "CPIC defines no allele with exactly this variant set",
+   "*s268": "CPIC defines no allele with exactly this variant set",
+   "*s269": "CPIC defines no allele with exactly this variant set",
+   "*s270": "CPIC defines no allele with exactly this variant set",
+   "*s271": "CPIC defines no allele with exactly this variant set",
+   "*s272": "CPIC defines no allele with exactly this variant set",
+   "*s273": "CPIC defines no allele with exactly this variant set",
+   "*s274": "CPIC defines no allele with exactly this variant set",
+   "*s275": "CPIC defines no allele with exactly this variant set",
+   "*s276": "CPIC defines no allele with exactly this variant set",
+   "*s277": "CPIC defines no allele with exactly this variant set",
+   "*s278": "CPIC defines no allele with exactly this variant set",
+   "*s279": "CPIC defines no allele with exactly this variant set",
+   "*s280": "CPIC defines no allele with exactly this variant set",
+   "*s281": "CPIC defines no allele with exactly this variant set",
+   "*s282": "CPIC defines no allele with exactly this variant set",
+   "*s283": "CPIC defines no allele with exactly this variant set",
+   "*s284": "CPIC defines no allele with exactly this variant set",
+   "*s285": "CPIC defines no allele with exactly this variant set",
+   "*s286": "CPIC defines no allele with exactly this variant set",
+   "*s287": "CPIC defines no allele with exactly this variant set",
+   "*s288": "CPIC defines no allele with exactly this variant set",
+   "*s289": "CPIC defines no allele with exactly this variant set",
+   "*s290": "CPIC defines no allele with exactly this variant set",
+   "*s291": "CPIC defines no allele with exactly this variant set",
+   "*s292": "CPIC defines no allele with exactly this variant set",
+   "*s293": "CPIC defines no allele with exactly this variant set",
+   "*s294": "CPIC defines no allele with exactly this variant set",
+   "*s295": "CPIC defines no allele with exactly this variant set",
+   "*s296": "CPIC defines no allele with exactly this variant set",
+   "*s297": "CPIC defines no allele with exactly this variant set",
+   "*s298": "CPIC defines no allele with exactly this variant set",
+   "*s299": "CPIC defines no allele with exactly this variant set",
+   "*s300": "CPIC defines no allele with exactly this variant set",
+   "*s301": "CPIC defines no allele with exactly this variant set",
+   "*s302": "CPIC defines no allele with exactly this variant set",
+   "*s303": "CPIC defines no allele with exactly this variant set",
+   "*s304": "CPIC defines no allele with exactly this variant set",
+   "*s305": "CPIC defines no allele with exactly this variant set",
+   "*s306": "CPIC defines no allele with exactly this variant set",
+   "*s307": "CPIC defines no allele with exactly this variant set",
+   "*s308": "CPIC defines no allele with exactly this variant set",
+   "*s309": "CPIC defines no allele with exactly this variant set",
+   "*s310": "CPIC defines no allele with exactly this variant set",
+   "*s311": "CPIC defines no allele with exactly this variant set",
+   "*s312": "CPIC defines no allele with exactly this variant set",
+   "*s313": "CPIC defines no allele with exactly this variant set",
+   "*s314": "CPIC defines no allele with exactly this variant set",
+   "*s315": "CPIC defines no allele with exactly this variant set",
+   "*s316": "CPIC defines no allele with exactly this variant set",
+   "*s317": "CPIC defines no allele with exactly this variant set",
+   "*s318": "CPIC defines no allele with exactly this variant set",
+   "*s319": "CPIC defines no allele with exactly this variant set",
+   "*s320": "CPIC defines no allele with exactly this variant set",
+   "*s321": "CPIC defines no allele with exactly this variant set",
+   "*s322": "CPIC defines no allele with exactly this variant set",
+   "*s323": "CPIC defines no allele with exactly this variant set",
+   "*s324": "CPIC defines no allele with exactly this variant set",
+   "*s325": "CPIC defines no allele with exactly this variant set",
+   "*s326": "CPIC defines no allele with exactly this variant set",
+   "*s327": "CPIC defines no allele with exactly this variant set",
+   "*s328": "CPIC defines no allele with exactly this variant set",
+   "*s329": "CPIC defines no allele with exactly this variant set",
+   "*s330": "CPIC defines no allele with exactly this variant set",
+   "*s331": "CPIC defines no allele with exactly this variant set",
+   "*s332": "CPIC defines no allele with exactly this variant set",
+   "*s333": "CPIC defines no allele with exactly this variant set",
+   "*s334": "CPIC defines no allele with exactly this variant set",
+   "*s335": "CPIC defines no allele with exactly this variant set",
+   "*s336": "CPIC defines no allele with exactly this variant set",
+   "*s337": "CPIC defines no allele with exactly this variant set",
+   "*s338": "CPIC defines no allele with exactly this variant set",
+   "*s339": "CPIC defines no allele with exactly this variant set",
+   "*s340": "CPIC defines no allele with exactly this variant set",
+   "*s341": "CPIC defines no allele with exactly this variant set",
+   "*s342": "CPIC defines no allele with exactly this variant set",
+   "*s343": "CPIC defines no allele with exactly this variant set",
+   "*s344": "CPIC defines no allele with exactly this variant set",
+   "*s345": "CPIC defines no allele with exactly this variant set",
+   "*s346": "CPIC defines no allele with exactly this variant set",
+   "*s347": "CPIC defines no allele with exactly this variant set",
+   "*s348": "CPIC defines no allele with exactly this variant set",
+   "*s349": "CPIC defines no allele with exactly this variant set",
+   "*s350": "CPIC defines no allele with exactly this variant set",
+   "*s351": "CPIC defines no allele with exactly this variant set",
+   "*s352": "CPIC defines no allele with exactly this variant set",
+   "*s353": "CPIC defines no allele with exactly this variant set",
+   "*s354": "CPIC defines no allele with exactly this variant set",
+   "*s355": "CPIC defines no allele with exactly this variant set",
+   "*s356": "CPIC defines no allele with exactly this variant set",
+   "*s357": "CPIC defines no allele with exactly this variant set",
+   "*s358": "CPIC defines no allele with exactly this variant set",
+   "*s359": "CPIC defines no allele with exactly this variant set",
+   "*s360": "CPIC defines no allele with exactly this variant set",
+   "*s361": "CPIC defines no allele with exactly this variant set",
+   "*s362": "CPIC defines no allele with exactly this variant set",
+   "*s363": "CPIC defines no allele with exactly this variant set",
+   "*s364": "CPIC defines no allele with exactly this variant set",
+   "*s365": "CPIC defines no allele with exactly this variant set",
+   "*s366": "CPIC defines no allele with exactly this variant set",
+   "*s367": "CPIC defines no allele with exactly this variant set",
+   "*s368": "CPIC defines no allele with exactly this variant set",
+   "*s369": "CPIC defines no allele with exactly this variant set",
+   "*s370": "CPIC defines no allele with exactly this variant set",
+   "*s371": "CPIC defines no allele with exactly this variant set",
+   "*s372": "CPIC defines no allele with exactly this variant set",
+   "*s373": "CPIC defines no allele with exactly this variant set",
+   "*s374": "CPIC defines no allele with exactly this variant set",
+   "*s375": "CPIC defines no allele with exactly this variant set",
+   "*s376": "CPIC defines no allele with exactly this variant set",
+   "*s377": "CPIC defines no allele with exactly this variant set",
+   "*s378": "CPIC defines no allele with exactly this variant set",
+   "*s379": "CPIC defines no allele with exactly this variant set",
+   "*s380": "CPIC defines no allele with exactly this variant set",
+   "*s381": "CPIC defines no allele with exactly this variant set",
+   "*s382": "CPIC defines no allele with exactly this variant set",
+   "*s383": "CPIC defines no allele with exactly this variant set",
+   "*s384": "CPIC defines no allele with exactly this variant set",
+   "*s385": "CPIC defines no allele with exactly this variant set",
+   "*s386": "CPIC defines no allele with exactly this variant set",
+   "*s387": "CPIC defines no allele with exactly this variant set",
+   "*s388": "CPIC defines no allele with exactly this variant set",
+   "*s389": "CPIC defines no allele with exactly this variant set",
+   "*s390": "CPIC defines no allele with exactly this variant set",
+   "*s391": "CPIC defines no allele with exactly this variant set",
+   "*s392": "CPIC defines no allele with exactly this variant set",
+   "*s393": "CPIC defines no allele with exactly this variant set",
+   "*s394": "CPIC defines no allele with exactly this variant set",
+   "*s395": "CPIC defines no allele with exactly this variant set",
+   "*s396": "CPIC defines no allele with exactly this variant set",
+   "*s397": "CPIC defines no allele with exactly this variant set",
+   "*s398": "CPIC defines no allele with exactly this variant set",
+   "*s399": "CPIC defines no allele with exactly this variant set",
+   "*s400": "CPIC defines no allele with exactly this variant set",
+   "*s401": "CPIC defines no allele with exactly this variant set",
+   "*s402": "CPIC defines no allele with exactly this variant set",
+   "*s403": "CPIC defines no allele with exactly this variant set",
+   "*s404": "CPIC defines no allele with exactly this variant set",
+   "*s405": "CPIC defines no allele with exactly this variant set",
+   "*s406": "CPIC defines no allele with exactly this variant set",
+   "*s407": "CPIC defines no allele with exactly this variant set",
+   "*s408": "CPIC defines no allele with exactly this variant set",
+   "*s409": "CPIC defines no allele with exactly this variant set",
+   "*s410": "CPIC defines no allele with exactly this variant set",
+   "*s411": "CPIC defines no allele with exactly this variant set",
+   "*s412": "CPIC defines no allele with exactly this variant set",
+   "*s413": "CPIC defines no allele with exactly this variant set",
+   "*s414": "CPIC defines no allele with exactly this variant set",
+   "*s415": "CPIC defines no allele with exactly this variant set",
+   "*s416": "CPIC defines no allele with exactly this variant set",
+   "*s417": "CPIC defines no allele with exactly this variant set",
+   "*s418": "CPIC defines no allele with exactly this variant set",
+   "*s419": "CPIC defines no allele with exactly this variant set",
+   "*s420": "CPIC defines no allele with exactly this variant set",
+   "*s421": "CPIC defines no allele with exactly this variant set",
+   "*s422": "CPIC defines no allele with exactly this variant set",
+   "*s423": "CPIC defines no allele with exactly this variant set",
+   "*s424": "CPIC defines no allele with exactly this variant set",
+   "*s425": "CPIC defines no allele with exactly this variant set",
+   "*s426": "CPIC defines no allele with exactly this variant set",
+   "*s427": "CPIC defines no allele with exactly this variant set",
+   "*s428": "CPIC defines no allele with exactly this variant set",
+   "*s429": "CPIC defines no allele with exactly this variant set",
+   "*s430": "CPIC defines no allele with exactly this variant set",
+   "*s431": "CPIC defines no allele with exactly this variant set",
+   "*s432": "CPIC defines no allele with exactly this variant set",
+   "*s433": "CPIC defines no allele with exactly this variant set",
+   "*s434": "CPIC defines no allele with exactly this variant set",
+   "*s435": "CPIC defines no allele with exactly this variant set",
+   "*s436": "CPIC defines no allele with exactly this variant set",
+   "*s437": "CPIC defines no allele with exactly this variant set",
+   "*s438": "CPIC defines no allele with exactly this variant set",
+   "*s439": "CPIC defines no allele with exactly this variant set",
+   "*s440": "CPIC defines no allele with exactly this variant set",
+   "*s441": "CPIC defines no allele with exactly this variant set",
+   "*s442": "CPIC defines no allele with exactly this variant set",
+   "*s443": "CPIC defines no allele with exactly this variant set",
+   "*s444": "CPIC defines no allele with exactly this variant set",
+   "*s445": "CPIC defines no allele with exactly this variant set",
+   "*s446": "CPIC defines no allele with exactly this variant set",
+   "*s447": "CPIC defines no allele with exactly this variant set",
+   "*s448": "CPIC defines no allele with exactly this variant set",
+   "*s449": "CPIC defines no allele with exactly this variant set",
+   "*s450": "CPIC defines no allele with exactly this variant set",
+   "*s451": "CPIC defines no allele with exactly this variant set",
+   "*s452": "CPIC defines no allele with exactly this variant set",
+   "*s453": "CPIC defines no allele with exactly this variant set",
+   "*s454": "CPIC defines no allele with exactly this variant set",
+   "*s455": "CPIC defines no allele with exactly this variant set",
+   "*s456": "CPIC defines no allele with exactly this variant set",
+   "*s457": "CPIC defines no allele with exactly this variant set",
+   "*s458": "CPIC defines no allele with exactly this variant set",
+   "*s459": "CPIC defines no allele with exactly this variant set",
+   "*s8": "CPIC defines no allele with exactly this variant set",
+   "*s87": "CPIC defines no allele with exactly this variant set",
+   "*s88": "CPIC defines no allele with exactly this variant set",
+   "*s89": "CPIC defines no allele with exactly this variant set",
+   "*s90": "CPIC defines no allele with exactly this variant set",
+   "*s91": "CPIC defines no allele with exactly this variant set",
+   "*s92": "CPIC defines no allele with exactly this variant set",
+   "*s93": "CPIC defines no allele with exactly this variant set",
+   "*s95": "CPIC defines no allele with exactly this variant set",
+   "*s96": "CPIC defines no allele with exactly this variant set",
+   "*s97": "CPIC defines no allele with exactly this variant set",
+   "*s99": "CPIC defines no allele with exactly this variant set"
+  }
+ },
+ "cpic_alleles": {
+  "Reference": [
+   {
+    "change": "G>T",
+    "pos": 97078987,
+    "rsid": "rs114096998"
+   },
+   {
+    "change": "C>G",
+    "pos": 97078993,
+    "rsid": "rs148799944"
+   },
+   {
+    "change": "C>T",
+    "pos": 97079005,
+    "rsid": "rs140114515"
+   },
+   {
+    "change": "C>A",
+    "pos": 97079071,
+    "rsid": "rs1801268"
+   },
+   {
+    "change": "A>C",
+    "pos": 97079076,
+    "rsid": "rs139459586"
+   },
+   {
+    "change": "G>A",
+    "pos": 97079077,
+    "rsid": "rs202144771"
+   },
+   {
+    "change": "T>C",
+    "pos": 97079121,
+    "rsid": "rs72547601"
+   },
+   {
+    "change": "T>A",
+    "pos": 97079133,
+    "rsid": "rs72547602"
+   },
+   {
+    "change": "T>C",
+    "pos": 97079139,
+    "rsid": "rs145529148"
+   },
+   {
+    "change": "T>C",
+    "pos": 97082365,
+    "rsid": "rs141044036"
+   },
+   {
+    "change": "T>A",
+    "pos": 97082391,
+    "rsid": "rs67376798"
+   },
+   {
+    "change": "C>T",
+    "pos": 97098598,
+    "rsid": "rs1801267"
+   },
+   {
+    "change": "G>A",
+    "pos": 97098599,
+    "rsid": "rs147545709"
+   },
+   {
+    "change": "C>A",
+    "pos": 97098616,
+    "rsid": "rs55674432"
+   },
+   {
+    "change": "T>G",
+    "pos": 97098632,
+    "rsid": "rs201035051"
+   },
+   {
+    "change": "T>C",
+    "pos": 97193109,
+    "rsid": "rs60139309"
+   },
+   {
+    "change": "C>T",
+    "pos": 97193209,
+    "rsid": "rs200687447"
+   },
+   {
+    "change": "G>T",
+    "pos": 97234958,
+    "rsid": "rs199634007"
+   },
+   {
+    "change": "G>T",
+    "pos": 97234991,
+    "rsid": "rs56005131"
+   },
+   {
+    "change": "G>A",
+    "pos": 97305279,
+    "rsid": "rs112766203"
+   },
+   {
+    "change": "A>C",
+    "pos": 97305363,
+    "rsid": "rs60511679"
+   },
+   {
+    "change": "C>T",
+    "pos": 97305364,
+    "rsid": "rs1801160"
+   },
+   {
+    "change": "G>A",
+    "pos": 97305372,
+    "rsid": "rs146529561"
+   },
+   {
+    "change": "C>T",
+    "pos": 97306195,
+    "rsid": "rs145548112"
+   },
+   {
+    "change": "C>T",
+    "pos": 97373598,
+    "rsid": "rs137999090"
+   },
+   {
+    "change": "C>A",
+    "pos": 97373629,
+    "rsid": "rs138545885"
+   },
+   {
+    "change": "T>G",
+    "pos": 97382461,
+    "rsid": "rs55971861"
+   },
+   {
+    "change": "C>T",
+    "pos": 97450058,
+    "rsid": "rs3918290"
+   },
+   {
+    "change": "G>C",
+    "pos": 97450059,
+    "rsid": "rs3918289"
+   },
+   {
+    "change": "g.97450067del",
+    "pos": 97450067,
+    "rsid": "rs72549303"
+   },
+   {
+    "change": "A>G",
+    "pos": 97450068,
+    "rsid": "rs17376848"
+   },
+   {
+    "change": "A>G",
+    "pos": 97450168,
+    "rsid": "rs147601618"
+   },
+   {
+    "change": "C>T",
+    "pos": 97450187,
+    "rsid": "rs145773863"
+   },
+   {
+    "change": "C>T",
+    "pos": 97450189,
+    "rsid": "rs138616379"
+   },
+   {
+    "change": "G>A",
+    "pos": 97450190,
+    "rsid": "rs59086055"
+   },
+   {
+    "change": "C>A",
+    "pos": 97515784,
+    "rsid": "rs201615754"
+   },
+   {
+    "change": "A>C",
+    "pos": 97515787,
+    "rsid": "rs55886062"
+   },
+   {
+    "change": "T>C",
+    "pos": 97515839,
+    "rsid": "rs1801159"
+   },
+   {
+    "change": "C>T",
+    "pos": 97515851,
+    "rsid": "rs142619737"
+   },
+   {
+    "change": "C>T",
+    "pos": 97515865,
+    "rsid": "rs1801158"
+   },
+   {
+    "change": "G>C",
+    "pos": 97515889,
+    "rsid": "rs190951787"
+   },
+   {
+    "change": "C>T",
+    "pos": 97515923,
+    "rsid": "rs148994843"
+   },
+   {
+    "change": "C>T",
+    "pos": 97549565,
+    "rsid": "rs138391898"
+   },
+   {
+    "change": "T>C",
+    "pos": 97549600,
+    "rsid": "rs111858276"
+   },
+   {
+    "change": "G>A",
+    "pos": 97549609,
+    "rsid": "rs72549304"
+   },
+   {
+    "change": "G>T",
+    "pos": 97549681,
+    "rsid": "rs199549923"
+   },
+   {
+    "change": "G>A",
+    "pos": 97549713,
+    "rsid": "rs57918000"
+   },
+   {
+    "change": "G>C",
+    "pos": 97549726,
+    "rsid": "rs144395748"
+   },
+   {
+    "change": "G>A",
+    "pos": 97549735,
+    "rsid": "rs72975710"
+   },
+   {
+    "change": "A>C",
+    "pos": 97573785,
+    "rsid": "rs186169810"
+   },
+   {
+    "change": "C>T",
+    "pos": 97573805,
+    "rsid": "rs142512579"
+   },
+   {
+    "change": "C>A",
+    "pos": 97573821,
+    "rsid": "rs764666241"
+   },
+   {
+    "change": "A>T",
+    "pos": 97573839,
+    "rsid": "rs200064537"
+   },
+   {
+    "change": "C>T",
+    "pos": 97573863,
+    "rsid": "rs56038477"
+   },
+   {
+    "change": "C>T",
+    "pos": 97573881,
+    "rsid": "rs61622928"
+   },
+   {
+    "change": "C>A",
+    "pos": 97573918,
+    "rsid": "rs143815742"
+   },
+   {
+    "change": "G>A",
+    "pos": 97573919,
+    "rsid": "rs140602333"
+   },
+   {
+    "change": "C>A",
+    "pos": 97573943,
+    "rsid": "rs78060119"
+   },
+   {
+    "change": "G>C",
+    "pos": 97579893,
+    "rsid": "rs75017182"
+   },
+   {
+    "change": "T>C",
+    "pos": 97593238,
+    "rsid": "rs72549305"
+   },
+   {
+    "change": "G>A",
+    "pos": 97593289,
+    "rsid": "rs143154602"
+   },
+   {
+    "change": "C>T",
+    "pos": 97593322,
+    "rsid": "rs183385770"
+   },
+   {
+    "change": "C>A",
+    "pos": 97593343,
+    "rsid": "rs72549306"
+   },
+   {
+    "change": "C>T",
+    "pos": 97593379,
+    "rsid": "rs201018345"
+   },
+   {
+    "change": "G>A",
+    "pos": 97595083,
+    "rsid": "rs145112791"
+   },
+   {
+    "change": "A>G",
+    "pos": 97595088,
+    "rsid": "rs150437414"
+   },
+   {
+    "change": "T>C",
+    "pos": 97595149,
+    "rsid": "rs146356975"
+   },
+   {
+    "change": "T>C",
+    "pos": 97679170,
+    "rsid": "rs45589337"
+   },
+   {
+    "change": "G>A",
+    "pos": 97691776,
+    "rsid": "rs1801266"
+   },
+   {
+    "change": "T>C",
+    "pos": 97699399,
+    "rsid": "rs72549307"
+   },
+   {
+    "change": "T>G",
+    "pos": 97699430,
+    "rsid": "rs72549308"
+   },
+   {
+    "change": "T>C",
+    "pos": 97699474,
+    "rsid": "rs115232898"
+   },
+   {
+    "change": "C>T",
+    "pos": 97699506,
+    "rsid": "rs6670886"
+   },
+   {
+    "change": "C>T",
+    "pos": 97699533,
+    "rsid": "rs139834141"
+   },
+   {
+    "change": "T>C",
+    "pos": 97699535,
+    "rsid": "rs2297595"
+   },
+   {
+    "change": "T>C",
+    "pos": 97721542,
+    "rsid": "rs200562975"
+   },
+   {
+    "change": "T>C",
+    "pos": 97721650,
+    "rsid": "rs141462178"
+   },
+   {
+    "change": "C>T",
+    "pos": 97740400,
+    "rsid": "rs150385342"
+   },
+   {
+    "change": "g.97740411ATGA[1]",
+    "pos": 97740411,
+    "rsid": "rs72549309"
+   },
+   {
+    "change": "A>G",
+    "pos": 97883329,
+    "rsid": "rs1801265"
+   },
+   {
+    "change": "C>T",
+    "pos": 97883352,
+    "rsid": "rs80081766"
+   },
+   {
+    "change": "G>A",
+    "pos": 97883353,
+    "rsid": "rs72549310"
+   },
+   {
+    "change": "G>C",
+    "pos": 97883368,
+    "rsid": "rs150036960"
+   }
+  ],
+  "c.1003G>T (*11)": [
+   {
+    "change": "C>A",
+    "pos": 97593343,
+    "rsid": "rs72549306"
+   }
+  ],
+  "c.1024G>A": [
+   {
+    "change": "C>T",
+    "pos": 97593322,
+    "rsid": "rs183385770"
+   }
+  ],
+  "c.1057C>T": [
+   {
+    "change": "G>A",
+    "pos": 97593289,
+    "rsid": "rs143154602"
+   }
+  ],
+  "c.1108A>G": [
+   {
+    "change": "T>C",
+    "pos": 97593238,
+    "rsid": "rs72549305"
+   }
+  ],
+  "c.1129-5923C>G": [
+   {
+    "change": "G>C",
+    "pos": 97579893,
+    "rsid": "rs75017182"
+   }
+  ],
+  "c.1129-5923C>G, c.1236G>A (HapB3)": [
+   {
+    "change": "C>T",
+    "pos": 97573863,
+    "rsid": "rs56038477"
+   },
+   {
+    "change": "G>C",
+    "pos": 97579893,
+    "rsid": "rs75017182"
+   }
+  ],
+  "c.1156G>T (*12)": [
+   {
+    "change": "C>A",
+    "pos": 97573943,
+    "rsid": "rs78060119"
+   }
+  ],
+  "c.1180C>T": [
+   {
+    "change": "G>A",
+    "pos": 97573919,
+    "rsid": "rs140602333"
+   }
+  ],
+  "c.1181G>T": [
+   {
+    "change": "C>A",
+    "pos": 97573918,
+    "rsid": "rs143815742"
+   }
+  ],
+  "c.1218G>A": [
+   {
+    "change": "C>T",
+    "pos": 97573881,
+    "rsid": "rs61622928"
+   }
+  ],
+  "c.1260T>A": [
+   {
+    "change": "A>T",
+    "pos": 97573839,
+    "rsid": "rs200064537"
+   }
+  ],
+  "c.1278G>T": [
+   {
+    "change": "C>A",
+    "pos": 97573821,
+    "rsid": "rs764666241"
+   }
+  ],
+  "c.1294G>A": [
+   {
+    "change": "C>T",
+    "pos": 97573805,
+    "rsid": "rs142512579"
+   }
+  ],
+  "c.1314T>G": [
+   {
+    "change": "A>C",
+    "pos": 97573785,
+    "rsid": "rs186169810"
+   }
+  ],
+  "c.1349C>T": [
+   {
+    "change": "G>A",
+    "pos": 97549735,
+    "rsid": "rs72975710"
+   }
+  ],
+  "c.1358C>G": [
+   {
+    "change": "G>C",
+    "pos": 97549726,
+    "rsid": "rs144395748"
+   }
+  ],
+  "c.1371C>T": [
+   {
+    "change": "G>A",
+    "pos": 97549713,
+    "rsid": "rs57918000"
+   }
+  ],
+  "c.1403C>A": [
+   {
+    "change": "G>T",
+    "pos": 97549681,
+    "rsid": "rs199549923"
+   }
+  ],
+  "c.1475C>T": [
+   {
+    "change": "G>A",
+    "pos": 97549609,
+    "rsid": "rs72549304"
+   }
+  ],
+  "c.1484A>G": [
+   {
+    "change": "T>C",
+    "pos": 97549600,
+    "rsid": "rs111858276"
+   }
+  ],
+  "c.1519G>A": [
+   {
+    "change": "C>T",
+    "pos": 97549565,
+    "rsid": "rs138391898"
+   }
+  ],
+  "c.1543G>A": [
+   {
+    "change": "C>T",
+    "pos": 97515923,
+    "rsid": "rs148994843"
+   }
+  ],
+  "c.1577C>G": [
+   {
+    "change": "G>C",
+    "pos": 97515889,
+    "rsid": "rs190951787"
+   }
+  ],
+  "c.1601G>A (*4)": [
+   {
+    "change": "C>T",
+    "pos": 97515865,
+    "rsid": "rs1801158"
+   }
+  ],
+  "c.1615G>A": [
+   {
+    "change": "C>T",
+    "pos": 97515851,
+    "rsid": "rs142619737"
+   }
+  ],
+  "c.1627A>G (*5)": [
+   {
+    "change": "T>C",
+    "pos": 97515839,
+    "rsid": "rs1801159"
+   }
+  ],
+  "c.1679T>G (*13)": [
+   {
+    "change": "A>C",
+    "pos": 97515787,
+    "rsid": "rs55886062"
+   }
+  ],
+  "c.1682G>T": [
+   {
+    "change": "C>A",
+    "pos": 97515784,
+    "rsid": "rs201615754"
+   }
+  ],
+  "c.1774C>T": [
+   {
+    "change": "G>A",
+    "pos": 97450190,
+    "rsid": "rs59086055"
+   }
+  ],
+  "c.1775G>A": [
+   {
+    "change": "C>T",
+    "pos": 97450189,
+    "rsid": "rs138616379"
+   }
+  ],
+  "c.1777G>A": [
+   {
+    "change": "C>T",
+    "pos": 97450187,
+    "rsid": "rs145773863"
+   }
+  ],
+  "c.1796T>C": [
+   {
+    "change": "A>G",
+    "pos": 97450168,
+    "rsid": "rs147601618"
+   }
+  ],
+  "c.1896T>C": [
+   {
+    "change": "A>G",
+    "pos": 97450068,
+    "rsid": "rs17376848"
+   }
+  ],
+  "c.1898delC (*3)": [
+   {
+    "change": "g.97450067del",
+    "pos": 97450067,
+    "rsid": "rs72549303"
+   }
+  ],
+  "c.1905+1G>A (*2A)": [
+   {
+    "change": "C>T",
+    "pos": 97450058,
+    "rsid": "rs3918290"
+   }
+  ],
+  "c.1905C>G": [
+   {
+    "change": "G>C",
+    "pos": 97450059,
+    "rsid": "rs3918289"
+   }
+  ],
+  "c.1906A>C": [
+   {
+    "change": "T>G",
+    "pos": 97382461,
+    "rsid": "rs55971861"
+   }
+  ],
+  "c.1990G>T": [
+   {
+    "change": "C>A",
+    "pos": 97373629,
+    "rsid": "rs138545885"
+   }
+  ],
+  "c.2021G>A": [
+   {
+    "change": "C>T",
+    "pos": 97373598,
+    "rsid": "rs137999090"
+   }
+  ],
+  "c.2161G>A": [
+   {
+    "change": "C>T",
+    "pos": 97306195,
+    "rsid": "rs145548112"
+   }
+  ],
+  "c.2186C>T": [
+   {
+    "change": "G>A",
+    "pos": 97305372,
+    "rsid": "rs146529561"
+   }
+  ],
+  "c.2194G>A (*6)": [
+   {
+    "change": "C>T",
+    "pos": 97305364,
+    "rsid": "rs1801160"
+   }
+  ],
+  "c.2195T>G": [
+   {
+    "change": "A>C",
+    "pos": 97305363,
+    "rsid": "rs60511679"
+   }
+  ],
+  "c.2279C>T": [
+   {
+    "change": "G>A",
+    "pos": 97305279,
+    "rsid": "rs112766203"
+   }
+  ],
+  "c.2303C>A": [
+   {
+    "change": "G>T",
+    "pos": 97234991,
+    "rsid": "rs56005131"
+   }
+  ],
+  "c.2336C>A": [
+   {
+    "change": "G>T",
+    "pos": 97234958,
+    "rsid": "rs199634007"
+   }
+  ],
+  "c.2482G>A": [
+   {
+    "change": "C>T",
+    "pos": 97193209,
+    "rsid": "rs200687447"
+   }
+  ],
+  "c.2582A>G": [
+   {
+    "change": "T>C",
+    "pos": 97193109,
+    "rsid": "rs60139309"
+   }
+  ],
+  "c.2623A>C": [
+   {
+    "change": "T>G",
+    "pos": 97098632,
+    "rsid": "rs201035051"
+   }
+  ],
+  "c.2639G>T": [
+   {
+    "change": "C>A",
+    "pos": 97098616,
+    "rsid": "rs55674432"
+   }
+  ],
+  "c.2656C>T": [
+   {
+    "change": "G>A",
+    "pos": 97098599,
+    "rsid": "rs147545709"
+   }
+  ],
+  "c.2657G>A (*9B)": [
+   {
+    "change": "C>T",
+    "pos": 97098598,
+    "rsid": "rs1801267"
+   }
+  ],
+  "c.2846A>T": [
+   {
+    "change": "T>A",
+    "pos": 97082391,
+    "rsid": "rs67376798"
+   }
+  ],
+  "c.2872A>G": [
+   {
+    "change": "T>C",
+    "pos": 97082365,
+    "rsid": "rs141044036"
+   }
+  ],
+  "c.2915A>G": [
+   {
+    "change": "T>C",
+    "pos": 97079139,
+    "rsid": "rs145529148"
+   }
+  ],
+  "c.2921A>T": [
+   {
+    "change": "T>A",
+    "pos": 97079133,
+    "rsid": "rs72547602"
+   }
+  ],
+  "c.2933A>G": [
+   {
+    "change": "T>C",
+    "pos": 97079121,
+    "rsid": "rs72547601"
+   }
+  ],
+  "c.295_298delTCAT (*7)": [
+   {
+    "change": "g.97740411ATGA[1]",
+    "pos": 97740411,
+    "rsid": "rs72549309"
+   }
+  ],
+  "c.2977C>T": [
+   {
+    "change": "G>A",
+    "pos": 97079077,
+    "rsid": "rs202144771"
+   }
+  ],
+  "c.2978T>G": [
+   {
+    "change": "A>C",
+    "pos": 97079076,
+    "rsid": "rs139459586"
+   }
+  ],
+  "c.2983G>T (*10)": [
+   {
+    "change": "C>A",
+    "pos": 97079071,
+    "rsid": "rs1801268"
+   }
+  ],
+  "c.3049G>A": [
+   {
+    "change": "C>T",
+    "pos": 97079005,
+    "rsid": "rs140114515"
+   }
+  ],
+  "c.3061G>C": [
+   {
+    "change": "C>G",
+    "pos": 97078993,
+    "rsid": "rs148799944"
+   }
+  ],
+  "c.3067C>A": [
+   {
+    "change": "G>T",
+    "pos": 97078987,
+    "rsid": "rs114096998"
+   }
+  ],
+  "c.313G>A": [
+   {
+    "change": "C>T",
+    "pos": 97740400,
+    "rsid": "rs150385342"
+   }
+  ],
+  "c.343A>G": [
+   {
+    "change": "T>C",
+    "pos": 97721650,
+    "rsid": "rs141462178"
+   }
+  ],
+  "c.451A>G": [
+   {
+    "change": "T>C",
+    "pos": 97721542,
+    "rsid": "rs200562975"
+   }
+  ],
+  "c.46C>G": [
+   {
+    "change": "G>C",
+    "pos": 97883368,
+    "rsid": "rs150036960"
+   }
+  ],
+  "c.496A>G": [
+   {
+    "change": "T>C",
+    "pos": 97699535,
+    "rsid": "rs2297595"
+   }
+  ],
+  "c.498G>A": [
+   {
+    "change": "C>T",
+    "pos": 97699533,
+    "rsid": "rs139834141"
+   }
+  ],
+  "c.525G>A": [
+   {
+    "change": "C>T",
+    "pos": 97699506,
+    "rsid": "rs6670886"
+   }
+  ],
+  "c.557A>G": [
+   {
+    "change": "T>C",
+    "pos": 97699474,
+    "rsid": "rs115232898"
+   }
+  ],
+  "c.601A>C": [
+   {
+    "change": "T>G",
+    "pos": 97699430,
+    "rsid": "rs72549308"
+   }
+  ],
+  "c.61C>T": [
+   {
+    "change": "G>A",
+    "pos": 97883353,
+    "rsid": "rs72549310"
+   }
+  ],
+  "c.62G>A": [
+   {
+    "change": "C>T",
+    "pos": 97883352,
+    "rsid": "rs80081766"
+   }
+  ],
+  "c.632A>G": [
+   {
+    "change": "T>C",
+    "pos": 97699399,
+    "rsid": "rs72549307"
+   }
+  ],
+  "c.703C>T (*8)": [
+   {
+    "change": "G>A",
+    "pos": 97691776,
+    "rsid": "rs1801266"
+   }
+  ],
+  "c.775A>G": [
+   {
+    "change": "T>C",
+    "pos": 97679170,
+    "rsid": "rs45589337"
+   }
+  ],
+  "c.85T>C (*9A)": [
+   {
+    "change": "A>G",
+    "pos": 97883329,
+    "rsid": "rs1801265"
+   }
+  ],
+  "c.868A>G": [
+   {
+    "change": "T>C",
+    "pos": 97595149,
+    "rsid": "rs146356975"
+   }
+  ],
+  "c.929T>C": [
+   {
+    "change": "A>G",
+    "pos": 97595088,
+    "rsid": "rs150437414"
+   }
+  ],
+  "c.934C>T": [
+   {
+    "change": "G>A",
+    "pos": 97595083,
+    "rsid": "rs145112791"
+   }
+  ],
+  "c.967G>A": [
+   {
+    "change": "C>T",
+    "pos": 97593379,
+    "rsid": "rs201018345"
+   }
+  ]
+ },
+ "retrieved": "2026-11-15",
+ "source": {
+  "aldy": "Aldy names a lone variant `*rs<NNN>`; mapped by dbSNP id to the CPIC allele defined by exactly that variant",
+  "cpic": {
+   "allele_definition": "https://api.cpicpgx.org/v1/allele_definition?genesymbol=eq.DPYD&select=*&limit=1000",
+   "allele_location_value": "https://api.cpicpgx.org/v1/allele_location_value?alleledefinitionid=in.({ids})&select=*&limit=5000",
+   "sequence_location": "https://api.cpicpgx.org/v1/sequence_location?genesymbol=eq.DPYD&select=*&limit=1000"
+  },
+  "stargazer": {
+   "snp_table": "stargazer-grc38-2.0.3/stargazer/snp_table.tsv",
+   "snp_table_sha256": "9abb4b06c6ce4776e202a33958f4d0e87072a96bfb95644d2b6c007b4cf9fa28",
+   "star_table": "stargazer-grc38-2.0.3/stargazer/star_table.tsv",
+   "star_table_sha256": "f47ba016769f9fefcd54f9db885740d97a89de90f0344d923c05f89c5e8ab627",
+   "tool": "Stargazer GRCh38 build, directory stargazer-grc38-2.0.3 (stargazer/version.py __version__ 2.0.0)"
+  }
+ }
+}

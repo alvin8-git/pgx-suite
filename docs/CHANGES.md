@@ -5,6 +5,232 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-15 (code-review fixes, split rule and lookups)
+
+Fixes to the uncommitted split-phenotype / CPIC-table work after a /code-review medium.
+- `pgx-compare._split_by_cpic_phenotype` now applies to every `A or B` verdict of a gene with a CPIC table, whatever flags the verdict has.
+  Readings that all give one usable CPIC phenotype report CPIC's phenotype (the callers' label, when different, goes in the note, as for
+  TPMT/NUDT15; e.g. CYP2C19 `*2/*2 or *2/*3` is Poor, not the callers' Intermediate; CYP2B6 phase-ambiguous `*1/*7 or *5/*6` is
+  Intermediate, not the callers' Indeterminate). Readings all Indeterminate give `-` like a split. A split keeps the agreement level
+  (`majority, diplotype unresolved` / `concordant, diplotype unresolved`) and clears `authority` (it said the phenotype tier decided).
+  `pgx-report.py` has badges for the new status; `build_axiom_concordance.adjudicate` treats it like its base status.
+- `reconcile`: the legacy, notation and CPIC tables load on first use and a missing file raises an error naming it (import no longer reads them);
+  `cpic_diplotype_phenotype` continues to the folded lookups past an ambiguous row; `fold_legacy_letter` is case-insensitive;
+  `_strip_allele` cuts `rs1+rs2` at `+` again while `c.1905+1G>A` stays whole.
+- `build-arcashla-sif.sh` and `reanalyze_mgi.sh` require TMPDIR (no `/var/tmp` default).
+- Real run (15c416c container, worktree `docker/` mounted, before = pre-fix worktree state): 65-sample rig 2767 verdicts, no call changed
+  (diplotype, phenotype, status); 14 split verdicts lose `authority: Phenotype`, 22 gain `phenotype_source`. Axiom rig 1240 verdicts: no call changed; 17 splits lose `authority`, 13 gain `phenotype_source`.
+  New tests in `test_verdict.py`.
+
+---
+
+## 2026-11-15 (legacy letter fold) — explicit PharmVar table replaces the blanket trailing-letter strip
+
+The fold of `reconcile` (`*2B` as `*2`) was a regex verified only for CYP3A5. All PharmVar genes pgx-suite reports were rendered
+(PharmVar 6.2.29, updated 2026-09-23, https://www.pharmvar.org/gene/<GENE>; the Legacy Label column is only in the rendered page).
+- New `docker/pharmvar_legacy_snapshot.json` (every sub-allele with a legacy label, per gene) and `docker/pharmvar_legacy_build.py`;
+  `pharmvar_legacy_suballeles.json` is now derived from it: `fold` (letter number = core number; CYP2C19 18, CYP2C9 6, CYP2B6 22,
+  CYP2D6 52, CYP3A4 5, CYP3A5 7, SLCO1B1 2, NAT2 13), `redesignated` (CYP2C19 `*1A` = `*38.001`, CYP2D6 `*14A` = `*114.001`, 32 NAT2).
+  CYP4F2 and NUDT15 have no lettered label; TPMT and UGT1A1 pages say "not maintained by the PharmVar Database"; DPYD is by rsID.
+- `reconcile.fold_legacy_letter(gene, allele)` folds only listed labels. Unlisted and redesignated letters stay unscorable and count toward
+  the split rule. Behaviour change by design: CYP2C19 `*1A` no longer folds to `*1` (it is now `*38`, a different allele).
+- `Dockerfile` copies `pharmvar_legacy_suballeles.json` (it was not copied before); the image is not rebuilt here.
+- Tests: table equals the derivation from the snapshot, snapshot equals freshly rendered pages (PGX_PHARMVAR_PAGES), the fold refuses unlisted
+  and redesignated labels. All `docker/test_*.py` pass.
+- Real run (pgx-suite:15c416c container, worktree `docker/` mounted, stored detail JSON, old regex fold vs new table): 65-sample rig
+  2767 gene verdicts and Axiom rig 1240 verdicts, 0 changed cells. Lettered alleles in stored calls for genes with a CPIC diplotype table:
+  CYP2C19 `*2B` (5 readings) and CYP3A5 `*3B` (3) are listed folds; no redesignated or unlisted letter occurs there (CYP3A4 `*1B`/`*1G`, TPMT `*1S`,
+  DPYD `*9A` are in genes without a fold table or outside it).
+- Owner decision recorded in CLAUDE.md: composite Aldy DPYD haplotypes (`*9A+rsX`) stay `-`.
+
+---
+
+## 2026-11-15 (DPYD notation map, CYP3A5 *3B) — Stargazer `*S` codes and Aldy `*rs` tags score through CPIC
+
+Owner approved. A DPYD reading in caller notation (Stargazer `*S10`, Aldy `*rs2297595`, bare `*4`) had no CPIC diplotype
+row, so under the split rule it made the whole call phenotype-less. New `docker/dpyd_notation_map.json`, built by
+`docker/dpyd_notation_map_build.py` (no value written from memory):
+- Stargazer: the tool's own `stargazer-grc38-2.0.3/stargazer/star_table.tsv` (`grc38_core`) and `snp_table.tsv` (`rs_id`)
+  (sha256 stored in the map's `source`) joined to CPIC DPYD allele definitions (CPIC API `allele_definition`,
+  `allele_location_value`, `sequence_location`, embedded as `cpic_alleles`). A `*S` code maps only when its GRCh38 variant set
+  equals one CPIC allele's (position + ref>alt); indels (CPIC writes HGVS, Stargazer VCF style) by a unique dbSNP id on a
+  single-variant allele. 91 of 457 `*S` codes map; 366 stay unscorable with the reason (`*S8` has three variants, most others
+  are variants CPIC does not define).
+- Aldy `*rs<NNN>`: 82 tags, each the CPIC allele defined by exactly that one variant (rs id unique among CPIC single-variant
+  alleles). Composite Aldy names (`*9A+rs1801159+rs2297595`, `*rsA+rsB`) stay unscorable.
+- 13 bare legacy star names (`*4`, `*6`, ...) map to the CPIC allele whose own name carries that bracketed name (`c.1601G>A (*4)`).
+- Wired into `reconcile._cpic_allele_key` (phenotype lookup only; `norm_diplotype` comparison keys keep the caller's spelling).
+- Tests (`test_verdict.py`): the map equals a rebuild from the Stargazer tables + embedded CPIC data and (PGX_CPIC_VERIFY=1)
+  the live CPIC API; sha256 of the Stargazer tables; ambiguity cases; readings score as CPIC does.
+- Real run (pgx-suite:15c416c container, worktree `docker/` mounted, stored detail JSON, map cleared vs in place): 65-sample rig
+  (2767 gene verdicts): 14 of the 22 DPYD split calls regain their phenotype, each equal to an independent CPIC-table lookup
+  of the mapped diplotype; the other 8 contain a composite Aldy haplotype and stay `concordant, diplotype unresolved`
+  (7 only gain the per-reading phenotypes in the note). Axiom rig (1240 verdicts): 8 DPYD calls regain, 6 notes only.
+  No other gene changed in either rig.
+- CYP3A5 `*3B` -> `*3` fold verified: PharmVar CYP3A5 page (version 6.2.29, updated 2026-09-23) lists `CYP3A5*3.002` (PV01338,
+  rs776746 + rs28383468 + rs28383469) with Legacy Label `CYP3A5*3B`, and `*3.001` = legacy `*3A`. Evidence in
+  `docker/pharmvar_legacy_suballeles.json`, comment in `reconcile.py`, test `test_cyp3a5_legacy_letters_are_pharmvar_suballeles_of_star3`.
+  No stored call changes. The same letter fold for other genes (CYP2C19 `*2B`, ...) is not yet checked.
+- `Dockerfile` copies the map; the image is not rebuilt here.
+
+---
+
+## 2026-11-15 (split phenotype) — readings with different CPIC phenotypes report no phenotype
+
+Owner decision 2026-11-15. When the consensus lists two or more diplotype readings (`A or B`, diplotype not resolved)
+and CPIC maps them to **different** phenotypes, `consensus_phenotype` is `-`, `status` is
+`concordant, diplotype unresolved` (never plain `concordant`; the report badge and card are amber) and the note names
+each reading's CPIC phenotype and says "confirm with a targeted assay". Readings that all give one CPIC phenotype keep
+the phenotype and the `concordant` status as before. A reading CPIC has no row for counts as a different phenotype
+(policy constant `UNSCORABLE_READING_IS_A_SPLIT` in `pgx-compare.py`).
+- Phenotype per reading comes from CPIC's own diplotype tables: new `docker/cpic_diplotype.json` (CPIC `/diplotype`
+  API, CYP2B6, CYP2C19, CYP2C9, CYP3A5, DPYD, SLCO1B1, UGT1A1; built by `cpic_diplotype_build.py`, compared with the API in
+  `test_cpic.py` under `PGX_CPIC_VERIFY=1`), `cpic_thiopurine.json` (TPMT, NUDT15), and the NAT2 table already in the code.
+  Lookup is by the reading as spelled, then synonym-collapsed, then with a trailing sub-allele letter dropped (`*3B` as
+  `*3`, `*2B` as `*2`). Genes with no CPIC diplotype table (e.g. CYP4F2) and CYP2D6 (Cyrius / activity-score rule) are unchanged.
+- Applies to the phenotype-tier verdicts and to the CYP2B6 phase-ambiguous verdicts; NAT2's own "Indeterminate" for a split
+  is now `-` with the same status.
+- `reconcile._strip_allele` no longer cuts an HGVS name at its `+` (`c.1905+1G>A (*2A)` reached the synonym map as `c.1905`,
+  so it never matched `*2A`): DPYD readings that are synonyms of the same variants are now one reading (cosmetic).
+- Bug fix: `allele_synonyms.json` listed CYP2C19 `*38` as a synonym of `*2`. CPIC (`allele` table) gives `*38` Normal function and `*2`
+  No function, and PharmVar renamed the reference-sequence haplotype `*1.001` (legacy `*1A`) to `*38` (Botton et al. 2021,
+  PMID 32602114; Gaedigk et al. 2021, PMID 34091888), so the synonym is removed. `cpic_diplotype.json` now also carries CPIC's allele
+  function for the genes with a synonym entry, and `test_verdict.py` checks that every synonym pair has the same CPIC function
+  where CPIC defines both (no other pair fails; CPIC does not define TPMT `*1S`, DPYD `*S`-codes or `ivs14+1g>a`).
+- `Dockerfile` copies `cpic_diplotype.json`; the image is not rebuilt here.
+- Tests: `docker/test_verdict.py` (split, same-phenotype, unscorable, phase-ambiguous, DPYD synonyms); `test_cpic.py` covers the table.
+- Re-run on stored caller outputs with the real `pgx-suite:15c416c` container and this code mounted: Axiom rig (40
+  samples, 1240 gene rows) 25 rows changed, all of them multi-reading verdicts (DPYD 14, CYP3A5 4, NUDT15 4, CYP2C19 2,
+  TPMT 1); 65-sample consistency rig (2767 gene verdicts) 28 changed (DPYD 22, NUDT15 3, CYP3A5 2,
+  CYP2C19 1), again only multi-reading verdicts; every other gene row is byte-identical. Of the 28, only 6 are splits CPIC scores
+  (CYP3A5, CYP2C19; NUDT15 already had no phenotype, only its status label changed); the 22 DPYD ones are readings that
+  differ in notation (Stargazer `*S20`, Aldy `*rsNNN` tags) that CPIC has no row for: setting
+  `UNSCORABLE_READING_IS_A_SPLIT = False` keeps their phenotype.
+
+---
+
+## 2026-11-15 (scrub) — no private sample ids, hostnames or internal paths in tracked files
+
+- Private clinical sample ids in `docs/AxiomValidation.md`, `docs/TODO.md`, `docs/CHANGES.md`, `docs/ToolsDocumentation.md`,
+  comments in `docker/pgx-compare.py`, `docker/pgx-report.py` (+ `.snapshot`), `docker/test_vcf_check.py` and
+  `build_axiom_concordance.py` are replaced by neutral labels (`sample A` ... `sample T`, consistent within and across documents).
+  A sequencer LIMS id for HG002 is now `HG002_LIMS_ID`. The cohort/institution name in comments and `allele_synonyms.json`
+  provenance reads "internal validation cohort".
+- Internal absolute paths (`/data/...`) in docs and `docker/build-arcashla-sif.sh` are placeholders (`<ref>`, `<scratch>`, `<repo>`).
+- `reanalyze_mgi.sh` no longer carries a cohort path or sample list: `BAM_DIR` is required, the cohort is every
+  `*.bwa.sortdup.bqsr.bam` in it, `LOG_DIR` defaults to `${TMPDIR:-/var/tmp}/pgx_reanalysis`.
+- Behaviour unchanged: comment/string edits only; the 13 `docker/test_*.py` files pass before and after.
+- Not done: git history still contains the removed names (not rewritten). `.gitignore` still lists the cohort directory
+  name and the README/tutorial carry the public GitHub account URL; both are owner decisions.
+
+---
+
+## 2026-11-15 (batch 2) — one CYP2D6 agreement rule for the gene row and the drug table; TPMT/NUDT15 from CPIC; tandem folding; `decided_by`
+
+- **Tandem spellings agree** in `cyp2d6_agreement` (`*36+*36+*10` = `*36x2+*10`): the diplotype key is folded before comparison, so
+  two callers that differ only in tandem spelling reach level a. No change on the 65 stored samples (consistency 65/65).
+- **CYP2D6 gene row = PharmCAT input** (`reconcile.cyp2d6_agreement`, `pgx_outside_calls`, `pgx-compare._cyp2d6_agreed_phenotype`).
+  Cause: when Cyrius gave no usable call the verdict phenotype was a plurality of the callers' own phenotype labels (ties
+  broken by caller order), while the outside call required every caller's CPIC activity score (levels a/b/c). In 10 stored
+  samples the gene row showed a phenotype and the drug table said "No Result". The outside-call levels moved into
+  `reconcile.cyp2d6_agreement` and the verdict (status concordant/majority/discordant, no Cyrius authority) takes its
+  phenotype from it (CPIC phenotype of the agreed score, or of the all-agree class); where it makes no call the phenotype
+  is `-` with `phenotype_note` (also appended to `note`). Voting over callers' own labels stays rejected (CLAUDE.md).
+  Cyrius-authority verdicts are unchanged. Side effect: 12 stored samples lose a label-vote phenotype (see the report).
+- **A clinical-sample pattern** (`*1x2/*36+*10`, score 2.25, shown Ultrarapid): same cause, same fix; the phenotype is now `-`.
+- **TPMT / NUDT15**: `docker/cpic_thiopurine.json` (CPIC `/diplotype` table, built by `cpic_thiopurine_build.py`) gives the
+  verdict phenotype for a single concordant/majority diplotype (`reconcile.thiopurine_phenotype`); `phenotype_source`
+  names the row, a contradicting caller label is named in `note`. HG006 TPMT `*1/*6` Indeterminate -> Intermediate
+  (CPIC row `*1/*6` Intermediate Metabolizer). Discordant NUDT15 verdicts are untouched: PyPGx and StellarPGx miss `*6`
+  (HG005, HG006 and two clinical samples), a caller-sensitivity limit that needs an owner decision (PharmCAT as authority).
+- **CYP2D6 tandem spellings** (`reconcile._fold_tandem`, used by `clean_diplotype`): `*36+*36+*10` -> `*36x2+*10`,
+  `*2+*2` -> `*2x2`; N>=3 uses CPIC's `x≥3` row (`*1x≥3`, `≥3.0`, a lower bound kept as `activity_min` in
+  `cpic_cyp2d6.json`; `*4x≥3` is exactly 0.0). A lower bound gives a phenotype (>=3.0 Ultrarapid) but never an exact score.
+  Comparison keys (`norm_diplotype`) are not folded.
+- **`DecidedBy`**: `all_genes_summary.tsv` gets a trailing `DecidedBy` column = the verdict's existing `authority` key (`-` for votes and the
+  phenotype tier); no new verdict key. `status` and `n_agree` are unchanged.
+- **Discordant verdicts carry no caller phenotype** (`compute_verdict`): `-`, the callers' labels named in `note`.
+  **`pgx-report.py` Key Findings** keep an authority-decided gene with `n_agree` < 2 (`decided_by`), with no discordance warning.
+- **Review fixes**: level e also accepts a Cyrius `≥` lower bound matched by the same canonical diplotype (diplotype passed,
+  never a number); level m is blocked by an explicit Indeterminate from a scoreable caller (HG002_12X again `-`); a majority
+  verdict's phenotype comes only from callers on the consensus diplotype (67 NAT1/CYP1A2/CYP2E1 cells: dissenters'
+  Indeterminate labels no longer stand); NUDT15 split also catches zygosity and uses reconcile's cleaning.
+- **CYP2D6 level m** (owner decision): without Cyrius, >= `MAJORITY_MIN` (3) callers sharing one exact CPIC activity
+  score give that score's phenotype for the verdict and the outside call (score only), dissenters named in `note`/`why`.
+- **NUDT15** (owner decision): when typed callers (and the informational PharmCAT row) disagree on whether a defining
+  allele is present, the phenotype is `-` with "callers disagree on NUDT15 *6: ... report it; ... do not". No tool decides
+  NUDT15; PharmCAT only withholds a phenotype.
+- Tests: `test_verdict.py`, `test_outside_calls.py`, `test_cpic.py` (set `PGX_CPIC_VERIFY=1`, optional
+  `PGX_CPIC_SNAPSHOT=<dir>`, to compare the committed CYP2D6/TPMT/NUDT15 tables with the CPIC API).
+
+---
+
+## 2026-11-15 — PharmCAT "Unknown" is no call; lettered legacy CYP2D6 names are never scored as the base allele
+
+- `docker/pgx-compare.py` (`_compute_verdict_core`, `_is_no_diplotype`): for the PharmCAT-authority genes (UGT1A1,
+  CYP2B6, CYP4F2) a PharmCAT diplotype with no allele call (`Unknown/Unknown`, `No Result`, empty) is dropped before the
+  authority rule and the vote, so it neither overrides the agreeing callers nor counts as a dissenting one. The
+  verdict note records it. A real PharmCAT call is unchanged. Stored results: CYP2B6 HG002 (three callers `*2/*2`,
+  StellarPGx `*2/*5`) now reads `*2/*2 or *2/*5` (see the phenotype-tier item below); CYP4F2 in two samples now follows the callers (`majority` where one caller's
+  spelling differs).
+- `docker/reconcile.py` (`_clean_allele`): the legacy trailing-letter strip for CYP2D6 is removed. `*14A`, `*14B`,
+  `*13C`, `*4N` are kept as written, so they have no activity score and match only themselves in the verdict and in
+  `call_cyp2d6` (previously `*14A` scored as `*14`, decreased function, while the current `*114` has no function in
+  the CPIC table). `*2x2`/`*2X2`, `*4.021` and Aldy's `*36X` marker are unchanged. No legacy-to-current table is
+  carried: none is available from a cited source in the repo.
+- Phenotype tier (callers differ in diplotype, every phenotype-emitting caller agrees on the phenotype): the
+  verdict no longer presents one diplotype. `consensus_phenotype` is the agreed phenotype, `consensus_diplotype`
+  lists every distinct reading ("A or B", most callers first then alphabetical, the phase-ambiguity convention),
+  `diplotype_readings` maps reading to callers, `diplotype_resolved` is false and the note names the callers per
+  reading. Status stays `concordant` for the phenotype only; `n_agree` is the number of phenotype-emitting callers
+  that agree (unchanged). A caller's own "Indeterminate" is not a reading. Generic for every gene, no reference
+  table. Unanimous diplotypes, real authority calls and the CYP2D6 authority path are untouched. Stored results:
+  48 of 2571 verdicts (DPYD 25, CYP3A5 10, NUDT15 8, CYP2C19 4, TPMT 1) change only in
+  `consensus_diplotype`, `diplotype_readings`, `diplotype_resolved`, `note`; HG002 CYP2B6 reads `*2/*2 or *2/*5`.
+  `pgx-report.py` wording updated to match.
+- Review follow-ups: (1) NAT2 CPIC phenotype is computed per "A or B" reading (same phenotype kept; otherwise
+  Indeterminate with the readings in the note). (2/3) A PharmCAT diplotype with no call or an unknown half
+  (`*1/Unknown`) leaves the authority rule only when the other callers corroborate each other (two agree on the
+  diplotype, or two agree on the phenotype); otherwise PharmCAT's row stays as before. (5/6/9) A caller whose
+  diplotype is a no-call (`Unknown/Unknown`, `Indeterminate`, `No Result`), on any gene, abstains: not in the vote,
+  not in `n_called`, named in the note; "-"/empty rows add no note. Stored results: 5 CYP2D6 verdicts (`n_called`
+  4 -> 3, one phenotype spelling, readings without the "Indeterminate" caller); 1 status change (ILMN CYP4F2
+  concordant -> majority, same as the PharmCAT no-call drop). (4) A CYP2D6 diplotype with a lettered legacy name
+  gives no outside call at any level (`call_cyp2d6`), with the reason recorded. (7) `reconcile.LEGACY_LETTERED`:
+  Aldy's bare `*36X`/`*36x` marker is notation, scored and counted by both the verdict and `call_cyp2d6`; true
+  letters (`*13C`, `*4N`, `*14A`) are not. No stored outside call changed.
+- A no-call is never shown as a diplotype: a PharmCAT-authority gene whose PharmCAT call is empty and whose other
+  callers do not corroborate each other, and a gene where every caller abstains, give the explicit `no_call` verdict
+  (`NO_CALL`, phenotype "-", reason in `note`); the tier helper never returns an empty diplotype. No stored verdict
+  changes to `no_call`.
+- Tests: `docker/test_verdict.py` (PharmCAT no-call, real call, lettered names, copy-number tokens against
+  `cpic_cyp2d6.json`); `test_normalise.py` and `test_outside_calls.py` updated (a letter is not the base number).
+- Regression over all stored verdicts (2571): 29 changed cells, all in PharmCAT no-call genes; 0 lettered-name cells
+  changed; `call_cyp2d6` output unchanged for every stored sample.
+
+---
+
+## 2026-11-15 — CYP2D6 derived phenotype: corroboration by diplotype or activity score
+
+- `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): the phenotype Cyrius lacks is derived when Cyrius's
+  filter is PASS, its diplotype has a CPIC activity score, and either (a) another caller reports the same canonical
+  diplotype (`n_agree >= 2`, the 6de12ca rule, unchanged) or (b) another caller's diplotype has the same activity
+  score (callers with no score do not count; a caller whose diplotype contains a legacy lettered allele such as
+  `*13C`, `*4N`, `*36x`, in either case, never counts for (b), because `reconcile.clean_diplotype` would score it as
+  its base number). `phenotype_source` says which applied, `(same diplotype: <tools>)` or
+  `(same score: <tool diplotype>, ...)`, the first when both do. Not corroborated: "-" with `no other caller's
+  diplotype has the same activity score: phenotype not derived` in `note`. Diplotype, status, n_agree, n_called and
+  every other gene are unchanged.
+- Rule (b) uses the same score comparison as `pgx_outside_calls.call_cyp2d6` (levels a, b, e), re-stated in the
+  verdict, plus the lettered-allele guard that `call_cyp2d6` does not have.
+- Tests: `docker/test_verdict.py` (both rules, lettered guard in upper and lower case, fail-closed cases).
+- Known limitations: a lettered-only corroborator can give a drug-table (outside) call with a blank gene-card
+  phenotype; tandem spellings Cyrius emits that the exact-key lookup misses (`*36+*36+*10` vs CPIC `*36x2+*10`,
+  `*36+*36`, `*4.013+*4`, `*68+*68+*4`) give no phenotype; copy number >= 3 (`*1x3`, CPIC `x>=3` rows) gives none;
+  `all_genes_summary.tsv` has no provenance column for a derived phenotype.
+
+---
+
 ## 2026-11-14 — CYP2D6 verdict phenotype is no longer blank when Cyrius calls
 
 - `docker/pgx-compare.py` (`_cyp2d6_authority_phenotype`): Cyrius, the CYP2D6 authority, never emits a phenotype,
@@ -205,7 +431,7 @@ into the container folder; earlier class II results came from the host-side arca
 
 **The host-side arcasHLA clone + reference DB moved off scratch so it survives a port.**
 
-- **The move.** `/data/alvin/tmp/arcasHLA/` → **`/data/alvin/ref/omnigen/tools/arcasHLA/`**
+- **The move.** `<scratch>/arcasHLA/` → **`<ref>/omnigen/tools/arcasHLA/`**
   (2.1 GB; the key artifact is the 225 MB `dat/ref/hla.idx`). Same filesystem, plain `mv`.
   Verified `dat/ref/hla.idx` is intact + readable at the new path and that a dry `arcasHLA`
   invocation there resolves the reference (arcasHLA self-resolves `dat/ref/` relative to its
@@ -216,7 +442,7 @@ into the container folder; earlier class II results came from the host-side arca
   the SIF route (`pgx-hla2.sh`) bundles its own DB inside `arcashla.sif`, unaffected. Only the
   §5b runbook command + the durable-location note in `ToolsDocumentation.md` were repointed.
 - **Conda envs stay put (rebuild-on-target).** `arcaspy-env` / `kallisto-env` remain at
-  `/data/alvin/tmp/` — conda bakes absolute prefixes, so moving breaks them. They are
+  `<scratch>/` — conda bakes absolute prefixes, so moving breaks them. They are
   reproducible (python3.10 + numpy/scipy/pandas/biopython; kallisto 0.44.0); rebuild on the
   target host for a port. See `ToolsDocumentation.md` §5b "Conda envs are rebuild-on-target".
 
@@ -291,8 +517,8 @@ into the container folder; earlier class II results came from the host-side arca
   and the `test_genes_config.py` regression matrix.
 - **Verified without a pipeline re-run.** `parse_optitype()` called directly against the
   existing OptiType output for HG002 returns **`HLA-C*12:03/HLA-C*12:03`, status `ok`**.
-- **Backfilled 13 samples** (HG001, HG002, HG003, HG005, HG006, HG007, H_342, P_62, P_93,
-  P_1143, P_2000, EQ_2017, EQ_2021) from their already-computed OptiType result TSVs — no
+- **Backfilled 13 samples** (HG001, HG002, HG003, HG005, HG006, HG007, sample D, sample E, sample F,
+  sample H, sample I, sample A, sample B) from their already-computed OptiType result TSVs — no
   OptiType or pipeline re-run. Schema is byte-identical to the HLA-A/HLA-B
   `comparison.tsv`, so OmniGen's reader works unchanged. Notably **HG003 is
   `HLA-C*06:02/HLA-C*06:02`** — a psoriasis-risk homozygote that the old code reported as
@@ -319,7 +545,7 @@ into the container folder; earlier class II results came from the host-side arca
 
 Feature 3 (HLA class-II typing) run end-to-end and validated against published truth.
 
-- **Tooling provisioned.** arcasHLA (RabadanLab) cloned to `/data/alvin/tmp/arcasHLA`;
+- **Tooling provisioned.** arcasHLA (RabadanLab) cloned to `<scratch>/arcasHLA`;
   kallisto 0.44.0, git-lfs, and a python-3.10 stack (numpy/scipy/pandas/biopython) installed
   in dedicated conda envs (samtools/bedtools/pigz from host). Reference built with
   `arcasHLA reference --rebuild` from **IMGT/HLA 3.63.0** `hla.dat` fetched from the EBI
@@ -561,9 +787,9 @@ all changes.
 
 ### CRAM sample reports regenerated
 
-- `results/cram/C-5839/C-5839_pgx_report.html` — depth warnings fire for DPYD
+- `results/cram/sample N/sample_N_pgx_report.html` — depth warnings fire for DPYD
   (29.6×) and RYR1 (25.8×); VCF-Check row added to UGT1A1 section
-- `results/cram/EQ_2017/EQ_2017_pgx_report.html` — VCF-Check correctly calls
+- `results/cram/sample A/sample_A_pgx_report.html` — VCF-Check correctly calls
   `*28(het)+*60(hom)+*80(het) [unphased]` for UGT1A1
 
 ---
@@ -1240,11 +1466,11 @@ GRCh38). All 26 genes completed successfully. Results:
 results/T7_NA24385/
 ├── all_genes_summary.tsv          # 96-row concordance table (4 tools × 24 genes)
 ├── <GENE>/
-│   ├── <GENE>_SPL250903104304-2_comparison.tsv
-│   └── <GENE>_SPL250903104304-2_detail.json
+│   ├── <GENE>_HG002_LIMS_ID_comparison.tsv
+│   └── <GENE>_HG002_LIMS_ID_detail.json
 └── html_reports/
-    ├── SPL250903104304-2.pgx.html            # landing page (26 gene cards)
-    └── SPL250903104304-2.<GENE>.pgx.html     # per-gene detail (26 files)
+    ├── HG002_LIMS_ID.pgx.html            # landing page (26 gene cards)
+    └── HG002_LIMS_ID.<GENE>.pgx.html     # per-gene detail (26 files)
 ```
 
 CYP2D6 concordance confirmed 4/4 (`*2/*4`, Activity Score 1.0, Intermediate Metabolizer).

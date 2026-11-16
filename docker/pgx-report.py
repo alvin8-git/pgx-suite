@@ -280,7 +280,10 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             concordance_warn = n_triggered < n_called
         else:
             # Phenotype-based gene: require ≥2 tools to agree on diplotype.
-            if n_agree < 2:
+            # an authority-decided gene is one tool's call by design, not a 1-caller vote ("Phenotype" is the
+            # phenotype tier, not a tool)
+            auth_tool = gd.get("authority") if gd.get("authority") not in (None, "", "Phenotype") else None
+            if n_agree < 2 and not auth_tool:
                 continue
             tier = _get_tier(gene, pheno_cat, diplo)
             note = _get_landing_note(gene, pheno_cat, diplo)
@@ -294,6 +297,7 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             "phenotype":        pheno,
             "note":             note,
             "concordance_warn": concordance_warn,
+            "authority_tool":   (gd.get("authority") if gd.get("authority") not in (None, "", "Phenotype") else None),
             "n_agree":          n_agree,
             "n_called":         n_called,
         })
@@ -318,11 +322,16 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             pill_color = phenotype_color(f["phenotype"])
             pheno_str  = f["phenotype"] if f["phenotype"] not in ("-", "") else "—"
             diplo_str  = f["diplotype"] if f["diplotype"] not in ("-", "") else "—"
-            warn_html  = (
-                f'<span class="cf-concordance-warn" title="{f["n_agree"]}/{f["n_called"]} tools agree">'
-                f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
-                if f["concordance_warn"] else ""
-            )
+            if f["concordance_warn"] and f.get("authority_tool"):
+                warn_html = (
+                    f'<span class="cf-concordance-warn" title="decided by {f["authority_tool"]}; '
+                    f'{f["n_agree"]}/{f["n_called"]} tools agree">'
+                    f'&#9888; {f["authority_tool"]} call ({f["n_agree"]}/{f["n_called"]} agree)</span>')
+            else:
+                warn_html = (
+                    f'<span class="cf-concordance-warn" title="{f["n_agree"]}/{f["n_called"]} tools agree">'
+                    f'&#9888; Discordant ({f["n_agree"]}/{f["n_called"]})</span>'
+                    if f["concordance_warn"] else "")
             if embedded:
                 detail_href  = "#"
                 detail_click = f" onclick=\"pgxShowGene('{f['gene']}'); return false;\""
@@ -894,11 +903,11 @@ def bam_stats_cards(bs: dict) -> str:
 
 
 # Genes where low mean gene depth (&lt;30×) materially reduces calling sensitivity.
-# Validation study (TTSH 2026-03): DPYD rare variants and RYR1 het variants were
+# Validation study (internal cohort 2026-03): DPYD rare variants and RYR1 het variants were
 # missed in samples with gene depth &lt;30×; all tools performed adequately above that.
 _DEPTH_SENSITIVE_GENES: dict[str, int] = {
-    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in TTSH cohort
-    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in TTSH cohort
+    "DPYD": 30,   # rare het variants (*5, *9A) missed below 30× in internal validation cohort
+    "RYR1": 30,   # het MH-susceptibility variants missed below 30× in internal validation cohort
 }
 
 
@@ -1307,7 +1316,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         }
         # Optional second array-software column (e.g. Axiom P6 vs P9). Detected from
         # the TSV header: if Axiom_P9 is present, render two array columns, else fall
-        # back to the single "Axiom" column (EQ_2017-style TSVs stay valid).
+        # back to the single "Axiom" column (sample A-style TSVs stay valid).
         two_arrays = any(("Axiom_P9" in r) for r in axiom)
         body = ""
         for r in axiom:
@@ -1926,8 +1935,11 @@ def _resolution_badge(verdict: dict) -> str:
         return f'<span class="badge badge-blue">&#9733; {auth} authoritative</span>'
     st = verdict.get("status")
     label = {"concordant": "Consensus", "majority": "Majority", "discordant": "Discordant",
+             "concordant, diplotype unresolved": "Concordant, diplotype unresolved",
+             "majority, diplotype unresolved": "Majority, diplotype unresolved",
              "no_call": "No call", "no_data": "No data"}.get(st, st or "")
     cls = {"concordant": "badge-green", "majority": "badge-amber", "discordant": "badge-red",
+           "concordant, diplotype unresolved": "badge-amber", "majority, diplotype unresolved": "badge-amber",
            "no_call": "badge-grey", "no_data": "badge-grey"}.get(st, "badge-grey")
     return f'<span class="badge {cls}">{label}</span>' if label else ""
 
@@ -1974,14 +1986,20 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
         conc = " ".join(parts)
 
     # ── CPIC resolution sentence ─────────────────────────────────────────────
-    if status == "no_call":
+    if status == "no_call" and v.get("note"):
+        res = f"No diplotype is asserted: {v['note']}."
+    elif status == "no_call":
         res = ("Region depth was below the minimum threshold, so the coverage gate suppressed "
                "all calls — no diplotype is asserted.")
     elif status == "no_data" or not called:
         res = "No caller produced a call, so no verdict could be formed."
+    elif v.get("phenotype_split"):
+        res = ("The callers' diplotype readings differ and CPIC scores them as different phenotypes, so no phenotype "
+               "is reported and every reading is listed; confirm with a targeted assay.")
     elif v.get("phenotype_tier"):
         res = (f"Callers reported differing diplotype strings, but ≥2 phenotype-emitting callers "
-               f"agreed on the CPIC phenotype ({pheno}); the verdict was upgraded to concordant on phenotype.")
+               f"agreed on the CPIC phenotype ({pheno}); the phenotype is concordant, the diplotype is not resolved "
+               f"and every reading is listed.")
     elif auth and auth != "-":
         why = _AUTHORITY_WHY.get(auth, f"{auth} is the designated CPIC authority for this gene")
         star_disc = any(normalize_diplotype(d) != normalize_diplotype(cons)
@@ -1993,6 +2011,7 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                f"({why}). Its call {cons} is taken as the verdict.{tail}")
         if v.get("phenotype_source"):
             _sc, _, _dip = v["phenotype_source"].removeprefix("CPIC activity score ").partition(" from ")
+            _dip = _dip.split(" (same ")[0]
             res += (f" {auth} reports no phenotype; the phenotype shown is the CPIC phenotype for activity "
                     f"score {_sc} ({_dip}).")
         elif v.get("phenotype_note") and v.get("consensus_phenotype") in ("-", ""):

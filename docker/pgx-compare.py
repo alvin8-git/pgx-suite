@@ -1240,7 +1240,7 @@ def parse_g6pd_vcf(output_dir: str, gene: str, sample: str) -> CallerResult:
 # RYR1 has NO star-allele system; CPIC defines MH risk by a curated list of
 # pathogenic / likely-pathogenic missense variants. The star-allele callers
 # (PyPGx/Stargazer/Aldy) are the wrong instrument here and routinely miss real
-# MH variants the array reports (validation: P_2000 c.1021G>A missed by all 3).
+# MH variants the array reports (validation: sample I c.1021G>A missed by all 3).
 # This VCF-Check is the authoritative RYR1 caller; the 93-variant table lives in
 # docker/vcf_check_variants.json (CPIC api.cpicpgx.org + Ensembl-resolved coords),
 # NOT hand-embedded — so it is auditable and updatable. GRCh38 / chr19 / +strand.
@@ -1798,12 +1798,21 @@ def _phase_ambiguity(gene, a, results):
             "phenotypes": sorted(p for p in phen if p), "n_total": sum(len(rs) for rs in readings.values())}
 
 
+# A true legacy lettered allele name (*13C, *4N, *14A, any case; reconcile.LEGACY_LETTERED) never counts as
+# score corroboration: reconcile gives it no score, and the guard is kept explicit. Aldy's bare tandem marker
+# (*36X) is notation reconcile maps to *36, so it is scored and counts, exactly as in call_cyp2d6.
+_LEGACY_LETTERED = reconcile.LEGACY_LETTERED
+
+
 def _cyp2d6_authority_phenotype(a, results, n_agree):
     """CYP2D6 only. Cyrius reports no phenotype, so derive it from the diplotype itself: CPIC activity
     score (reconcile.activity_score) -> CPIC phenotype (reconcile.score_phenotype); no caller votes.
-    Returns (phenotype, extra verdict fields). Not derived ("-" plus a reason in `note`) when Cyrius's
-    filter is not PASS (carried in alternative_diplotypes), when no other caller reports the diplotype,
-    or when the activity score cannot be looked up."""
+    Derived when Cyrius's filter is PASS (a non-PASS one is carried in alternative_diplotypes), its diplotype
+    has a CPIC score, and either (a) another caller reports the same canonical diplotype (n_agree >= 2, the
+    6de12ca rule) or (b) another caller's diplotype has the same activity score (lettered legacy allele
+    names excluded). Rule (b) uses the same score comparison as pgx_outside_calls.call_cyp2d6 (levels a, b, e)
+    and, like call_cyp2d6, gives a lettered legacy name no score (reconcile does not strip letters); Aldy's
+    `*36X` marker is notation and is scored. Otherwise "-" plus the reason in `note`."""
     if reconcile.phenotype_class(a.phenotype) not in (None, "Indeterminate"):
         return a.phenotype, {}          # the authority's own phenotype always stands
 
@@ -1811,27 +1820,100 @@ def _cyp2d6_authority_phenotype(a, results, n_agree):
         return "-", {"phenotype_note": reason, "note_add": reason}
     if a.alternative_diplotypes not in ("-", ""):
         return no(f"Cyrius filter {a.alternative_diplotypes}: phenotype not derived")
-    if n_agree < 2:
-        return no("no other caller reports this diplotype: phenotype not derived")
     sc = reconcile.activity_score(a.diplotype)
-    pheno = reconcile.score_phenotype(sc)
-    if pheno is None:
+    lb = reconcile.activity_lower_bound(a.diplotype) if sc is None else None
+    if sc is None and lb is None:
         return no(f"activity score not available for {a.diplotype} (structure or copy number not in the "
                   "CPIC table lookup)")
-    extra = {"phenotype_source": f"CPIC activity score {sc:g} from {a.diplotype}"}
+    ok = [r for r in results if r is not a and r.status == "ok" and r.diplotype not in ("-", "")]
     a_key = reconcile.canonicalize_diplotype("CYP2D6", a.diplotype)
+    same_dip = [r for r in ok if (n_agree or 0) >= 2 and a_key is not reconcile.UNRESOLVED
+                and reconcile.canonicalize_diplotype("CYP2D6", r.diplotype) == a_key]
+    # a lower-bound score (`*1x3/*10`, CPIC `≥3.25`) has no exact value to compare: only the same diplotype corroborates
+    same_score = [] if sc is None else [r for r in ok if not _LEGACY_LETTERED.search(r.diplotype)
+                                         and reconcile.activity_score(r.diplotype) == sc]
+    pheno = reconcile.score_phenotype(sc) if sc is not None else reconcile.bound_phenotype(lb)
+    if not (same_dip or same_score):
+        return no("no other caller's diplotype has the same activity score: phenotype not derived")
+    if pheno is None:
+        return no(f"no CPIC phenotype for activity score {(sc if sc is not None else lb):g}")
+    if same_dip:
+        corr = same_dip
+        why = "same diplotype: " + ", ".join(r.tool for r in same_dip)
+    else:
+        corr = same_score
+        why = "same score: " + ", ".join(f"{r.tool} {r.diplotype}" for r in same_score)
+    extra = {"phenotype_source": (f"CPIC activity score {sc:g}" if sc is not None else
+                                  f"CPIC activity score >= {lb:g}") + f" from {a.diplotype} ({why})"}
     cls = reconcile.phenotype_class(pheno)
-    diff = [f"{r.tool} {r.phenotype}" for r in results
-            if r is not a and r.status == "ok" and r.diplotype not in ("-", "")
-            and reconcile.canonicalize_diplotype("CYP2D6", r.diplotype) == a_key
-            and reconcile.phenotype_class(r.phenotype) not in (None, "Indeterminate", cls)]
+    diff = [f"{r.tool} {r.phenotype}" for r in corr
+            if reconcile.phenotype_class(r.phenotype) not in (None, "Indeterminate", cls)]
     if diff:
         extra["phenotype_note"] = extra["note_add"] = (
             "caller phenotype differs from the CPIC activity-score phenotype: " + "; ".join(diff))
     return pheno, extra
 
 
-def _compute_verdict_core(results: list[CallerResult], no_call: bool,
+def _is_no_diplotype(dip) -> bool:
+    """True for a caller diplotype that carries no allele call at all (`Unknown/Unknown`, `Indeterminate`,
+    `No Result`). Empty and "-" rows are absent calls, not abstentions."""
+    d = re.sub(r"\s+", " ", (dip or "")).strip().lower()
+    if d.startswith(("no result", "no call", "not called", "indeterminate", "unknown")) and "/" not in d:
+        return True
+    return bool(d) and all(h.strip() in ("-", "unknown", "indeterminate") for h in d.split("/"))
+
+
+def _has_unknown_half(dip) -> bool:
+    """True when any half of a diplotype is `Unknown` (PharmCAT's partial no-call, `*1/Unknown`)."""
+    return any(h.strip().lower() == "unknown" for h in (dip or "").split("/"))
+
+
+def _corroborated(results: list[CallerResult], gene=None) -> bool:
+    """At least two callers agree on the canonical diplotype, or two phenotype-emitting callers agree on the
+    phenotype (the phenotype tier). One caller alone never corroborates."""
+    keys = [reconcile.canonicalize_diplotype(gene, r.diplotype) for r in results
+            if r.status == "ok" and r.diplotype not in ("-", "")]
+    keys = [k for k in keys if k is not reconcile.UNRESOLVED]
+    return (bool(keys) and Counter(keys).most_common(1)[0][1] >= 2) or _phenotype_consensus(results) is not None
+
+
+def _no_call_verdict(note: str) -> dict[str, Any]:
+    """The explicit no-result verdict (the summary's NO_CALL convention) with the reason in `note`."""
+    return {"consensus_diplotype": "NO_CALL", "consensus_phenotype": "-", "n_agree": 0, "n_called": 0,
+            "status": "no_call", "reconciled": False, "note": note}
+
+
+def _phenotype_tier_verdict(pairs, pair_tools, pheno_rescue, n_called, extra):
+    """Callers disagree on the canonical diplotype but every phenotype-emitting caller agrees on the
+    phenotype. The phenotype is the answer; no diplotype is chosen. `consensus_diplotype` lists every
+    distinct reading ("A or B": most callers first, then alphabetical, the phase-ambiguity convention),
+    `diplotype_readings` maps each reading to its callers, `diplotype_resolved` is False. `n_agree` is the
+    number of phenotype-emitting callers that agree on the phenotype (as before); `n_called` counts every
+    caller with a comparable diplotype. Uses only the callers' own output, no reference table."""
+    p_disp, p_n, _ = pheno_rescue
+    raws, tools, abstain = {}, {}, []
+    for (c, raw), t in zip(pairs, pair_tools):
+        if raw.strip().lower().startswith("indeterminate") or _is_no_diplotype(raw):
+            abstain.append(t)         # a caller's own "Indeterminate" is not a diplotype reading
+            continue
+        raws.setdefault(c, []).append(raw)
+        tools.setdefault(c, []).append(t)
+    if not raws:
+        return _no_call_verdict("no caller reported a diplotype reading: " + ", ".join(abstain))
+    readings = {Counter(raws[c]).most_common(1)[0][0]: tools[c] for c in raws}
+    order = sorted(readings, key=lambda k: (-len(readings[k]), k))
+    detail = " or ".join(f"{k} ({', '.join(readings[k])})" for k in order)
+    note = "; ".join(x for x in (extra.get("note", ""),
+                     f"callers agree on the phenotype but not the diplotype: {detail}",
+                     f"{', '.join(abstain)}: no diplotype reading" if abstain else "") if x)
+    return {"consensus_diplotype": " or ".join(order), "consensus_phenotype": p_disp,
+            "n_agree": p_n, "n_called": n_called, "status": "concordant",
+            "reconciled": True, "phenotype_tier": True, "authority": "Phenotype",
+            "diplotype_resolved": False, "diplotype_readings": {k: readings[k] for k in order},
+            "note": note}
+
+
+def _verdict_inner(results: list[CallerResult], no_call: bool,
                     gene: str | None = None) -> dict[str, Any]:
     """Single source of truth for the gene-level call.
 
@@ -1924,7 +2006,7 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
             out.update(a_extra)
             return out
 
-    pairs, phenos, skipped = [], [], []   # pairs: (canonical, raw_normalized)
+    pairs, pair_tools, pair_phenos, skipped = [], [], [], []   # pairs: (canonical, raw_normalized)
     for r in results:
         if r.status == "ok" and r.diplotype not in ("-", ""):
             raw = _normalize_diplotype(r.diplotype)   # display spelling (original case)
@@ -1933,8 +2015,8 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
                 skipped.append(r.tool)   # unphased multi-allele call: not comparable
                 continue
             pairs.append((canon, raw))
-            if r.phenotype not in ("-", ""):
-                phenos.append(r.phenotype)
+            pair_tools.append(r.tool)
+            pair_phenos.append(r.phenotype if r.phenotype not in ("-", "") else "")
 
     n_called = len(pairs)
     extra = ({"note": f"{', '.join(skipped)}: unphased multi-allele call, excluded from the "
@@ -1945,7 +2027,10 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
 
     canon_counts = Counter(c for c, _ in pairs).most_common()
     top_canon, n_agree = canon_counts[0]
-    pheno = Counter(phenos).most_common(1)[0][0] if phenos else "-"
+    # The phenotype comes only from callers whose diplotype IS the consensus one: a dissenter's label never stands
+    # for the majority diplotype. When none of them labels it, "-" (TPMT/NUDT15/NAT2/CYP2D6 then take their CPIC lookup).
+    top_labels = [ph for (c, _), ph in zip(pairs, pair_phenos) if c == top_canon and ph]
+    pheno = Counter(top_labels).most_common(1)[0][0] if top_labels else "-"
 
     # Did synonym collapse genuinely merge tools that the raw count split apart?
     raw_top_agree = Counter(raw for _, raw in pairs).most_common(1)[0][1]
@@ -1957,10 +2042,7 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
     # string. Clinically rescue if the phenotype-emitting callers nonetheless agree.
     if len(canon_counts) > 1 and canon_counts[1][1] == n_agree:
         if pheno_rescue:
-            p_disp, p_n, d_disp = pheno_rescue
-            return {**extra, "consensus_diplotype": d_disp, "consensus_phenotype": p_disp,
-                    "n_agree": p_n, "n_called": n_called, "status": "concordant",
-                    "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
+            return _phenotype_tier_verdict(pairs, pair_tools, pheno_rescue, n_called, extra)
         return {**extra, "consensus_diplotype": "DISCORDANT", "consensus_phenotype": pheno,
                 "n_agree": n_agree, "n_called": n_called, "status": "discordant",
                 "reconciled": False}
@@ -1971,22 +2053,232 @@ def _compute_verdict_core(results: list[CallerResult], no_call: bool,
     # A diplotype-string majority (not unanimous) is clinically concordant when
     # all phenotype-emitting callers agree on the phenotype.
     if status == "majority" and pheno_rescue:
-        p_disp, p_n, _ = pheno_rescue
-        return {**extra, "consensus_diplotype": top_dip, "consensus_phenotype": p_disp,
-                "n_agree": p_n, "n_called": n_called, "status": "concordant",
-                "reconciled": True, "phenotype_tier": True, "authority": "Phenotype"}
+        return _phenotype_tier_verdict(pairs, pair_tools, pheno_rescue, n_called, extra)
     return {**extra, "consensus_diplotype": top_dip, "consensus_phenotype": pheno,
             "n_agree": n_agree, "n_called": n_called, "status": status,
             "reconciled": reconciled}
 
 
-def compute_verdict(results: list[CallerResult], no_call: bool,
-                    gene: str | None = None) -> dict[str, Any]:
-    """Gene-level verdict; NAT2's phenotype is overridden by the CPIC lookup."""
-    v = _compute_verdict_core(results, no_call, gene)
-    if gene == "NAT2" and v.get("status") in ("concordant", "majority"):
-        v["consensus_phenotype"] = nat2_cpic_phenotype(v["consensus_diplotype"])
+def _compute_verdict_core(results: list[CallerResult], no_call: bool,
+                          gene: str | None = None) -> dict[str, Any]:
+    """Gene-level call. A caller that returned no allele call (`Unknown/Unknown`, `Indeterminate`, `No Result`)
+    abstains: it is left out of the vote and of n_called, and named in the note. For a PharmCAT-authority gene a
+    PharmCAT diplotype with no call or an unknown half (`*1/Unknown`) is dropped from the authority rule only when
+    the remaining callers corroborate each other (_corroborated); otherwise PharmCAT's row stays, as before, so one
+    uncorroborated caller never becomes a concordant answer."""
+    if no_call:
+        return _verdict_inner(results, no_call, gene)
+    pc_auth = AUTHORITATIVE.get(gene) == "PharmCAT"
+    live = [r for r in results if not (r.status == "ok" and r.diplotype not in ("-", "")
+                                       and _is_no_diplotype(r.diplotype))]
+    partial = [r for r in live if pc_auth and r.tool == "PharmCAT" and r.status == "ok"
+               and r.diplotype not in ("-", "") and _has_unknown_half(r.diplotype)]
+    dropped = [r for r in results if r not in live]
+    if pc_auth:
+        pcall = [r for r in dropped if r.tool == "PharmCAT"]
+        if pcall or partial:
+            rest = [r for r in live if r not in partial and not (r.tool == "PharmCAT" and r in pcall)]
+            if _corroborated(rest, gene):
+                dropped += partial
+                live = [r for r in live if r not in partial]
+            elif pcall:
+                # a no-call is never shown as a diplotype: PharmCAT made no call and the rest do not corroborate
+                shown = "; ".join(f"{r.tool} {r.diplotype}" for r in rest
+                                  if r.status == "ok" and r.diplotype not in ("-", "")) or "none"
+                return _no_call_verdict("PharmCAT made no call; other callers do not corroborate each other: " + shown)
+            else:                              # partial call only: PharmCAT's row stays as the authority
+                pass
+    if not dropped:
+        return _verdict_inner(results, no_call, gene)
+    if not any(r.status == "ok" and r.diplotype not in ("-", "") for r in live):
+        return _no_call_verdict("every caller abstained: " + "; ".join(f"{r.tool} {r.diplotype}" for r in dropped))
+    v = _verdict_inner(live, no_call, gene)
+    why = "; ".join(f"{r.tool} reported " + ("a partial diplotype" if r in partial else "no diplotype")
+                    + f" ({r.diplotype}): not counted" for r in dropped)
+    v["note"] = "; ".join(x for x in (v.get("note", ""), why) if x)
     return v
+
+
+def _cyp2d6_agreed_phenotype(v, results):
+    """CYP2D6 verdict decided by the callers' vote (Cyrius gave no usable call): the phenotype is the one the PharmCAT
+    outside call would carry (reconcile.cyp2d6_agreement, the single agreement rule), never a plurality of the
+    callers' own phenotype labels (rejected by the owner: one caller could decide, and ties were broken by order).
+    Where that rule makes no call the phenotype is "-" with the reason in `phenotype_note`/`note`."""
+    rows = [{"tool": r.tool, "diplotype": r.diplotype, "phenotype": r.phenotype} for r in results
+            if reconcile.is_typed_call(r.status, r.diplotype)
+            and reconcile.norm_diplotype("CYP2D6", r.diplotype) is not reconcile.UNRESOLVED]
+    if len(rows) < 2:
+        res, ph = None, None
+        why = f"only {len(rows)} caller(s) with a comparable CYP2D6 call (need >=2): phenotype not derived"
+    else:
+        res = reconcile.cyp2d6_agreement(rows)
+        if res["diplotype"] and reconcile.LEGACY_LETTERED.search(res["diplotype"]):
+            res["level"] = "-"
+        ph = reconcile.agreement_phenotype(res) if res["level"] != "-" else None
+        why = ((res["why"] or f"callers agree on {res['diplotype'] or res['source']} but CPIC gives no activity "
+                f"score for it") + ": phenotype not derived")
+    if ph:
+        how = (f"CPIC activity score {res['score']:g}" if res["score"] is not None else
+               f"CPIC activity score >= {res['bound']:g}" if res["level"] == "a" and res.get("bound") is not None
+               else "CPIC phenotype of each caller's activity score")
+        v["consensus_phenotype"] = ph
+        v["phenotype_source"] = f"{how} ({res['source']})"
+        if res["level"] == "m":
+            v["note"] = "; ".join(x for x in (v.get("note", ""), f"{res['source']}: {res['why']}") if x)
+    else:
+        v["consensus_phenotype"] = "-"
+        v["phenotype_note"] = why
+        v["note"] = "; ".join(x for x in (v.get("note", ""), why) if x)
+    return v
+
+
+def _allele_split(gene, calls):
+    """Defining alleles on which typed callers disagree -> list of (kind, allele, text). `calls` maps tool -> diplotype
+    for callers that typed the gene (the PharmCAT cross-check is included by the caller: it may only withhold a
+    phenotype, never decide one). Calls are cleaned with reconcile (`*3.001` is `*3`, Aldy's `X` marker is dropped);
+    a call that cannot be placed on haplotypes is left out. kind `presence`: some report the allele, others do not;
+    kind `zygosity`: all report it but with different copy counts (`*3/*3` vs `*1/*3`)."""
+    counts = {}
+    for t, d in calls.items():
+        key = reconcile.norm_diplotype(gene, d)
+        if key is reconcile.UNRESOLVED or "/" not in key:
+            continue
+        c = Counter()
+        for half in key.split("/"):
+            c.update({a for a in half.split("+") if a and a != "*1"})
+        counts[t] = c
+    out = []
+    for al in sorted({a for c in counts.values() for a in c}, key=lambda x: (len(x), x)):
+        n = {t: c.get(al, 0) for t, c in counts.items()}
+        if len(set(n.values())) == 1:
+            continue
+        if 0 in n.values():
+            has = [t for t in n if n[t]]
+            out.append(("presence", al, f"{', '.join(has)} report it; {', '.join(t for t in n if not n[t])} do not"))
+        else:
+            out.append(("zygosity", al, "; ".join(f"{t} reports {k} cop{'y' if k == 1 else 'ies'}" for t, k in n.items())))
+    return out
+
+
+# Owner decision 2026-11-15: a call that lists two or more diplotype readings ("A or B") whose CPIC phenotypes differ
+# has no phenotype ("-"); the readings, their phenotypes and the advice to confirm are in the note, and the status is
+# this label, never plain "concordant". Readings that all give one CPIC phenotype keep the phenotype as before.
+SPLIT_STATUS = "concordant, diplotype unresolved"
+SPLIT_STATUS_MAJORITY = "majority, diplotype unresolved"
+# Owner policy (2026-11-15): a reading CPIC has no row for counts as a phenotype different from every other reading.
+# False would ignore such readings when the scorable ones agree (it keeps the phenotype of e.g. DPYD `*S20`/`*rsNNN`
+# notation readings; see docs/CHANGES.md for how many stored calls the choice decides).
+UNSCORABLE_READING_IS_A_SPLIT = True
+
+
+def _reading_phenotype(gene, dip):
+    """(table_available, CPIC phenotype or None) of one diplotype reading. A reading CPIC cannot score is None
+    (a different phenotype from every other reading). CYP2D6 is not handled here (Cyrius / activity-score rule)."""
+    if gene in ("TPMT", "NUDT15"):
+        return True, reconcile.thiopurine_phenotype(gene, dip)
+    if gene == "NAT2":
+        p = nat2_cpic_phenotype(dip)
+        return True, (None if p == "Indeterminate" else p)
+    if reconcile.has_cpic_diplotype_table(gene or ""):
+        return True, reconcile.cpic_diplotype_phenotype(gene, dip)
+    return False, None
+
+
+def _split_status(status):
+    """The verdict status of a split call keeps the agreement level: concordant -> SPLIT_STATUS, majority -> SPLIT_STATUS_MAJORITY."""
+    return SPLIT_STATUS_MAJORITY if status == "majority" else SPLIT_STATUS
+
+
+def _usable_cpic_phenotype(p):
+    """A reading's CPIC phenotype that can stand as the gene's phenotype: not None and not an Indeterminate/unknown result."""
+    return bool(p) and not re.search(r"indeterminate|unknown|no result|n/a", p, re.I)
+
+
+def _split_by_cpic_phenotype(v, gene):
+    """Apply the SPLIT_STATUS rule to a verdict that lists several diplotype readings ("A or B", whatever tier made
+    it). A gene with no CPIC diplotype table is left as it was. Readings that all give one usable CPIC phenotype
+    set the phenotype to CPIC's (CPIC decides medicine response; a differing caller label goes in the note);
+    all-Indeterminate readings are treated like a split."""
+    if not gene or gene == "CYP2D6" or v.get("status") not in ("concordant", "majority"):
+        return v
+    if " or " not in v.get("consensus_diplotype", ""):
+        return v
+    readings = [x.strip() for x in v["consensus_diplotype"].split(" or ")]
+    found = [_reading_phenotype(gene, x) for x in readings]
+    if not all(ok for ok, _ in found):
+        return v
+    phs = [p for _, p in found]
+    scored = {p for p in phs if p is not None}
+    v = dict(v)
+    if len(set(phs)) == 1 and _usable_cpic_phenotype(phs[0]):
+        old = v.get("consensus_phenotype", "-")
+        if old not in ("-", "", None) and _norm_phenotype(old) != _norm_phenotype(phs[0]):
+            v["consensus_phenotype"] = phs[0]
+            v["note"] = "; ".join(x for x in (v.get("note", ""), f"callers said {old}; CPIC phenotype of every "
+                                              f"diplotype reading is {phs[0]}") if x)
+        v["phenotype_source"] = f"CPIC diplotype table, rows of {' / '.join(readings)}"
+        return v
+    if len(set(phs)) > 1 and not UNSCORABLE_READING_IS_A_SPLIT and len(scored) == 1:
+        return v
+    by = ", ".join(f"{x} {p or 'no CPIC phenotype'}" for x, p in zip(readings, phs))
+    reason = ("the diplotype readings give different CPIC phenotypes" if len(set(phs)) > 1
+              else "CPIC gives no usable phenotype for the diplotype readings")
+    v.update({"consensus_phenotype": "-", "status": _split_status(v["status"]), "phenotype_split": True,
+              "phenotype_by_reading": dict(zip(readings, phs)), "phenotype_note": f"{reason}: {by}"})
+    for k in ("phenotype_tier", "phenotype_source", "authority"):   # nothing decided the phenotype any more
+        v.pop(k, None)
+    v["note"] = "; ".join(x for x in (v.get("note", ""), f"{reason}: {by}; phenotype not reported, confirm with a "
+                                      "targeted assay") if x)
+    return v
+
+
+def compute_verdict(results: list[CallerResult], no_call: bool,
+                    gene: str | None = None, informational: dict | None = None) -> dict[str, Any]:
+    """Gene-level verdict; NAT2's and TPMT/NUDT15's phenotype is the CPIC lookup, CYP2D6's (without Cyrius) the
+    outside-call agreement rule."""
+    v = _compute_verdict_core(results, no_call, gene)
+    if gene == "CYP2D6" and v.get("status") in ("concordant", "majority", "discordant") \
+            and v.get("authority") != "Cyrius":
+        v = _cyp2d6_agreed_phenotype(v, results)
+    if v.get("status") == "discordant" and gene != "CYP2D6" \
+            and not str(v.get("consensus_phenotype", "")).startswith("Indeterminate"):
+        # no single caller's phenotype label stands for a verdict the callers split on (owner rule 4)
+        labels = [f"{r.tool} {r.phenotype}" for r in results
+                  if r.status == "ok" and r.diplotype not in ("-", "") and r.phenotype not in ("-", "")]
+        if v.get("consensus_phenotype", "-") != "-":
+            v["consensus_phenotype"] = "-"
+            v["note"] = "; ".join(x for x in (v.get("note", ""), "callers disagree on the diplotype: phenotype not "
+                                  "reported" + (f" (caller labels: {'; '.join(labels)})" if labels else "")) if x)
+    split = []
+    if gene == "NUDT15" and v.get("status") in ("concordant", "majority", "discordant"):
+        calls = {r.tool: r.diplotype for r in results if reconcile.is_typed_call(r.status, r.diplotype)}
+        calls.update({t: d for t, d in (informational or {}).items() if reconcile.is_typed_call("ok", d)})
+        split = _allele_split(gene, calls)
+        if split:           # no tool decides NUDT15 (owner decision 2026-11-15)
+            v["consensus_phenotype"] = "-"
+            v.pop("phenotype_source", None)
+            v["note"] = "; ".join(x for x in (v.get("note", ""), "; ".join(
+                f"callers disagree on NUDT15 {al}{' zygosity' if kind == 'zygosity' else ''}: {txt}"
+                for kind, al, txt in split)) if x)
+    if gene in ("TPMT", "NUDT15") and v.get("status") in ("concordant", "majority") and not split \
+            and " or " not in v["consensus_diplotype"]:
+        cp = reconcile.thiopurine_phenotype(gene, v["consensus_diplotype"])
+        if cp:
+            old = v.get("consensus_phenotype", "-")
+            v["consensus_phenotype"] = cp
+            v["phenotype_source"] = f"CPIC {gene} diplotype table, row {v['consensus_diplotype']}"
+            if _norm_phenotype(old) not in (None, _norm_phenotype(cp)):
+                v["note"] = "; ".join(x for x in (v.get("note", ""), f"caller phenotype {old} differs from the "
+                                                  f"CPIC phenotype {cp}") if x)
+    if gene == "NAT2" and v.get("status") in ("concordant", "majority") and " or " in v["consensus_diplotype"]:
+        readings = [x.strip() for x in v["consensus_diplotype"].split(" or ")]
+        phs = {nat2_cpic_phenotype(x) for x in readings}
+        if len(phs) == 1 and "Indeterminate" not in phs:
+            v["consensus_phenotype"] = phs.pop()
+        # a split (or an unscorable reading) is set to "-" and the status label by _split_by_cpic_phenotype
+    elif gene == "NAT2" and v.get("status") in ("concordant", "majority"):
+        v["consensus_phenotype"] = nat2_cpic_phenotype(v["consensus_diplotype"])
+    return _split_by_cpic_phenotype(v, gene)
 
 
 def pharmcat_cross_check(output_dir: str, gene: str, sample: str,
@@ -2034,7 +2326,11 @@ def print_table(
     # unreliable (e.g. minimap2 -> false CYP2D6 *5 deletion).
     low_cov = region_depth is not None and region_depth < min_depth
     no_call = low_cov or bool(alt_block)
-    verdict = compute_verdict(results, no_call, gene)
+    _info = None
+    if gene == "NUDT15":     # informational only: PharmCAT may withhold a NUDT15 phenotype, never decide it
+        _pcr = parse_pharmcat(output_dir, gene, sample)
+        _info = {"PharmCAT": _pcr.diplotype} if _pcr.status == "ok" and _pcr.diplotype not in ("-", "") else None
+    verdict = compute_verdict(results, no_call, gene, _info)
     if alt_block and verdict.get("status") == "no_call":
         verdict["reason"] = alt_block
 

@@ -10,13 +10,13 @@
 # Needs: Docker with the pgx-suite:latest image (apptainer, run --privileged; rootless
 # Docker: do not pass -u), a built arcasHLA clone (ARCAS_DIR; see
 # docs/ToolsDocumentation.md 5b), and a kallisto-0.44.0 conda env (KALLISTO_ENV).
-#   ARCAS_DIR=/data/alvin/ref/omnigen/tools/arcasHLA \
+#   ARCAS_DIR=<ref>/omnigen/tools/arcasHLA \
 #   IMGTHLA_DIR=/path/to/IMGTHLA            (hla.dat + wmda/hla_nom*.txt) \
 #   KALLISTO_ENV=/path/to/kallisto-env \
 #   docker/build-arcashla-sif.sh [OUT_SIF] [WORKDIR]
 set -euo pipefail
 : "${ARCAS_DIR:?}" "${IMGTHLA_DIR:?}" "${KALLISTO_ENV:?}"
-OUT="${1:-StellarPGx/containers/arcashla.sif}"; WORK="${2:-${TMPDIR:-/data/alvin/tmp}/arcas_build}"
+OUT="${1:-StellarPGx/containers/arcashla.sif}"; WORK="${2:-${TMPDIR:?set TMPDIR or pass WORKDIR}/arcas_build}"
 OUT=$(realpath -m "$OUT"); mkdir -p "$WORK/tmp" "$(dirname "$OUT")"; WORK=$(realpath "$WORK")
 APP="docker run --privileged --rm -v $WORK:/work -v $(dirname "$OUT"):/out -e APPTAINER_TMPDIR=/work/tmp pgx-suite:latest"
 rm -rf "$WORK/sbx"

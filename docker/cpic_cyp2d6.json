@@ -422,6 +422,7 @@
   },
   "*1x\u22653": {
    "activity": null,
+   "activity_min": 3.0,
    "function": "Increased function"
   },
   "*2": {
@@ -486,6 +487,7 @@
   },
   "*2x\u22653": {
    "activity": null,
+   "activity_min": 3.0,
    "function": "Increased function"
   },
   "*3": {
@@ -834,7 +836,7 @@
   }
  },
  "gene": "CYP2D6",
- "retrieved": "2026-11-12",
+ "retrieved": "2026-11-15",
  "score_phenotype": {
   "at_least": {
    "3.00": "Ultrarapid Metabolizer",
