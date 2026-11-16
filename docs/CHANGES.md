@@ -5,6 +5,18 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-16 (fresh clones build: pypgx fork, Stargazer panel check, README rewrite)
+
+- The `pypgx` submodule pinned a commit (PyPGx 0.26.0 + three pandas 2.x fixes) that was only local, so
+  `git clone --recurse-submodules` failed. The fixes are now branch `pgx-suite-patches` of the public fork
+  `alvin8-git/pypgx` (tree identical); `.gitmodules` points there.
+- The Dockerfile stops when `stargazer/1kgp_vcf/grc38/` (gitignored, Stargazer distribution) is missing;
+  before, a fresh clone built an image in which Stargazer failed on every gene.
+- Checked from a fresh public clone: no-cache build without the panels stops with the message; with them it
+  builds in 4 min (1.95 GB) and the smoke test passes 4/4 callers.
+- README rewritten for a new user: quick start, both engines, reference data incl. the Stargazer panels,
+  engine-equivalence validation, troubleshooting.
+
 ## 2026-11-16 (Nextflow is the default engine; PharmCAT cross-check race fixed)
 
 - `run_pgx_suite.sh --engine nextflow|snakemake`, default `nextflow`; `--resume` for Nextflow. Printed output
