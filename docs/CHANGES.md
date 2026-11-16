@@ -17,6 +17,38 @@ Format: reverse-chronological, grouped by phase/milestone.
   differences, 15 genes carry the cross-check, no verdict status, diplotype or phenotype changed.
 - `tests/compare_runs.py` no longer allows a cross-check difference.
 
+## 2026-11-16 (a reading CPIC cannot score is not a split)
+
+- Owner decision 2026-11-16, superseding the 2026-11-15 rule: in `_split_by_cpic_phenotype` (`docker/pgx-compare.py`) a
+  diplotype reading CPIC has no row for (Aldy composite DPYD `*rsNNN` / `*9A+rsX` haplotypes, Stargazer `*S` codes the notation
+  map cannot place) no longer counts as a split, but only after a component check. The reading is split into its components
+  (named alleles, `+rsNNN` tags, `*rsNNN`, `*S` codes, HGVS names; `reconcile.reading_function_profile`) and each is looked up in
+  CPIC's allele-function table (`cpic_diplotype.json` `allele_function`: CYP2C19, DPYD, TPMT; other genes have none, so nothing is
+  ever set aside there). It is set aside only if every component has a known CPIC function, every decreased / no / increased
+  function component is also present (with at least that many copies) in the scorable readings, no more callers back it than
+  back the scorable readings together, and every scorable reading gives the same usable CPIC phenotype. Then that phenotype is
+  the gene's phenotype, status stays `concordant` / `majority`, the note says "reading X has no CPIC phenotype and was not counted
+  (<check that passed>); CPIC phenotype of the other readings is P" (once; "callers said Y" first when a caller's label is
+  replaced), `phenotype_source` names the CPIC rows used, the verdict carries `unscorable_readings_ignored` and the report
+  sentence says the reading was set aside. An unknown component, an extra decreased-function component (Aldy
+  `*1/*1+rs67376798`, c.2846A>T, against `*1/*1`), a lettered allele that is deliberately unscorable (CYP2C19 `*1A`), an ambiguous
+  CPIC row (`reconcile.cpic_diplotype_lookup` now returns "ambiguous" apart from "no_row"), NAT2 Indeterminate, or scorable readings
+  that disagree all keep the split. `UNSCORABLE_READING_IS_A_SPLIT = False` is now the default; `True` restores the 2026-11-15 rule.
+- Reason: DPYD `*2A` carriers (Intermediate Metabolizer) had their phenotype blanked although PharmCAT/PyPGx and Stargazer agreed
+  and only Aldy's composite haplotype was unscorable; the component check keeps the rule from hiding a deviating variant (suite rule 4).
+- Real run (image built from this tree, stored caller outputs of 66 samples, 2767 gene verdicts re-scored inside the container
+  with the 2026-11-15 code (df2dd00) and the final code): 8 verdicts change, all DPYD, all from `-` / `concordant, diplotype
+  unresolved` to a CPIC phenotype with status `concordant` (Normal Metabolizer 6, Intermediate Metabolizer 2); 2759 are
+  identical. In all 8 the set-aside reading's components were all known, 6 carried no deviating component and 2 carried
+  one (`*2A`; c.2279C>T), present in the kept readings too. Of the 14 verdicts blanked under the 2026-11-15 rule,
+  8 regain their phenotype and 6 stay `-` (NUDT15 3, CYP3A5 2, CYP2C19 1) because their scorable readings disagree. The commits
+  after df2dd00 (including the CYP2D6 phenotype fix) change none of these 2767 rows.
+- Known limit: the verdict's own comparison key (`reconcile.canonicalize_diplotype`) drops `+rsNNN` tags, so a composite such as
+  `*1/*1+rs67376798` compares equal to `*1/*1` before this rule runs; that is unchanged here.
+- Tests: `test_verdict.py` (component check, extra deviating component, caller support, ambiguous row, NAT2 Indeterminate, lettered allele, report sentence; the composite-Aldy DPYD case in
+  `test_phenotype_tier_rescues_string_discordance` now keeps Normal Metabolizer).
+
+---
 ## 2026-11-16 (Nextflow engine, opt-in)
 
 - `main.nf`, `modules/local/pgx.nf`, `nextflow.config`, `bin/`: a Nextflow DSL2 port of `docker/Snakefile`, one
@@ -106,8 +138,8 @@ Owner decision 2026-11-15. When the consensus lists two or more diplotype readin
 and CPIC maps them to **different** phenotypes, `consensus_phenotype` is `-`, `status` is
 `concordant, diplotype unresolved` (never plain `concordant`; the report badge and card are amber) and the note names
 each reading's CPIC phenotype and says "confirm with a targeted assay". Readings that all give one CPIC phenotype keep
-the phenotype and the `concordant` status as before. A reading CPIC has no row for counts as a different phenotype
-(policy constant `UNSCORABLE_READING_IS_A_SPLIT` in `pgx-compare.py`).
+the phenotype and the `concordant` status as before. A reading CPIC has no row for counted as a different phenotype
+(policy constant `UNSCORABLE_READING_IS_A_SPLIT` in `pgx-compare.py`; superseded 2026-11-16, see that entry).
 - Phenotype per reading comes from CPIC's own diplotype tables: new `docker/cpic_diplotype.json` (CPIC `/diplotype`
   API, CYP2B6, CYP2C19, CYP2C9, CYP3A5, DPYD, SLCO1B1, UGT1A1; built by `cpic_diplotype_build.py`, compared with the API in
   `test_cpic.py` under `PGX_CPIC_VERIFY=1`), `cpic_thiopurine.json` (TPMT, NUDT15), and the NAT2 table already in the code.
@@ -130,7 +162,7 @@ the phenotype and the `concordant` status as before. A reading CPIC has no row f
   CYP2C19 1), again only multi-reading verdicts; every other gene row is byte-identical. Of the 28, only 6 are splits CPIC scores
   (CYP3A5, CYP2C19; NUDT15 already had no phenotype, only its status label changed); the 22 DPYD ones are readings that
   differ in notation (Stargazer `*S20`, Aldy `*rsNNN` tags) that CPIC has no row for: setting
-  `UNSCORABLE_READING_IS_A_SPLIT = False` keeps their phenotype.
+  `UNSCORABLE_READING_IS_A_SPLIT = False` keeps their phenotype (adopted 2026-11-16).
 
 ---
 

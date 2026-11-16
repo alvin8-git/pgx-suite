@@ -2165,23 +2165,28 @@ def _allele_split(gene, calls):
 # this label, never plain "concordant". Readings that all give one CPIC phenotype keep the phenotype as before.
 SPLIT_STATUS = "concordant, diplotype unresolved"
 SPLIT_STATUS_MAJORITY = "majority, diplotype unresolved"
-# Owner policy (2026-11-15): a reading CPIC has no row for counts as a phenotype different from every other reading.
-# False would ignore such readings when the scorable ones agree (it keeps the phenotype of e.g. DPYD `*S20`/`*rsNNN`
-# notation readings; see docs/CHANGES.md for how many stored calls the choice decides).
-UNSCORABLE_READING_IS_A_SPLIT = True
+# Owner policy 2026-11-16 (supersedes 2026-11-15): a reading CPIC has no row for (e.g. DPYD `*S20` / `*rsNNN` notation)
+# does NOT count as a split when every scorable reading gives one usable CPIC phenotype: that phenotype is kept, the
+# status is unchanged and the note names the ignored reading. True restores the 2026-11-15 rule (any unscorable
+# reading is a different phenotype). Scorable readings that disagree, or none usable, are still a split.
+UNSCORABLE_READING_IS_A_SPLIT = False
 
 
 def _reading_phenotype(gene, dip):
-    """(table_available, CPIC phenotype or None) of one diplotype reading. A reading CPIC cannot score is None
-    (a different phenotype from every other reading). CYP2D6 is not handled here (Cyrius / activity-score rule)."""
+    """(table_available, CPIC phenotype or None, kind) of one diplotype reading. kind is "scored" (phenotype set),
+    "no_row" (CPIC has no row for the reading), "ambiguous" (CPIC rows of different phenotype share its collapsed key)
+    or "indeterminate" (NAT2's own Indeterminate). Only "no_row" can be set aside (_ignorable_unscorable); the others
+    count as a phenotype different from every other reading. CYP2D6 is not handled here (Cyrius / activity-score rule)."""
     if gene in ("TPMT", "NUDT15"):
-        return True, reconcile.thiopurine_phenotype(gene, dip)
+        p = reconcile.thiopurine_phenotype(gene, dip)
+        return True, p, ("scored" if p is not None else "no_row")
     if gene == "NAT2":
         p = nat2_cpic_phenotype(dip)
-        return True, (None if p == "Indeterminate" else p)
+        return True, (None if p == "Indeterminate" else p), ("indeterminate" if p == "Indeterminate" else "scored")
     if reconcile.has_cpic_diplotype_table(gene or ""):
-        return True, reconcile.cpic_diplotype_phenotype(gene, dip)
-    return False, None
+        kind, p = reconcile.cpic_diplotype_lookup(gene, dip)
+        return True, p, kind
+    return False, None, "no_table"
 
 
 def _split_status(status):
@@ -2194,32 +2199,98 @@ def _usable_cpic_phenotype(p):
     return bool(p) and not re.search(r"indeterminate|unknown|no result|n/a", p, re.I)
 
 
+def _keep_cpic_phenotype(v, ph, used, clause, set_aside=False):
+    """The verdict keeps CPIC phenotype `ph` (CPIC decides medicine response). A differing caller label is replaced
+    and named first in the note ("callers said X; <clause>"); `phenotype_source` names the CPIC rows of the readings
+    in `used`. The all-readings-agree branch adds the note only when it replaced a label; the set-aside branch
+    (set_aside=True) always adds `clause` and also sets a phenotype the callers left blank."""
+    old = v.get("consensus_phenotype", "-")
+    blank = old in ("-", "", None)
+    parts = []
+    if not blank and _norm_phenotype(old) != _norm_phenotype(ph):
+        v["consensus_phenotype"] = ph
+        parts.append(f"callers said {old}")
+        parts.append(clause)
+    elif blank and set_aside:
+        v["consensus_phenotype"] = ph
+        parts.append(clause)
+    elif set_aside:
+        parts.append(clause)
+    if parts:
+        v["note"] = "; ".join(x for x in [v.get("note", "")] + parts if x)
+    v["phenotype_source"] = f"CPIC diplotype table, rows of {' / '.join(used)}"
+    return v
+
+
+def _ignorable_unscorable(gene, v, readings, kinds):
+    """(ignored readings, the check that passed) when every reading CPIC has no row for can be set aside, else None.
+    A reading is set aside only when (a) its kind is "no_row" (never an ambiguous row or NAT2 Indeterminate), (b) it is
+    not backed by more callers than the scorable readings together (`diplotype_readings`), and (c) every component of
+    it (named alleles, `+rsNNN` tags, `*rsNNN`, `*S` codes, HGVS names) has a CPIC allele function in the repo's CPIC
+    table and its decreased / no / increased function components are all present, with at least that multiplicity, in
+    the scorable readings. An unknown component, or one more deviating than they hold, keeps the split: a reading that
+    carries evidence the others lack is a finding, never ignored (suite rule 4)."""
+    ignored = [x for x, k in zip(readings, kinds) if k != "scored"]
+    kept = [x for x, k in zip(readings, kinds) if k == "scored"]
+    if not ignored or not kept or any(k not in ("scored", "no_row") for k in kinds):
+        return None
+    support = v.get("diplotype_readings") or {}
+    if any(x not in support for x in readings):
+        return None
+    if sum(len(support[x]) for x in ignored) > sum(len(support[x]) for x in kept):
+        return None
+    allowed = Counter()
+    for x in kept:
+        dev, unk = reconcile.reading_function_profile(gene, x)
+        if unk:
+            return None
+        for key, n in dev.items():
+            allowed[key] = max(allowed[key], n)
+    for x in ignored:
+        dev, unk = reconcile.reading_function_profile(gene, x)
+        if unk or any(n > allowed[key] for key, n in dev.items()):
+            return None
+    return ignored, ("every component has a CPIC allele function and its decreased/no-function components "
+                     "are all present in the other readings")
+
+
 def _split_by_cpic_phenotype(v, gene):
     """Apply the SPLIT_STATUS rule to a verdict that lists several diplotype readings ("A or B", whatever tier made
     it). A gene with no CPIC diplotype table is left as it was. Readings that all give one usable CPIC phenotype
-    set the phenotype to CPIC's (CPIC decides medicine response; a differing caller label goes in the note);
-    all-Indeterminate readings are treated like a split."""
+    set the phenotype to CPIC's (CPIC decides medicine response; a differing caller label goes in the note).
+    Owner policy 2026-11-16 (UNSCORABLE_READING_IS_A_SPLIT = False): a reading CPIC has no row for is set aside, and
+    the scorable readings' one usable phenotype stands, only when _ignorable_unscorable passes (known component
+    functions, no extra decreased/no-function component, not more callers than the scorable readings); the note names
+    the reading and the check and the verdict carries `unscorable_readings_ignored`. Otherwise (differing phenotypes,
+    all-Indeterminate, an ambiguous CPIC row, NAT2 Indeterminate, an unknown or extra component) the phenotype is
+    "-" with the split status."""
     if not gene or gene == "CYP2D6" or v.get("status") not in ("concordant", "majority"):
         return v
     if " or " not in v.get("consensus_diplotype", ""):
         return v
     readings = [x.strip() for x in v["consensus_diplotype"].split(" or ")]
     found = [_reading_phenotype(gene, x) for x in readings]
-    if not all(ok for ok, _ in found):
+    if not all(ok for ok, _, _ in found):
         return v
-    phs = [p for _, p in found]
+    phs = [p for _, p, _ in found]
+    kinds = [k for _, _, k in found]
     scored = {p for p in phs if p is not None}
     v = dict(v)
     if len(set(phs)) == 1 and _usable_cpic_phenotype(phs[0]):
-        old = v.get("consensus_phenotype", "-")
-        if old not in ("-", "", None) and _norm_phenotype(old) != _norm_phenotype(phs[0]):
-            v["consensus_phenotype"] = phs[0]
-            v["note"] = "; ".join(x for x in (v.get("note", ""), f"callers said {old}; CPIC phenotype of every "
-                                              f"diplotype reading is {phs[0]}") if x)
-        v["phenotype_source"] = f"CPIC diplotype table, rows of {' / '.join(readings)}"
-        return v
-    if len(set(phs)) > 1 and not UNSCORABLE_READING_IS_A_SPLIT and len(scored) == 1:
-        return v
+        return _keep_cpic_phenotype(v, phs[0], readings,
+                                    f"CPIC phenotype of every diplotype reading is {phs[0]}")
+    if len(set(phs)) > 1 and not UNSCORABLE_READING_IS_A_SPLIT and len(scored) == 1 \
+            and _usable_cpic_phenotype(next(iter(scored))):
+        ph = next(iter(scored))
+        ok = _ignorable_unscorable(gene, v, readings, kinds)
+        if ok:
+            ignored, check = ok
+            used = [x for x, k in zip(readings, kinds) if k == "scored"]
+            clause = "; ".join(f"reading {x} has no CPIC phenotype and was not counted" for x in ignored) \
+                + f" ({check}); CPIC phenotype of the other readings is {ph}"
+            v = _keep_cpic_phenotype(v, ph, used, clause, set_aside=True)
+            v["unscorable_readings_ignored"] = ignored
+            return v
     by = ", ".join(f"{x} {p or 'no CPIC phenotype'}" for x, p in zip(readings, phs))
     reason = ("the diplotype readings give different CPIC phenotypes" if len(set(phs)) > 1
               else "CPIC gives no usable phenotype for the diplotype readings")

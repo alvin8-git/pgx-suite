@@ -341,7 +341,9 @@ _dip_cache = None
 # never folded (it stays unscorable and counts toward the split rule). `redesignated` lists letters whose number
 # differs from the core allele they now sit under (CYP2C19 `*1A` is now `*38.001`, PMID 32602114: the old meaning
 # was the reference allele); they are never folded, since the caller may mean either (owner decision 2026-11-16:
-# CYP2C19 `*1A` stays unscorable rather than being read as `*38`).
+# CYP2C19 `*1A` stays unscorable rather than being read as `*38`). Such a reading has no CPIC allele function either
+# (reading_function_profile reports `*1A` unknown), so it is never set aside by the unscorable-reading rule: it counts
+# toward the split.
 _LEGACY_PATH = os.path.join(_HERE, "pharmvar_legacy_suballeles.json")
 _legacy_fold = None
 
@@ -439,24 +441,87 @@ def has_cpic_diplotype_table(gene: str) -> bool:
     return gene in _dip_tables()
 
 
+def cpic_diplotype_lookup(gene: str, dip: str):
+    """(state, phenotype) of one diplotype reading in CPIC's own table. state is "scored" (phenotype set),
+    "ambiguous" (the reading's collapsed key is shared by CPIC rows of different phenotype, so none is stored) or
+    "no_row" (CPIC has no row). Lookup order and folding are those of cpic_diplotype_phenotype."""
+    tabs = _dip_tables()
+    if gene not in tabs or gene == "CYP2D6":
+        return "no_row", None
+    exact, coll = tabs[gene]
+    folded = "/".join(fold_legacy_letter(gene, h) for h in (dip or "").split("/"))
+    ambiguous = False
+    for d, tab, collapse in ((dip, exact, False), (dip, coll, True), (folded, exact, False), (folded, coll, True)):
+        k = _dip_key(gene, d, collapse)
+        if k is None or k not in tab:
+            continue
+        if tab[k] is not None:
+            return "scored", tab[k]
+        ambiguous = True            # an ambiguous (None) row falls through to the folded lookups
+    return ("ambiguous" if ambiguous else "no_row"), None
+
+
 def cpic_diplotype_phenotype(gene: str, dip: str):
     """CPIC phenotype of one diplotype reading from CPIC's own diplotype table (docker/cpic_diplotype.json, built
-    by cpic_diplotype_build.py), or None when CPIC has no row for it (a reading CPIC cannot score).
+    by cpic_diplotype_build.py), or None when CPIC has no row for it or its row is ambiguous (see
+    cpic_diplotype_lookup, which tells the two apart).
     Lookup order: the reading as spelled (synonym-collapsed, order-insensitive; DPYD `*9A` == `c.85T>C (*9A)`),
     then, when that finds no row, with a legacy lettered name folded to its numbered core allele (`*3B` -> `*3`,
     `*2B` -> `*2`) but only where PharmVar's Legacy Label column lists it (LEGACY_FOLD); any other lettered allele
     is not folded and gets no row.
     Not used for CYP2D6, which has its own activity-score rule."""
-    tabs = _dip_tables()
-    if gene not in tabs or gene == "CYP2D6":
-        return None
-    exact, coll = tabs[gene]
-    folded = "/".join(fold_legacy_letter(gene, h) for h in (dip or "").split("/"))
-    for d, tab, collapse in ((dip, exact, False), (dip, coll, True), (folded, exact, False), (folded, coll, True)):
-        k = _dip_key(gene, d, collapse)
-        if k is not None and tab.get(k) is not None:    # an ambiguous (None) row falls through to the folded lookups
-            return tab[k]
-    return None
+    return cpic_diplotype_lookup(gene, dip)[1]
+
+
+# ── allele function of the components of a reading (for the unscorable-reading rule) ──────────────────
+# CPIC's own allele-function table (cpic_diplotype.json `allele_function`, built by cpic_diplotype_build.py from CPIC
+# /allele data: CYP2C19, DPYD, TPMT). A gene without an entry has no known component function, so none of its
+# readings can be set aside. A component is split from a reading at `+` only before `rsNNN` or `*` (an HGVS name such
+# as `c.1905+1G>A` keeps its `+`); `*rsNNN` / `rsNNN` / `*S` codes / HGVS names go through the same notation and
+# synonym maps as the diplotype lookup.
+_COMPONENT_SPLIT = re.compile(r"\+(?=rs\d|\*)", re.I)
+_function_cache = None
+
+
+def _allele_functions(gene: str):
+    """{comparable allele key: CPIC function}; a key that two CPIC alleles give different functions is None."""
+    global _function_cache
+    if _function_cache is None:
+        raw = _load_lookup(_DIP_PATH, "CPIC diplotype table").get("allele_function", {})
+        _function_cache = {}
+        for g, alleles in raw.items():
+            tab = {}
+            for name, fn in alleles.items():
+                k = _cpic_allele_key(g, _clean_allele(g, name))
+                tab[k] = fn if tab.get(k, fn) == fn else None
+            _function_cache[g] = tab
+    return _function_cache.get(gene)
+
+
+def reading_function_profile(gene: str, reading: str):
+    """(deviating, unknown) for one diplotype reading: `deviating` counts, per comparable allele key, the components
+    whose CPIC function is not "Normal function" (decreased, no, increased); `unknown` lists the components whose
+    function CPIC's table does not give (not in it, ambiguous, or Unknown/Uncertain function), or the whole
+    reading when the gene has no function table or the reading is not an `a/b` pair."""
+    fns = _allele_functions(gene)
+    haps = [h.strip() for h in (reading or "").split("/")]
+    if fns is None or len(haps) != 2 or not all(haps):
+        return collections.Counter(), [reading]
+    deviating, unknown = collections.Counter(), []
+    for hap in haps:
+        for comp in _COMPONENT_SPLIT.split(hap):
+            comp = _clean_allele(gene, comp.strip())
+            if re.fullmatch(r"rs\d+", comp, re.I):         # Aldy's `+rsNNN` tag is its `*rsNNN` name
+                comp = "*" + comp
+            key = _cpic_allele_key(gene, comp)
+            fn = fns.get(key)
+            if fn is None:
+                fn = fns.get(_cpic_allele_key(gene, fold_legacy_letter(gene, comp)))
+            if fn not in ("Normal function", "Decreased function", "No function", "Increased function"):
+                unknown.append(comp)
+            elif fn != "Normal function":
+                deviating[key] += 1
+    return deviating, unknown
 
 
 # ── CYP2D6: one agreement rule for the verdict and for the PharmCAT outside call ─────

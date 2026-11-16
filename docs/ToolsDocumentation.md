@@ -954,7 +954,7 @@ verdict carries the phenotype and no chosen diplotype: `consensus_diplotype` is 
 `diplotype_resolved` is `false`, status stays `concordant` for the phenotype only, `n_agree` counts the callers that
 agree on the phenotype, and `note` reads "callers agree on the phenotype but not the diplotype: A (tools) or B
 (tools)". The phenotype is then checked against CPIC's own diplotype table for each reading (`cpic_diplotype.json`,
-`cpic_thiopurine.json`, NAT2 table; a reading CPIC cannot score is a different phenotype): when the readings'
+`cpic_thiopurine.json`, NAT2 table; a reading CPIC cannot score is set aside, and the note names it, only when the scorable readings agree on one usable phenotype and every component of it has a CPIC allele function with no extra decreased/no-function component and not more callers behind it, owner decision 2026-11-16; otherwise it is a different phenotype): when the readings'
 CPIC phenotypes differ, `consensus_phenotype` is `-`, `status` is `concordant, diplotype unresolved` (`majority, diplotype unresolved` for a majority verdict; `authority` is cleared),
 `phenotype_split` is true, `phenotype_by_reading` lists them and the note says to confirm with a targeted assay.
 DPYD readings in caller notation are translated to CPIC allele names before this lookup (`dpyd_notation_map.json`, built by

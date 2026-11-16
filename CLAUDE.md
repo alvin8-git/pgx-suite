@@ -158,7 +158,7 @@ Decisions recorded 2026-11-15. Each is a rule plus its reason.
 - DPYD notation map (2026-11-15): Stargazer `*S` codes and Aldy `*rs<NNN>` tags are scored only through `docker/dpyd_notation_map.json`,
   derived from Stargazer's shipped allele table and CPIC's allele definitions (a code maps only to one CPIC allele with the same
   variant set; composite or undefined ones stay unscorable, never guessed). Owner decision 2026-11-15: a composite Aldy DPYD
-  haplotype (`*9A+rsX`) stays `-`; activity scores are never summed across its parts. Reason: 14 of 22 DPYD calls lost their phenotype to notation only.
+  haplotype (`*9A+rsX`) is unscorable; activity scores are never summed across its parts. Reason: 14 of 22 DPYD calls lost their phenotype to notation only.
 - Legacy letter fold (2026-11-15): a lettered allele folds to its numbered core only when `docker/pharmvar_legacy_suballeles.json`
   (`fold`, derived by `pharmvar_legacy_build.py` from the dated snapshot `pharmvar_legacy_snapshot.json` of PharmVar 6.2.29's
   rendered Legacy Label column) lists it for that gene (`*2B` -> `*2` for CYP2C19, `*3B` -> `*3` for CYP3A5). An unlisted letter is
@@ -183,7 +183,7 @@ Decisions recorded 2026-11-15. Each is a rule plus its reason.
   libraries of the same person: an inherent short-read limit.
 - CYP2B6 phase ambiguity: both readings are printed; no phase is asserted.
 - Owner decision 2026-11-15: when the consensus lists two or more diplotype readings and CPIC maps them to different
-  phenotypes (CPIC diplotype tables in `docker/`; a reading CPIC cannot score counts as different), the phenotype is `-`,
+  phenotypes (CPIC diplotype tables in `docker/`; a reading CPIC cannot score is set aside only when the scorable readings agree on one phenotype and a component check passes (every component has a CPIC allele function, no extra decreased/no-function component, not more callers), owner decision 2026-11-16; otherwise it is a split), the phenotype is `-`,
   the note names each reading's phenotype and "confirm with a targeted assay", and the status is
   `concordant, diplotype unresolved` (a majority verdict: `majority, diplotype unresolved`), never plain `concordant`; authority
   and DecidedBy are cleared (nothing decided the phenotype). Readings that all give one usable CPIC phenotype report CPIC's

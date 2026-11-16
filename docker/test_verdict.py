@@ -63,13 +63,14 @@ def test_phenotype_tier_rescues_string_discordance():
         no_call=False, gene="DPYD")
     # Stargazer's *S20 and Aldy's *rs2297595 are CPIC c.496A>G through dpyd_notation_map.json: all readings score Normal
     assert v["status"] == "concordant" and v["consensus_phenotype"] == "Normal Metabolizer" and v["authority"] == "Phenotype", v
-    # a composite Aldy haplotype (*9A + extra rs ids) is no CPIC allele: still unscorable, so still a split
+    # a composite Aldy haplotype (*9A + extra rs ids) is no CPIC allele: unscorable, so (policy 2026-11-16) not counted; the other readings keep Normal
     v = cmp.compute_verdict(
         [_r("PyPGx", "c.85T>C (*9A)/c.496A>G", pheno="Normal Metabolizer"),
          _r("Stargazer", "*S10/*S20", pheno="normal_metabolizer"),
          _r("Aldy", "*9A/*9A+rs1801159+rs2297595", pheno="Indeterminate")],
         no_call=False, gene="DPYD")
-    assert v["status"] == cmp.SPLIT_STATUS and v["consensus_phenotype"] == "-" and "authority" not in v, v   # nothing decided it
+    assert v["status"] == "concordant" and v["consensus_phenotype"] == "Normal Metabolizer" and "phenotype_split" not in v, v
+    assert "reading *9A/*9A+rs1801159+rs2297595 has no CPIC phenotype and was not counted" in v["note"], v
     # readings CPIC scores alike keep the phenotype tier
     v = cmp.compute_verdict(
         [_r("PyPGx", "c.85T>C (*9A)/*1", pheno="Normal Metabolizer"),
@@ -652,19 +653,144 @@ def test_same_cpic_phenotype_readings_keep_phenotype_and_status():
         assert "phenotype_split" not in v, v
 
 
-def test_reading_cpic_cannot_score_is_a_different_phenotype():
-    # CYP2C19 *1/*2 (Intermediate) vs a combination CPIC has no row for
-    v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
-    assert v["consensus_phenotype"] == "-" and "*1/*99 no CPIC phenotype" in v["note"], v
-    cmp.UNSCORABLE_READING_IS_A_SPLIT = False          # the policy constant: ignore unscorable readings when the rest agree
+import contextlib
+
+
+@contextlib.contextmanager
+def _stub(obj, name, value):
+    """Replace obj.name for the block and always restore the original."""
+    orig = getattr(obj, name)
+    setattr(obj, name, value)
     try:
-        v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
-        assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+        yield
     finally:
-        cmp.UNSCORABLE_READING_IS_A_SPLIT = True
+        setattr(obj, name, orig)
+
+
+def _dpyd(readings_by_tool, label="Intermediate Metabolizer"):
+    return cmp.compute_verdict([_r(t, d, pheno=label) for t, d in readings_by_tool.items()], no_call=False, gene="DPYD")
+
+
+_STAR2A = "c.1905+1G>A (*2A)/c.85T>C (*9A)"
+_ALDY2A = "*2A+rs1801160+rs45589337+rs1801265/*rs2297595"     # *2A (no function) + normal-function tags
+
+
+def test_unscorable_reading_set_aside_only_after_the_component_check():
+    # owner policy 2026-11-16: a composite Aldy reading whose components are all known and add no deviating allele
+    v = _dpyd({"PyPGx": _STAR2A, "Stargazer": "*S10/*S3", "Aldy": _ALDY2A, "PharmCAT": _STAR2A})
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+    assert "phenotype_split" not in v and v["unscorable_readings_ignored"] == [_ALDY2A], v
+    assert f"reading {_ALDY2A} has no CPIC phenotype and was not counted" in v["note"], v
+    assert "every component has a CPIC allele function" in v["note"], v
+    assert v["note"].count("CPIC phenotype of the other readings is Intermediate Metabolizer") == 1, v
+    assert "_ALDY2A" not in v["phenotype_source"] and _ALDY2A not in v["phenotype_source"], v
+    # a differing caller label is replaced, named first, then the clause
+    v = _dpyd({"PyPGx": _STAR2A, "Stargazer": "*S10/*S3", "Aldy": _ALDY2A, "PharmCAT": _STAR2A}, label="Normal Metabolizer")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer", v
+    assert v["note"].index("callers said Normal Metabolizer") < v["note"].index("was not counted"), v
+
+
+def _split(support, label="Normal Metabolizer", gene="DPYD"):
+    """_split_by_cpic_phenotype on a hand-built "A or B" verdict; support = {reading: [callers]}. (compute_verdict's own
+    comparison key strips `+rsNNN` tags, so a lone-tag composite never reaches this rule through it.)"""
+    return cmp._split_by_cpic_phenotype({"consensus_diplotype": " or ".join(support), "consensus_phenotype": label,
+                                         "status": "concordant", "phenotype_tier": True, "authority": "Phenotype",
+                                         "diplotype_readings": support}, gene)
+
+
+def test_unscorable_reading_with_an_extra_deviating_component_is_a_split():
+    # Aldy *1/*1+rs67376798 (c.2846A>T, decreased function) beside *1/*1: evidence the others lack
+    assert cmp.reconcile.reading_function_profile("DPYD", "*1/*1+rs67376798")[0], "c.2846A>T must be a deviating component"
+    v = _split({"*1/*1": ["PyPGx", "Stargazer", "PharmCAT"], "*1/*1+rs67376798": ["Aldy"]})
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "unscorable_readings_ignored" not in v, v
+    assert "*1/*1+rs67376798 no CPIC phenotype" in v["note"], v
+    # the same composite with only normal-function tags is set aside
+    v = _split({"*1/*1": ["PyPGx", "Stargazer", "PharmCAT"], "*1/*1+rs1801159": ["Aldy"]})
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and v["status"] == "concordant", v
+    # a component whose function CPIC's table does not give is unknown: split
+    assert cmp.reconcile.reading_function_profile("DPYD", "*1/*1+rs0000001")[1] == ["*rs0000001"]
+    v = _split({"*1/*1": ["PyPGx", "Stargazer", "PharmCAT"], "*1/*1+rs0000001": ["Aldy"]})
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    # one copy in the kept reading does not cover two in the unscorable one
+    v = _split({"*1/*2A": ["PyPGx", "Stargazer", "PharmCAT"], "*2A+rs1801159/*2A+rs2297595": ["Aldy"]},
+               label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+
+
+def test_unscorable_reading_backed_by_more_callers_is_a_split():
+    base = {"consensus_diplotype": "*1/*1 or *1/*1+rs1801159", "consensus_phenotype": "Normal Metabolizer",
+            "status": "concordant", "phenotype_tier": True, "authority": "Phenotype"}
+    v = cmp._split_by_cpic_phenotype(dict(base, diplotype_readings={"*1/*1": ["PyPGx"], "*1/*1+rs1801159": ["Stargazer", "Aldy"]}), "DPYD")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    v = cmp._split_by_cpic_phenotype(dict(base, diplotype_readings={"*1/*1": ["PyPGx", "Stargazer"], "*1/*1+rs1801159": ["Aldy", "PharmCAT"]}), "DPYD")
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and v["status"] == "concordant", v      # equal support is not more
+    v = cmp._split_by_cpic_phenotype(dict(base), "DPYD")        # support unknown: cannot be shown, so a split
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+
+
+def test_ambiguous_cpic_row_is_a_split_never_ignored():
+    assert cmp.reconcile.cpic_diplotype_lookup("DPYD", "*1/*1") == ("scored", "Normal Metabolizer")
+    assert cmp.reconcile.cpic_diplotype_lookup("DPYD", "*1/*1+rs1801159")[0] == "no_row"
+    def lookup(g, d):
+        return ("ambiguous", None) if d == "*1/*2" else ("scored", "Normal Metabolizer")
+    with _stub(cmp.reconcile, "cpic_diplotype_lookup", lookup):
+        v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("Aldy", "*1/*2"), _r("PharmCAT", "*1/*1")],
+                                no_call=False, gene="CYP2C19")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    assert v["phenotype_by_reading"]["*1/*2"] is None, v
+    assert cmp._reading_phenotype("CYP2C19", "*1/*2")[2] == "scored"
+
+
+def test_nat2_indeterminate_reading_is_a_split_never_ignored():
+    with _stub(cmp, "nat2_cpic_phenotype", lambda d: "Indeterminate" if d == "*4/*99" else "Normal Metabolizer"):
+        assert cmp._reading_phenotype("NAT2", "*4/*99") == (True, None, "indeterminate")
+        v = cmp.compute_verdict([_r("PyPGx", "*4/*4"), _r("Stargazer", "*4/*4"), _r("Aldy", "*4/*99"), _r("PharmCAT", "*4/*4")],
+                                no_call=False, gene="NAT2")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+
+
+def test_lettered_unscorable_allele_still_counts_toward_the_split():
+    # CYP2C19 *1A is deliberately unscorable (owner decision 2026-11-16) and has no CPIC allele function
+    assert cmp.reconcile.reading_function_profile("CYP2C19", "*1A/*2")[1] == ["*1A"]
+    v = _tier("CYP2C19", ["*1/*2", "*1A/*2"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "*1A/*2 no CPIC phenotype" in v["note"], v
+    # unknown *99 is no allele CPIC defines: split
+    v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+
+
+def test_unscorable_policy_constant_and_split_rules():
+    orig = cmp.UNSCORABLE_READING_IS_A_SPLIT
+    assert orig is False
+    try:
+        cmp.UNSCORABLE_READING_IS_A_SPLIT = True            # the 2026-11-15 rule: any unscorable reading splits
+        v = _dpyd({"PyPGx": _STAR2A, "Stargazer": "*S10/*S3", "Aldy": _ALDY2A, "PharmCAT": _STAR2A})
+        assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    finally:
+        cmp.UNSCORABLE_READING_IS_A_SPLIT = orig
+    # scorable readings that disagree: still a split
+    v = _tier("CYP2C19", ["*1/*2", "*2/*36", "*1/*99"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
+    # the only scorable reading has no usable phenotype: still a split
+    with _stub(cmp.reconcile, "cpic_diplotype_lookup", lambda g, d: ("scored", "Indeterminate") if d == "*1/*2" else ("no_row", None)):
+        v = _tier("CYP2C19", ["*1/*2", "*1/*99"], label="Intermediate Metabolizer")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS, v
     # a gene with no CPIC diplotype table is unchanged
     v = _tier("CYP4F2", ["*1/*3", "*3/*3"], label="Intermediate Metabolizer")
     assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant", v
+
+
+def test_report_sentence_for_a_set_aside_reading():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pgx_report_t", os.path.join(HERE, "pgx-report.py"))
+    rep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rep)
+    v = _dpyd({"PyPGx": _STAR2A, "Stargazer": "*S10/*S3", "Aldy": _ALDY2A, "PharmCAT": _STAR2A})
+    tools = {t: {"status": "ok", "diplotype": d, "phenotype": "Intermediate Metabolizer"}
+             for t, d in {"PyPGx": _STAR2A, "Stargazer": "*S10/*S3", "Aldy": _ALDY2A, "PharmCAT": _STAR2A}.items()}
+    _, res = rep._pipeline_narrative("DPYD", v, tools)
+    assert "set aside" in res and _ALDY2A in res and "were not all in agreement" in res, res
+    assert "every reading agreed" not in res and "all callers agreed" not in res, res
 
 
 def test_phase_ambiguous_cyp2b6_follows_cpic_phenotypes():
@@ -678,12 +804,9 @@ def test_phase_ambiguous_cyp2b6_follows_cpic_phenotypes():
     assert rc.cpic_diplotype_phenotype("CYP2B6", "*1/*6") == rc.cpic_diplotype_phenotype("CYP2B6", "*4/*9") \
         == "Intermediate Metabolizer"
     # a phase-ambiguous pair CPIC scores differently gets "-" and the status label (stub the table lookup)
-    real = cmp.reconcile.cpic_diplotype_phenotype
-    try:
-        cmp.reconcile.cpic_diplotype_phenotype = lambda g, d: "Poor Metabolizer" if d == "*1/*7" else "Intermediate Metabolizer"
+    with _stub(cmp.reconcile, "cpic_diplotype_lookup",
+               lambda g, d: ("scored", "Poor Metabolizer" if d == "*1/*7" else "Intermediate Metabolizer")):
         v = cmp.compute_verdict(rs, no_call=False, gene="CYP2B6")
-    finally:
-        cmp.reconcile.cpic_diplotype_phenotype = real
     assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "phase_ambiguous" in v, v
 
 
@@ -852,13 +975,9 @@ def test_split_rule_review_fixes():
     v = sp({"consensus_diplotype": "*1/*2 or *2/*2", "consensus_phenotype": "Poor Metabolizer", "status": "concordant"}, "CYP2C19")
     assert v["status"] == cmp.SPLIT_STATUS, v
     # all readings Indeterminate: no phenotype, like a split
-    cmp_orig = cmp._reading_phenotype
-    try:
-        cmp._reading_phenotype = lambda g, d: (True, "Indeterminate")
+    with _stub(cmp, "_reading_phenotype", lambda g, d: (True, "Indeterminate", "scored")):
         v = sp(dict(base), "CYP2C19")
         assert v["consensus_phenotype"] == "-" and v["status"] == cmp.SPLIT_STATUS and "no usable phenotype" in v["note"], v
-    finally:
-        cmp._reading_phenotype = cmp_orig
 
 
 def test_axiom_adjudicate_split_status():

@@ -1996,6 +1996,12 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
     elif v.get("phenotype_split"):
         res = ("The callers' diplotype readings differ and CPIC scores them as different phenotypes, so no phenotype "
                "is reported and every reading is listed; confirm with a targeted assay.")
+    elif v.get("unscorable_readings_ignored"):
+        _ig = ", ".join(v["unscorable_readings_ignored"])
+        res = (f"Callers reported differing diplotype strings. CPIC has no phenotype for reading {_ig}; each of its "
+               f"components has a CPIC allele function and its decreased or no-function components also occur in the "
+               f"other readings, so it was set aside, and CPIC scores the other readings as {pheno}. The readings "
+               f"were not all in agreement: the diplotype is not resolved and every reading is listed.")
     elif v.get("phenotype_tier"):
         res = (f"Callers reported differing diplotype strings, but ≥2 phenotype-emitting callers "
                f"agreed on the CPIC phenotype ({pheno}); the phenotype is concordant, the diplotype is not resolved "
