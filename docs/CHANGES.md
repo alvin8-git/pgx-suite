@@ -43,8 +43,24 @@ Format: reverse-chronological, grouped by phase/milestone.
   one (`*2A`; c.2279C>T), present in the kept readings too. Of the 14 verdicts blanked under the 2026-11-15 rule,
   8 regain their phenotype and 6 stay `-` (NUDT15 3, CYP3A5 2, CYP2C19 1) because their scorable readings disagree. The commits
   after df2dd00 (including the CYP2D6 phenotype fix) change none of these 2767 rows.
-- Known limit: the verdict's own comparison key (`reconcile.canonicalize_diplotype`) drops `+rsNNN` tags, so a composite such as
-  `*1/*1+rs67376798` compares equal to `*1/*1` before this rule runs; that is unchanged here.
+- Extra-variant tags in the vote (follow-up, same day): `reconcile.canonicalize_diplotype` used to drop `+rsNNN` / `+*N` tags
+  (DPYD, CYP2C19, TPMT), so Aldy `*1/*1+rs67376798` (DPYD c.2846A>T, Decreased function in CPIC's allele table) voted as `*1/*1`
+  and gave a 4/4 concordant Normal Metabolizer. Now each dropped tag is looked up in CPIC's `allele_function` table
+  (`reconcile.blocking_tags`): a Normal-function tag is dropped as before; a decreased / no / increased function tag, a tag the
+  table does not give, or a gene without a function table stays in the key, so that caller is its own reading (split or
+  majority by the existing rules). Only the blocking tags enter the key, spelled through the gene's notation / synonym map
+  (`+rs67376798`, `+*rs67376798`, `+c.2846A>T` are one key). Components are cut only before `rs`, `*` or `c.`, so an HGVS name
+  such as `c.1905+1G>A` stays whole and resolves (`*2A`, No function). The note comes from the same keys
+  (`reconcile.canonical_tags`): "not counted as agreeing with the diplotype without the tag (<caller> <diplotype>: tag <tag> is
+  <function> in CPIC's allele table)" only for a caller whose key differs from every consensus reading, and "the reading keeps
+  a tag that is not Normal function (...)" when a consensus reading carries one. The lookup files `cpic_diplotype.json` and
+  `dpyd_notation_map.json` are now needed at run time (fail loud if missing; a test checks the Dockerfile copies them). TPMT
+  `*1/*3A+rs1142345` now has no CPIC phenotype (CPIC's function table has no row for the rsID) instead of silently dropping the
+  tag; a Normal-function tag still looks up. Not changed here: when every caller carries the same decreased-function tag, the
+  phenotype still comes from the stripped diplotype (a DPYD-only rule is the next change). Real run (image `wt-rstag`, 66 stored
+  samples, 2767 verdicts, OLD = the commit before this change): 0 rows change, since no stored call carries a tag that is not
+  Normal function; the cases are proven by `test_extra_variant_tag_votes_only_when_its_cpic_function_is_normal` and
+  `test_tag_vote_review_fixes`.
 - Tests: `test_verdict.py` (component check, extra deviating component, caller support, ambiguous row, NAT2 Indeterminate, lettered allele, report sentence; the composite-Aldy DPYD case in
   `test_phenotype_tier_rescues_string_discordance` now keeps Normal Metabolizer).
 

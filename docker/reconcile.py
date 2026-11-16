@@ -46,17 +46,49 @@ for _gene, _entry in _RAW.items():
     SYNONYMS[_gene] = token_to_canon
 
 
-def _strip_allele(tok: str) -> str:
-    """Reduce one allele token to a comparable base form (lowercased)."""
+# A haplotype is cut into components only at a `+` that precedes `rsNNN`, `*` or an HGVS `c.` name, so an HGVS name keeps its
+# own `+` (`c.1905+1G>A`).
+_COMPONENT_SPLIT = re.compile(r"\+(?=rs\d|\*|c\.)", re.I)
+
+
+def _split_tags(tok: str):
+    """(comparable base form, dropped tag components) of one allele token. The base is lowercased; the tags are the
+    components after the first (`*28+*80` -> `*28` and [`*80`], `*9a+rs1+rs2` -> `*9a` and [`rs1`, `rs2`],
+    `*1+c.1905+1g>a` -> `*1` and [`c.1905+1g>a`]); an HGVS name alone keeps its `+` (`c.1905+1g>a`, no tags)."""
     t = (tok or "").strip().lower()
     if not t:
-        return ""
+        return "", []
     t = re.sub(r"\s*\(.*?\)", "", t)   # drop "(*9a)" parentheticals
     t = re.sub(r"x\d+", "", t)          # copy number  *2xn / *106x2 -> *106
-    if t.startswith("*") or re.match(r"rs\d+\+", t):   # *28+*80 -> *28, rs1+rs2 -> rs1; an HGVS name keeps its "+" (c.1905+1g>a)
-        t = t.split("+")[0]
+    tags = []
+    if t.startswith("*") or re.match(r"rs\d+\+", t):   # *28+*80 -> *28, rs1+rs2 -> rs1
+        parts = _COMPONENT_SPLIT.split(t)
+        t, tags = parts[0], [x.split(";")[0].strip() for x in parts[1:]]
     t = t.split(";")[0]                  # pypgx "*17;*1;" -> *17
-    return t.strip()
+    return t.strip(), [x for x in tags if x]
+
+
+def _strip_allele(tok: str) -> str:
+    """Reduce one allele token to a comparable base form (lowercased)."""
+    return _split_tags(tok)[0]
+
+
+def _canonical_allele(gene: str, tok: str):
+    """(canonical key, blocking tags) of one allele token (see canonicalize_allele)."""
+    t = (tok or "").strip().lower()
+    if not t or t in ("-", "."):
+        return t, []
+    if gene in SYNONYMS:
+        base, tags = _split_tags(tok)
+        canon = "*1" if base in _REFERENCE else SYNONYMS[gene].get(base, base)
+        blocked = blocking_tags(gene, tags)
+        if blocked:
+            # a tag that is not Normal function (or whose function CPIC's table does not give) is evidence the
+            # stripped diplotype lacks: the key keeps those tags (not the Normal ones), spelled by the gene's
+            # notation / synonym map so one variant is one key, and the call is its own reading (owner 2026-11-16)
+            return canon + "+" + "+".join(sorted(k for k, _, _ in blocked)), blocked
+        return canon, []
+    return ("*1" if t in _REFERENCE else t), []
 
 
 def canonicalize_allele(gene: str, tok: str) -> str:
@@ -66,16 +98,9 @@ def canonicalize_allele(gene: str, tok: str) -> str:
     synonym map. For every other gene we keep the token as-is (lowercased) and
     apply only the universal Reference->*1 collapse — so CNV-meaningful calls
     like CYP2D6 `*1x2` or `*36+*10` are NOT flattened into `*1`/`*36`.
+    A tag the stripping would drop stays in the key when it is not Normal function in CPIC's allele table.
     """
-    t = (tok or "").strip().lower()
-    if not t or t in ("-", "."):
-        return t
-    if gene in SYNONYMS:
-        base = _strip_allele(tok)
-        if base in _REFERENCE:
-            return "*1"
-        return SYNONYMS[gene].get(base, base)
-    return "*1" if t in _REFERENCE else t
+    return _canonical_allele(gene, tok)[0]
 
 
 # ── Notation normalisation (comparison only) ─────────────────────────────────
@@ -179,25 +204,36 @@ def norm_diplotype(gene, dip: str):
     return "/".join(sorted(halves))
 
 
+def _canonical_diplotype(gene: str, dip: str):
+    """(key, blocking tags) behind canonicalize_diplotype; the tags are [(key, tag as written, function)] of the
+    components kept in the key because they are not Normal function (see blocking_tags)."""
+    if not dip or dip == "-":
+        return "-", []
+    key = norm_diplotype(gene, dip)
+    if key is UNRESOLVED or gene not in SYNONYMS:
+        return key, []
+    d = re.sub(r"\s+", "", dip)
+    m = _VCF_CHECK_RE.match(d)
+    if m:
+        d = ("*1/" if m.group(2).lower() == "het" else m.group(1) + "/") + m.group(1)
+    if "/" not in d:
+        return _canonical_allele(gene, d)
+    parts = [_canonical_allele(gene, p) for p in d.split("/")]
+    return "/".join(sorted(k for k, _ in parts)), [t for _, ts in parts for t in ts]
+
+
 def canonicalize_diplotype(gene: str, dip: str):
     """Order-insensitive, notation-normalised, synonym-collapsed diplotype key.
 
     Genes with a synonym entry (DPYD, CYP2C19, TPMT) additionally collapse synonyms.
     Returns UNRESOLVED (None) for a call that cannot be compared (see norm_diplotype).
     """
-    if not dip or dip == "-":
-        return "-"
-    key = norm_diplotype(gene, dip)
-    if key is UNRESOLVED or gene not in SYNONYMS:
-        return key
-    d = re.sub(r"\s+", "", dip)
-    m = _VCF_CHECK_RE.match(d)
-    if m:
-        d = ("*1/" if m.group(2).lower() == "het" else m.group(1) + "/") + m.group(1)
-    if "/" not in d:
-        return canonicalize_allele(gene, d)
-    halves = [canonicalize_allele(gene, p) for p in d.split("/")]
-    return "/".join(sorted(halves))
+    return _canonical_diplotype(gene, dip)[0]
+
+
+def canonical_tags(gene: str, dip: str):
+    """[(key, tag, function)] of the tags kept in canonicalize_diplotype's key for `dip` (empty when none)."""
+    return _canonical_diplotype(gene, dip)[1]
 
 
 # ── CYP2D6 activity score (CPIC data, no value in code) ─────────────────────────
@@ -479,7 +515,6 @@ def cpic_diplotype_phenotype(gene: str, dip: str):
 # readings can be set aside. A component is split from a reading at `+` only before `rsNNN` or `*` (an HGVS name such
 # as `c.1905+1G>A` keeps its `+`); `*rsNNN` / `rsNNN` / `*S` codes / HGVS names go through the same notation and
 # synonym maps as the diplotype lookup.
-_COMPONENT_SPLIT = re.compile(r"\+(?=rs\d|\*)", re.I)
 _function_cache = None
 
 
@@ -498,6 +533,39 @@ def _allele_functions(gene: str):
     return _function_cache.get(gene)
 
 
+_KNOWN_FUNCTIONS = ("Normal function", "Decreased function", "No function", "Increased function")
+
+
+def _component_function(gene: str, comp: str):
+    """(cleaned component, comparable key, CPIC function) of one allele component (named allele, `rsNNN` / `*rsNNN`
+    tag, `*S` code, HGVS name). The function is "Normal function", ... from CPIC's allele-function table, or None
+    when the gene has no table or the table does not give it (not listed, ambiguous, Unknown/Uncertain function).
+    The cleaned component is the spelling that was looked up (`rsNNN` becomes `*rsNNN`)."""
+    comp = _clean_allele(gene, comp.strip())
+    if re.fullmatch(r"rs\d+", comp, re.I):         # Aldy's `+rsNNN` tag is its `*rsNNN` name
+        comp = "*" + comp
+    key = _cpic_allele_key(gene, comp)
+    fns = _allele_functions(gene)
+    if fns is None:
+        return comp, key, None
+    fn = fns.get(key)
+    if fn is None:
+        fn = fns.get(_cpic_allele_key(gene, fold_legacy_letter(gene, comp)))
+    return comp, key, (fn if fn in _KNOWN_FUNCTIONS else None)
+
+
+def blocking_tags(gene: str, tags):
+    """[(key, tag as written, function or "unknown")] of the dropped tag components that are not Normal function. A
+    tag blocks the stripping when its CPIC function is decreased / no / increased, or unknown (no table for the
+    gene, or the table does not give it)."""
+    out = []
+    for t in tags:
+        _, key, fn = _component_function(gene, t)
+        if fn != "Normal function":
+            out.append((key, t, fn or "unknown"))
+    return out
+
+
 def reading_function_profile(gene: str, reading: str):
     """(deviating, unknown) for one diplotype reading: `deviating` counts, per comparable allele key, the components
     whose CPIC function is not "Normal function" (decreased, no, increased); `unknown` lists the components whose
@@ -510,15 +578,9 @@ def reading_function_profile(gene: str, reading: str):
     deviating, unknown = collections.Counter(), []
     for hap in haps:
         for comp in _COMPONENT_SPLIT.split(hap):
-            comp = _clean_allele(gene, comp.strip())
-            if re.fullmatch(r"rs\d+", comp, re.I):         # Aldy's `+rsNNN` tag is its `*rsNNN` name
-                comp = "*" + comp
-            key = _cpic_allele_key(gene, comp)
-            fn = fns.get(key)
+            c, key, fn = _component_function(gene, comp)
             if fn is None:
-                fn = fns.get(_cpic_allele_key(gene, fold_legacy_letter(gene, comp)))
-            if fn not in ("Normal function", "Decreased function", "No function", "Increased function"):
-                unknown.append(comp)
+                unknown.append(c)
             elif fn != "Normal function":
                 deviating[key] += 1
     return deviating, unknown
