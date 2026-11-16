@@ -16,8 +16,8 @@ same results.
 ```bash
 git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git
 cd pgx-suite
+# put the reference data in place first (see Reference data): the build needs the Stargazer panels
 docker build --build-arg PGX_VERSION=$(git rev-parse --short HEAD) -t pgx-suite:latest .
-# put the reference data in place: GRCh38/, pypgx/pypgx-bundle/, StellarPGx/containers/ (see Reference data)
 tests/smoke/run.sh                                      # 4 genes on a 6.6 MB HG002 slice; prints PASS lines
 ./run_pgx_suite.sh /path/to/sample.bam --jobs 16        # one whole genome -> results/<sample>/
 ```
@@ -96,9 +96,13 @@ and the ABO/HLA class II contract files. Keep their schemas stable.
 ```bash
 git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git
 cd pgx-suite
+# copy the Stargazer panels into stargazer-grc38-2.0.3/stargazer/1kgp_vcf/grc38/ (see Reference data)
 docker build --build-arg PGX_VERSION=$(git rev-parse --short HEAD) -t pgx-suite:latest .
 docker run --rm pgx-suite:latest bash /opt/pgx/test.sh   # tool checks, no data needed (a few minutes)
 ```
+
+The build stops with an error if the Stargazer panels are missing; an image without them would
+report Stargazer as failed on every gene. A no-cache build from a fresh clone took 4 minutes here.
 
 The `pypgx` submodule is [alvin8-git/pypgx](https://github.com/alvin8-git/pypgx), branch
 `pgx-suite-patches`: upstream PyPGx 0.26.0 plus three pandas 2.x fixes. Already cloned without
@@ -114,11 +118,12 @@ move it as a file (`docker save pgx-suite:latest | gzip > pgx-suite.tar.gz`, the
 
 ## Reference data
 
-All of these live outside git (`.gitignore`). The launcher and the smoke test expect them at fixed
-paths under the repo root.
+All of these live outside git (`.gitignore`). The build, the launcher and the smoke test expect them
+at fixed paths under the repo root.
 
 | Path in the repo | Contents | Size |
 |---|---|---|
+| `stargazer-grc38-2.0.3/stargazer/1kgp_vcf/grc38/` | Stargazer 2.0.3 phasing panels, 62 `.vcf.gz` files; **needed to build the image**. From the Stargazer 2.0.3 distribution ([stargazer.gs.washington.edu/stargazerweb](https://stargazer.gs.washington.edu/stargazerweb), non-commercial licence): copy its `stargazer/1kgp_vcf/grc38/` folder here | 189 MB |
 | `GRCh38/hg38.fa`, `hg38.fa.fai` | GRCh38 with ALT contigs (455 contigs), the reference the BAM was aligned to | 3.1 GB |
 | `pypgx/pypgx-bundle/` | PyPGx resource bundle, version 0.26.0 | 500 MB |
 | `StellarPGx/containers/stellarpgx-dev.sif` | StellarPGx tools | 32 MB |
@@ -130,7 +135,7 @@ paths under the repo root.
 ### Shared bundle (link not yet published)
 
 The OmniGen suite will ship these files in one archive. **The link is not published yet.**
-pgx-suite needs only the reference FASTA, the PyPGx bundle and the SIFs listed above.
+pgx-suite needs only the Stargazer panels, the reference FASTA, the PyPGx bundle and the SIFs listed above.
 
 ### Building each item from public sources
 
@@ -370,6 +375,8 @@ Only problems recorded in this repo's docs and history.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `docker build` fails copying `pypgx/` | submodules not checked out | `git submodule update --init --recursive` |
+| `docker build` stops: `1kgp_vcf/grc38/ is missing` | Stargazer panels not copied | see [Reference data](#reference-data) |
+| Stargazer `failed` on every gene | image built before the build check, without the panels | rebuild with the panels in place |
 | `'java' not found in PATH` | Nextflow needs Java 17+ | install Java, or use `--engine snakemake` |
 | CYP2D6 and other paralog genes `no_call`, "not ALT-aware" banner | BAM aligned without ALT contigs or with minimap2 | Re-align with bwa-mem against GRCh38 with ALT contigs and the `.alt` file |
 | `FATAL: could not open image` | SIF folder not mounted | Keep the SIFs in `StellarPGx/containers/` (mounted at `/pgx/containers`) |

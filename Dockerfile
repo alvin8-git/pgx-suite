@@ -151,6 +151,12 @@ RUN chmod +x /usr/local/bin/nextflow \
 # Only the grc38 phasing panel and source code are copied.
 # Wrapper calls the venv Python explicitly to guarantee the right packages are found.
 COPY stargazer-grc38-2.0.3/ /opt/stargazer/
+# The 1000 Genomes phasing panels are not in git (licence, 189 MB): without them Stargazer fails on
+# every gene at run time, so stop the build here instead.
+RUN ls /opt/stargazer/stargazer/1kgp_vcf/grc38/*.vcf.gz >/dev/null 2>&1 || { \
+        echo "ERROR: stargazer-grc38-2.0.3/stargazer/1kgp_vcf/grc38/ is missing. Copy it from the" \
+             "Stargazer 2.0.3 distribution (https://stargazer.gs.washington.edu/stargazerweb); see README," \
+             "Reference data." >&2; exit 1; }
 RUN printf '#!/usr/bin/env bash\nexec /opt/venv/bin/python3 /opt/stargazer/stargazer/__main__.py "$@"\n' \
         > /usr/local/bin/stargazer \
     && chmod +x /usr/local/bin/stargazer
