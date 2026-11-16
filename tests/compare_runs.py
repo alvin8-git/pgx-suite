@@ -33,7 +33,8 @@ LOG_LINE_IGNORE = {
 # provenance.json: engine and image tag differ by design; reference.path is the same string today.
 PROV_IGNORE = {"pipeline", ("tools", "snakemake"), ("tools", "nextflow")}
 VCF_HEADER_IGNORE = re.compile(rb"^##(bcftools_\w+Command|fileDate)=")
-HTML_IGNORE = [re.compile(rb"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(Z|\s*UTC)?")]
+HTML_IGNORE = [re.compile(rb"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(Z|\s*UTC)?"),
+               re.compile(rb"(snakemake|nextflow) \d+(\.\d+)*")]   # engine in the provenance line, by design
 TMP_PREFIX = re.compile(r"^tmp[^/]*/")
 
 # Tool nondeterminism seen between two Snakemake runs of the same input (plan 5.3). A file that
