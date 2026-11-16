@@ -50,7 +50,7 @@ Snakemake replaced the former bash orchestrators `pgx-run.sh` / `pgx-all-genes.s
 ## Submodules & vendored code
 
 - `pypgx/` and `StellarPGx/` are **git submodules**. `stargazer-grc38-2.0.3/` is vendored source (non-commercial UW licence — do **not** push the image to a public registry).
-- **pypgx has local patches** (pandas 2.x fixes) committed inside the submodule. To change pypgx: commit inside `pypgx/`, then bump the submodule pointer in the parent repo.
+- **pypgx has local patches** (pandas 2.x fixes). The submodule is the fork `alvin8-git/pypgx`, branch `pgx-suite-patches` (upstream 0.26.0 + the fixes). To change pypgx: commit on that branch inside `pypgx/`, push it to the fork (`git@github.com:alvin8-git/pypgx.git`), then bump the submodule pointer in the parent repo. An unpushed submodule commit breaks every fresh clone.
 
 ## Conventions
 
