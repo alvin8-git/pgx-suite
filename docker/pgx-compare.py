@@ -1643,7 +1643,7 @@ _VCF_CHECK_PARSERS: dict = {
     "VKORC1":  parse_single_snp_vcf,
     "IFNL3":   parse_single_snp_vcf,
     "CYP2C-CLUSTER": parse_single_snp_vcf,  # rs12777823 (CPIC warfarin)
-    "ABO":     parse_abo_vcf,               # PROVISIONAL — UNVALIDATED
+    "ABO":     parse_abo_vcf,               # research use; GIAB check: ToolsDocumentation.md 5e
 }
 
 # Genes resolved by a single authoritative caller rather than a star-allele vote:
@@ -1655,7 +1655,7 @@ AUTHORITATIVE = {
     "RYR1": "VCF-Check", "CACNA1S": "VCF-Check", "G6PD": "VCF-Check",
     "VKORC1": "VCF-Check", "IFNL3": "VCF-Check", "CYP2D6": "Cyrius",
     "CYP2C-CLUSTER": "VCF-Check",  # rs12777823 single SNP (CPIC warfarin)
-    "ABO": "VCF-Check",            # provisional ABO typer (UNVALIDATED)
+    "ABO": "VCF-Check",            # research-use ABO typer (GIAB-checked)
     # PharmCAT (CPIC reference impl) is the authority where star-allele callers
     # genuinely disagree on a CPIC gene: UGT1A1 *28/*80 LD, CYP2B6, CYP4F2.
     "UGT1A1": "PharmCAT", "CYP2B6": "PharmCAT", "CYP4F2": "PharmCAT",

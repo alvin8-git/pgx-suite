@@ -39,7 +39,8 @@ stargazer-grc38-2.0.3/unit_test/
 # ── Data & outputs (shared convention with SVcaller / poly-suite) ────────────
 # Per-sample outputs and clinical/input data volumes — never committed. Kept on
 # disk locally; untracked here. The ONLY committed report is docs/demo/ (below).
-# minibam/ — extracted region BAMs; local cohort data dirs belong in .git/info/exclude;
+# minibam/ — extracted region BAMs. Name a local cohort data dir in .git/info/exclude;
+# its reads and variant files are ignored anywhere by the patterns below.
 # staging/ — ad-hoc run logs/scratch; GRCh38 — symlink to local reference;
 # Axiom.xlsx — Axiom array export (validation input data).
 minibam/
@@ -53,6 +54,10 @@ Axiom.xlsx
 *.sam
 *.bai
 *.crai
+*.vcf.gz
+*.tbi
+*.fastq.gz
+*.fq.gz
 *.sif
 *.simg
 *.fa
