@@ -119,8 +119,9 @@ run_test "vcf_check_variants.json loads"  python3 -c "import json; json.load(ope
 run_test "pgx-compare.py imports"         python3 -c "import importlib.util as u; s=u.spec_from_file_location('c','/opt/pgx/pgx-compare.py'); m=u.module_from_spec(s); s.loader.exec_module(m); assert m.AUTHORITATIVE['CYP2D6']=='Cyrius'"
 run_test "pgx_altcheck.py self-test"      python3 /opt/pgx/pgx_altcheck.py --selftest
 # ── OmniGen add-ons (HLA class II, ABO) ──────────────────────────────────────
-run_test "omnigen_addons imports"         python3 -c "import importlib.util as u; s=u.spec_from_file_location('o','/opt/pgx/omnigen_addons.py'); m=u.module_from_spec(s); s.loader.exec_module(m); assert m.abo_assign_type({'rs8176719':None,'rs8176746':None,'rs8176747':None}, m.load_abo_defs())['ABO_type']=='A'"
-run_test "abo_allele_defs.json UNVALIDATED" python3 -c "import json; d=json.load(open('/opt/pgx/abo_allele_defs.json')); assert 'UNVALIDATED' in d['validation_status']"
+run_test "ABO empty pileup -> Not typed"   python3 -c "import importlib.util as u; s=u.spec_from_file_location('o','/opt/pgx/omnigen_addons.py'); m=u.module_from_spec(s); s.loader.exec_module(m); d=m.load_abo_defs(); assert m.abo_assign_type({}, d)['ABO_type']=='Not typed'"
+run_test "ABO all-ref pileup -> O/O"       python3 -c "import importlib.util as u; s=u.spec_from_file_location('o','/opt/pgx/omnigen_addons.py'); m=u.module_from_spec(s); s.loader.exec_module(m); d=m.load_abo_defs(); r=m.abo_assign_type({'sites':{v['rsid']:{'depth':20,'ref_count':20} for v in d['variants']}}, d); assert r['ABO_type']=='O' and r['alleles']=='ABO*O/ABO*O'"
+run_test "ABO shipped status caveats"      python3 -c "import importlib.util as u; s=u.spec_from_file_location('o','/opt/pgx/omnigen_addons.py'); m=u.module_from_spec(s); s.loader.exec_module(m); d=m.load_abo_defs(); s=m.abo_assign_type({}, d)['validation_status']; assert s.startswith('Research use.') and 'not resolved' in s"
 run_test "ABO+arcasHLA wired in compare"  python3 -c "import importlib.util as u; s=u.spec_from_file_location('c','/opt/pgx/pgx-compare.py'); m=u.module_from_spec(s); s.loader.exec_module(m); assert m.AUTHORITATIVE['ABO']=='VCF-Check'; assert m.GENE_SUPPORT['HLA-DQB1'].get('arcashla')"
 run_test "hla2 script executable"         sh -c "test -x /opt/pgx/pgx-hla2.sh"
 echo ""

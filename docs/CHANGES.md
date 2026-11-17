@@ -5,6 +5,18 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-17 (test.sh ABO checks; ignore rules)
+
+- `test.sh` ABO checks follow the pileup-based ABO typer: an empty pileup gives "Not typed", an
+  all-reference covered pileup gives O/O, and the status string the report shows (not the JSON copy)
+  starts "Research use." and names what is not resolved. The two old checks (a VCF-dict input typed
+  "A"; an "UNVALIDATED" label) failed on the current image. Image `test.sh`: 21 pass/2 fail -> 24/0.
+- `.gitignore` no longer names a local cohort directory; such a directory goes in `.git/info/exclude`.
+  Compressed variant and read files (`*.vcf.gz`, `*.tbi`, `*.fastq.gz`, `*.fq.gz`) are now ignored
+  anywhere, next to the existing BAM/CRAM patterns.
+- Known follow-up: the ABO status text lives in both `abo_allele_defs.json` and `omnigen_addons.py`
+  (`ABO_VALIDATION_STATUS`); the report shows the Python one.
+
 ## 2026-11-16 (fresh clones build: pypgx fork, Stargazer panel check, README rewrite)
 
 - The `pypgx` submodule pinned a commit (PyPGx 0.26.0 + three pandas 2.x fixes) that was only local, so
