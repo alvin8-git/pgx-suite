@@ -575,19 +575,20 @@ UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL = True
 def _walk_components(gene: str, dip: str, allow_vcf_form: bool = False):
     """[(component as written, cleaned component, key, CPIC function or None, is_tag)] of one caller diplotype, or None
     when it cannot be read as two haplotypes (or, with allow_vcf_form, as VCF-Check's `*A(het)+*B(het) [unphased]`
-    list of alleles, all of them main alleles). The one place a diplotype is cut into components."""
-    d = (dip or "").strip()
-    if allow_vcf_form and re.search(r"\((?:het|hom)\)", d, re.I):
-        d = re.sub(r"\s*\[unphased\]", "", re.sub(r"\((?:het|hom)\)", "", d, flags=re.I)).strip()
-        haps = [d]
-        main_only = True
-    else:
-        haps = [h.strip() for h in d.split("/")]
-        main_only = False
-        if len(haps) != 2 or not all(haps):
-            return None
+    single list of alleles). The diplotype is cut at `/` first; a haplotype written with VCF-Check's `(het)` / `(hom)`
+    markers has them removed and all of its components are main alleles. The one place a diplotype is cut into
+    components."""
+    haps = [h.strip() for h in (dip or "").strip().split("/")]
+    if not all(haps) or len(haps) > 2:
+        return None
+    marker = re.compile(r"\((?:het|hom)\)", re.I)
+    if len(haps) == 1 and not (allow_vcf_form and marker.search(haps[0])):
+        return None
     out = []
     for hap in haps:
+        main_only = bool(marker.search(hap))
+        if main_only:
+            hap = re.sub(r"\s*\[unphased\]", "", marker.sub("", hap)).strip()
         for i, comp in enumerate(_COMPONENT_SPLIT.split(hap)):
             c, key, fn = _component_function(gene, comp)
             out.append((comp.strip(), c, key, fn, i > 0 and not main_only))

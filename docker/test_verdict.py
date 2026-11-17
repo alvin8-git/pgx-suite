@@ -862,6 +862,8 @@ def test_dpyd_guard_review_fixes():
     # (5) text that says Normal is cleared when the guard fires after a set-aside
     stale = {"status": "concordant", "consensus_phenotype": "Normal Metabolizer", "consensus_diplotype": "*1/*1 or *1/*1+rs67376798",
              "unscorable_readings_ignored": ["*1/*1+rs1801159"], "phenotype_source": "CPIC diplotype table, rows of *1/*1",
+             "cpic_phenotype_clause": "reading *1/*1+rs1801159 has no CPIC phenotype and was not counted (check); "
+                                      "CPIC phenotype of the other readings is Normal Metabolizer",
              "note": "x; reading *1/*1+rs1801159 has no CPIC phenotype and was not counted (check); "
                      "CPIC phenotype of the other readings is Normal Metabolizer"}
     g = cmp._dpyd_nonnormal_guard(stale, four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), "DPYD")
@@ -876,6 +878,68 @@ def test_dpyd_guard_review_fixes():
     # (8) one caller+component is named once
     v = cmp.compute_verdict(four(["*1/*1+rs67376798"] * 3 + ["*1+rs67376798/*1+rs67376798"]), no_call=False, gene="DPYD")
     assert v["note"].count("Aldy *1+rs67376798/*1+rs67376798: rs67376798 is Decreased function") == 1, v["note"]
+
+
+def test_dpyd_guard_second_review_fixes():
+    R = cmp.reconcile
+    rep = _report_module()
+    four = lambda dips, label="Normal Metabolizer": [_r(t, d, pheno=label) for t, d in zip(("PyPGx", "Stargazer", "PharmCAT", "Aldy"), dips)]
+    # (1, 10) abstentions never count as components; the same typed-call helper family as the vote
+    for abst in ("Indeterminate", "Unknown/Unknown", "No Result", "NO_CALL", "Indeterminate/Indeterminate"):
+        v = cmp.compute_verdict(four(["*1/*1", "*1/*1", "*1/*1", abst]), no_call=False, gene="DPYD")
+        assert "dpyd_nonnormal_component" not in v, (abst, v)
+        if abst != "NO_CALL":       # (the vote itself lists a NO_CALL string as a reading of its own: unchanged here)
+            assert v["consensus_phenotype"] == "Normal Metabolizer", (abst, v)
+    assert cmp._guard_calls(four(["*1/*1", "Unknown/Unknown", "*2A(het)+*13(het) [unphased]", "-"])) == \
+        [("PyPGx", "*1/*1"), ("PharmCAT", "*2A(het)+*13(het) [unphased]")]
+    # (2) a withheld label is never painted green
+    green = rep.phenotype_color("Normal Metabolizer")
+    assert rep.phenotype_color(rep.WITHHELD_PHENOTYPE) != green and rep.phenotype_color(rep.NONNORMAL_PHENOTYPE) != green
+    # (3) a verdict that already had no phenotype does not claim a Normal was withheld; the split explanation stays
+    vs = cmp.compute_verdict(four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), no_call=False, gene="DPYD")
+    assert vs["status"] == cmp.SPLIT_STATUS and vs["dpyd_nonnormal_component"] and "normal_withheld" not in vs, vs
+    assert "Normal Metabolizer not reported" not in vs["note"] and "rs67376798 is Decreased function" in vs["note"], vs
+    assert "rs67376798 is Decreased function" in vs["phenotype_note"] and "targeted DPYD assay" in vs["phenotype_note"], vs
+    assert vs["phenotype_note"].startswith("the diplotype readings give"), vs     # existing split note kept first
+    tools = {t: {"status": "ok", "diplotype": d, "phenotype": "Normal Metabolizer"}
+             for t, d in zip(("PyPGx", "Stargazer", "PharmCAT", "Aldy"), ["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"])}
+    _, res = rep._pipeline_narrative("DPYD", vs, tools)
+    assert "differ" in res and "Normal Metabolizer is not reported" not in res and "also carries a component" in res, res
+    assert rep.verdict_card(vs)[1] == rep.NONNORMAL_PHENOTYPE
+    vw = cmp.compute_verdict(four(["*1/*1+rs67376798"] * 4), no_call=False, gene="DPYD")
+    assert vw["normal_withheld"] and rep.verdict_card(vw)[1] == rep.WITHHELD_PHENOTYPE
+    # (4) a flagged discordant DPYD is flagged on the landing too
+    vd = cmp._dpyd_nonnormal_guard({"status": "discordant", "consensus_phenotype": "-", "consensus_diplotype": "x", "note": ""},
+                                   four(["*1/*2A", "*1/*1", "*1/*1", "*1/*1"]), "DPYD")
+    assert vd["dpyd_nonnormal_component"] and vd["status"] == "discordant", vd
+    assert "*2A is No function" in vd["phenotype_note"], vd
+    dip, ph, cls, na, nc = rep.verdict_card(vd)
+    assert dip == "DISCORDANT" and rep._pheno_cat(ph) == "withheld", (dip, ph)
+    gd = [{"gene": "DPYD", "consensus_diplotype": dip, "consensus_phenotype": ph, "card_class": cls, "n_agree": na, "n_called": nc,
+           "all_tool_diplotypes": ["*1/*2A", "*1/*1"]}]
+    assert "DPYD" in rep.build_clinical_findings_section(gd, sample="X")
+    # (5) the informational PharmCAT call is checked
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("Aldy", "*1/*1")], no_call=False, gene="DPYD",
+                            informational={"PharmCAT": "*1/c.2846A>T"})
+    assert v["consensus_phenotype"] == "-" and "PharmCAT *1/c.2846A>T" in v["note"], v
+    # (7) a real tool authority keeps its provenance; the phenotype-concordance tier does not outlive the phenotype
+    g = cmp._dpyd_nonnormal_guard({"status": "concordant", "consensus_phenotype": "Normal Metabolizer", "authority": "PharmCAT",
+                                   "consensus_diplotype": "*1/*1", "note": ""}, four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), "DPYD")
+    assert g["authority"] == "PharmCAT" and g["normal_withheld"], g
+    g = cmp._dpyd_nonnormal_guard({"status": "concordant", "consensus_phenotype": "Normal Metabolizer", "authority": "Phenotype",
+                                   "phenotype_tier": True, "consensus_diplotype": "*1/*1", "note": ""},
+                                  four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), "DPYD")
+    assert "authority" not in g and "phenotype_tier" not in g, g
+    # (8) the VCF-Check marker is handled per haplotype
+    assert R.nonnormal_components("DPYD", "*1/*9A(het)") == []
+    assert R.nonnormal_components("DPYD", "*1/*2A(het)") == [("*2A", "No function")]
+    assert R.nonnormal_components("DPYD", "*2A(het)+*13(het) [unphased]") == [("*2A", "No function"), ("*13", "No function")]
+    assert R.nonnormal_components("DPYD", "*1/*1/*2A") == [("*1/*1/*2A", "unknown")]
+    # (9) the set-aside clause is recorded where it is written, so the guard removes it by value
+    base = {"consensus_phenotype": "Intermediate Metabolizer", "note": "n"}
+    k = cmp._keep_cpic_phenotype(dict(base), "Normal Metabolizer", ["*1/*1"], "CPIC phenotype of every diplotype reading is Normal Metabolizer")
+    assert k["cpic_phenotype_clause"] == "callers said Intermediate Metabolizer; CPIC phenotype of every diplotype reading is Normal Metabolizer", k
+    assert k["note"] == "n; " + k["cpic_phenotype_clause"], k
 
 
 def test_tag_vote_majority_on_a_gene_the_dpyd_guard_does_not_touch():

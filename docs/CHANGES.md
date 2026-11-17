@@ -78,11 +78,16 @@ Format: reverse-chronological, grouped by phase/milestone.
   allele table (`cpic_diplotype.json` `allele_function`), a named allele the table does not give (`UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL`),
   a `+` tag that is not Normal function (decreased, no, increased, unknown), or a call that cannot be read (VCF-Check's unphased
   `*A(het)+*B(het)` list is parsed), and the verdict would be Normal Metabolizer, the phenotype is `-` and the status is the new
-  `concordant, phenotype withheld` / `majority, phenotype withheld` (the report maps both as amber; OmniGen reads the summary's
-  phenotype, nAgree, nCalled and DecidedBy and not Status; `build_axiom_concordance` takes the part before the comma). The verdict
-  carries `dpyd_nonnormal_component` and a `phenotype_note`, the note names each caller and component once with its CPIC function and
+  `concordant, phenotype withheld` / `majority, phenotype withheld` (the report maps both as amber; `build_axiom_concordance` takes the part before the comma; OmniGen's consumer
+  report compares the summary's `Status` with the plain string `concordant`, so these labels are not read as concordant, and it reads
+  ConsensusPhenotype, nAgree, nCalled and DecidedBy; the new fields are in `detail.json` only; OmniGen shows a no-phenotype gene from `phenotype_note` in `detail.json`, which carries the
+  component for split and discordant verdicts too, so no new summary column is needed). Every affected verdict carries `dpyd_nonnormal_component` and `dpyd_nonnormal_note`
+  (`normal_withheld` and `phenotype_note` only when a Normal was withdrawn), the note names each caller and component once with its CPIC function and
   says "confirm with a targeted DPYD assay", and any set-aside text that says Normal is removed. A DPYD verdict that already has no
-  phenotype (a split or discordant call) keeps its status and gets the flag and note. Report: the flag turns the phenotype into a
+  phenotype (a split or discordant call) keeps its status and split explanation and gains the flag and the component in the note
+  (no claim that a Normal was withheld). Callers are chosen with the vote's typed-call rules (abstentions never count; VCF-Check's
+  allele lists do; the informational PharmCAT call does), a real tool authority keeps its provenance, and the set-aside clause is
+  recorded in `cpic_phenotype_clause` and removed by value. Report: the flag turns the phenotype into a
   shared "Normal withheld" category that `_get_tier` flags as high priority, so the gene section and the landing findings never show
   "Normal / Not flagged" (a one-caller case used to, because the diplotype check needs two tools); `print_table` says the phenotype
   is withheld instead of "N/N tools agree" alone. An Intermediate or Poor verdict is left alone; other genes are unchanged. Reason:

@@ -74,6 +74,8 @@ PHENOTYPE_COLORS = {
 def phenotype_color(pheno: str) -> str:
     if not pheno or pheno == "-":
         return "#718096"
+    if _pheno_cat(pheno) == "withheld":        # contains the word "normal": must never be painted green
+        return "#ed8936"
     p = pheno.lower()
     for k, c in PHENOTYPE_COLORS.items():
         if k in p:
@@ -159,12 +161,13 @@ for _g, _entry in CPIC_DB.items():
     _entry["diplotype_check"] = DIPLOTYPE_CHECKS.get(_g)
 
 
-WITHHELD_PHENOTYPE = "Normal withheld (non-Normal component)"
+WITHHELD_PHENOTYPE = "Normal withheld (non-Normal component)"          # a Normal verdict was withdrawn
+NONNORMAL_PHENOTYPE = "Not reported (non-Normal component)"           # no phenotype already, and a caller shows a non-Normal component
 
 
 def _pheno_cat(phenotype: str) -> str:
     """Normalise a phenotype string to a lowercase keyword category."""
-    if (phenotype or "").startswith("Normal withheld"):
+    if (phenotype or "") in (WITHHELD_PHENOTYPE, NONNORMAL_PHENOTYPE):
         return "withheld"
     p = (phenotype or "").lower().replace("-", " ").replace("_", " ").strip()
     if not p or p == "-":
@@ -520,10 +523,11 @@ def verdict_card(verdict: dict) -> tuple[str, str, str, int, int]:
     st = verdict.get("status", "no_data")
     n_agree = int(verdict.get("n_agree", 0) or 0)
     n_called = int(verdict.get("n_called", 0) or 0)
+    flagged = bool(verdict.get("dpyd_nonnormal_component"))     # shared signal: _pheno_cat -> "withheld", flagged by _get_tier
     if st == "no_call":
         return ("NO_CALL", "-", "card-no-data", n_agree, n_called)
     if st == "discordant":
-        return ("DISCORDANT", "-", "card-red", n_agree, n_called)
+        return ("DISCORDANT", NONNORMAL_PHENOTYPE if flagged else "-", "card-red", n_agree, n_called)
     if st == "no_data":
         return ("-", "-", "card-no-data", 0, 0)
     # Colour by the VERDICT, not the raw tool fraction: an authority/phenotype
@@ -531,8 +535,8 @@ def verdict_card(verdict: dict) -> tuple[str, str, str, int, int]:
     # The raw "n/N tools" detail is still shown in the per-card concordance badge.
     card_class = "card-green" if st == "concordant" else "card-amber"
     pheno = verdict.get("consensus_phenotype", "-")
-    if verdict.get("dpyd_nonnormal_component"):
-        pheno = WITHHELD_PHENOTYPE      # shared signal: _pheno_cat -> "withheld", which _get_tier flags (never Normal)
+    if flagged:
+        pheno = WITHHELD_PHENOTYPE if verdict.get("normal_withheld") else NONNORMAL_PHENOTYPE
     return (verdict.get("consensus_diplotype", "-"), pheno, card_class, n_agree, n_called)
 
 
@@ -2005,7 +2009,7 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                "all calls — no diplotype is asserted.")
     elif status == "no_data" or not called:
         res = "No caller produced a call, so no verdict could be formed."
-    elif v.get("dpyd_nonnormal_component"):
+    elif v.get("normal_withheld"):
         res = (f"A caller's call carries a DPYD component that CPIC does not rate Normal function, so the callers' "
                f"Normal Metabolizer is not reported ({v.get('phenotype_note', '')}); confirm with a targeted DPYD assay.")
     elif v.get("phenotype_split"):
@@ -2050,6 +2054,9 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                "the gene is flagged for manual review and no consensus diplotype is asserted.")
     else:
         res = f"Verdict status: {status}."
+    if v.get("dpyd_nonnormal_component") and not v.get("normal_withheld"):
+        res += (f" A caller's call also carries a component that CPIC does not rate Normal function "
+                f"({v.get('dpyd_nonnormal_note', '')}); confirm with a targeted DPYD assay.")
     return conc, res
 
 

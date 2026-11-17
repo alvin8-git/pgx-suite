@@ -2217,6 +2217,7 @@ def _keep_cpic_phenotype(v, ph, used, clause, set_aside=False):
     elif set_aside:
         parts.append(clause)
     if parts:
+        v["cpic_phenotype_clause"] = "; ".join(parts)        # exactly what was appended: _dpyd_nonnormal_guard removes it by value
         v["note"] = "; ".join(x for x in [v.get("note", "")] + parts if x)
     v["phenotype_source"] = f"CPIC diplotype table, rows of {' / '.join(used)}"
     return v
@@ -2334,15 +2335,30 @@ WITHHELD_STATUS = "concordant, phenotype withheld"
 WITHHELD_STATUS_MAJORITY = "majority, phenotype withheld"
 
 
-def _dpyd_nonnormal_guard(v, results, gene):
-    """Owner decision 2026-11-16 (DPYD only): a Normal Metabolizer verdict is withdrawn when any caller's call carries
-    a Decreased / No function component (named allele or tag, CPIC allele-function table), a component of unknown
-    function, or a call that cannot be read: one caller showing a reduced-function variant is evidence against Normal
-    (fluoropyrimidine toxicity). The phenotype is "-", the status is "<level>, phenotype withheld" (OmniGen reads the
-    summary's phenotype, nAgree and nCalled and not the status; pgx-report maps the label), `dpyd_nonnormal_component`
-    is set, and the note names the caller, the component and its CPIC function. Text from the set-aside branch that
-    says Normal is removed. A verdict that already has no phenotype (a split or discordant call) keeps its status and
-    gets the flag and the note. An Intermediate or Poor verdict is left alone."""
+def _guard_calls(results, informational=None):
+    """[(tool, diplotype)] of the callers whose call can carry a variant: typed `a/b` calls and VCF-Check's unphased
+    allele lists, never an abstention (`Indeterminate`, `Unknown/Unknown`, `No Result`, NO_CALL) or a non-ok row, plus
+    the informational outside call (PharmCAT) the vote does not count."""
+    out = []
+    for r in results:
+        d = (r.diplotype or "").strip()
+        if r.status == "ok" and d not in ("-", "") and "NO_CALL" not in d.upper() and not _is_no_diplotype(d) \
+                and (reconcile.is_typed_call("ok", d) or re.search(r"\((?:het|hom)\)", d, re.I)):
+            out.append((r.tool, d))
+    out += [(t, d) for t, d in (informational or {}).items() if reconcile.is_typed_call("ok", d) and not _is_no_diplotype(d)]
+    return out
+
+
+def _dpyd_nonnormal_guard(v, results, gene, informational=None):
+    """Owner decision 2026-11-16 (DPYD only): a call that carries a Decreased / No function component (named allele or
+    tag, CPIC allele-function table), a component of unknown function, or cannot be read is evidence against a Normal
+    phenotype (fluoropyrimidine toxicity). Callers are chosen by _guard_calls (abstentions never count; the PharmCAT
+    outside call does). `dpyd_nonnormal_component` and `dpyd_nonnormal_note` are set on every affected verdict. When
+    the verdict would be Normal Metabolizer it is withdrawn: phenotype "-", status "<level>, phenotype withheld",
+    `normal_withheld` True, the note says a Normal is not reported, and the set-aside clause that says Normal is removed
+    by value (`cpic_phenotype_clause`). A verdict that already has no phenotype keeps its status and its split
+    explanation and only gains the component in the note. Diplotype provenance (a real authority) is kept. An
+    Intermediate or Poor verdict is left alone."""
     if gene != "DPYD" or v.get("status") not in ("concordant", "majority", "discordant", SPLIT_STATUS,
                                                  SPLIT_STATUS_MAJORITY):
         return v
@@ -2351,28 +2367,32 @@ def _dpyd_nonnormal_guard(v, results, gene):
     if not (is_normal or no_phenotype):
         return v
     found = list(dict.fromkeys(
-        f"{r.tool} {r.diplotype}: {c} is {fn}" + (" in CPIC's allele table" if fn != "unknown" else " to CPIC's allele table")
-        for r in results if r.status == "ok" and r.diplotype not in ("-", "")
-        for c, fn in reconcile.nonnormal_components(gene, r.diplotype)))
+        f"{tool} {dip}: {c} is {fn}" + (" in CPIC's allele table" if fn != "unknown" else " to CPIC's allele table")
+        for tool, dip in _guard_calls(results, informational)
+        for c, fn in reconcile.nonnormal_components(gene, dip)))
     if not found:
         return v
     why = "a caller's call carries a component that is not Normal function (" + "; ".join(found) + ")"
     v = dict(v)
+    v["dpyd_nonnormal_component"] = True
+    v["dpyd_nonnormal_note"] = why
     if not is_normal:
-        # the callers' split already withholds the phenotype; the flag lets every consumer show it as not-Normal
-        v["dpyd_nonnormal_component"] = True
-        v["phenotype_note"] = "; ".join(x for x in (v.get("phenotype_note", ""), why) if x)
-        v["note"] = "; ".join(x for x in (v.get("note", ""), why + ": confirm with a targeted DPYD assay") if x)
+        tail = why + ": confirm with a targeted DPYD assay"
+        v["note"] = "; ".join(x for x in (v.get("note", ""), tail) if x)
+        v["phenotype_note"] = "; ".join(x for x in (v.get("phenotype_note", ""), tail) if x)   # OmniGen shows a "-" gene from this field
         return v
-    v.update({"consensus_phenotype": "-", "dpyd_nonnormal_component": True, "phenotype_note": why,
+    v.update({"consensus_phenotype": "-", "normal_withheld": True, "phenotype_note": why,
               "status": WITHHELD_STATUS_MAJORITY if v["status"] == "majority" else WITHHELD_STATUS})
-    for k in ("phenotype_tier", "phenotype_source", "authority", "unscorable_readings_ignored"):
+    clause = v.pop("cpic_phenotype_clause", None)
+    for k in ("phenotype_tier", "phenotype_source", "unscorable_readings_ignored"):
         v.pop(k, None)
-    kept = [x for x in v.get("note", "").split("; ")
-            if not (x.startswith("CPIC phenotype of the other readings is") or x.startswith("CPIC phenotype of every diplotype")
-                    or ("was not counted" in x and x.startswith("reading ")))]
-    v["note"] = "; ".join(x for x in kept + [why + ": Normal Metabolizer not reported, confirm with a targeted DPYD "
-                                             "assay"] if x)
+    if v.get("authority") == "Phenotype":       # the phenotype-concordance tier is gone with the phenotype; a real tool authority stays
+        v.pop("authority")
+    note = v.get("note", "")
+    if clause:
+        note = "; ".join(x for x in (note.replace("; " + clause, "").replace(clause, "").strip("; "),) if x)
+    v["note"] = "; ".join(x for x in (note, why + ": Normal Metabolizer not reported, confirm with a targeted DPYD "
+                                      "assay") if x)
     return v
 
 
@@ -2424,7 +2444,7 @@ def compute_verdict(results: list[CallerResult], no_call: bool,
         # a split (or an unscorable reading) is set to "-" and the status label by _split_by_cpic_phenotype
     elif gene == "NAT2" and v.get("status") in ("concordant", "majority"):
         v["consensus_phenotype"] = nat2_cpic_phenotype(v["consensus_diplotype"])
-    return _dpyd_nonnormal_guard(_split_by_cpic_phenotype(v, gene), results, gene)
+    return _dpyd_nonnormal_guard(_split_by_cpic_phenotype(v, gene), results, gene, informational)
 
 
 def pharmcat_cross_check(output_dir: str, gene: str, sample: str,
@@ -2511,13 +2531,15 @@ def print_table(
               f"({verdict['n_agree']}/{verdict['n_called']} on the top diplotype); no consensus")
     elif st == "no_data":
         print("Concordance: no calls available")
-    elif verdict.get("dpyd_nonnormal_component"):
+    elif verdict.get("normal_withheld"):
         print(f"Concordance: {verdict['n_agree']}/{verdict['n_called']} tools agree on "
               f"{verdict['consensus_diplotype']}, but a caller's call carries a component that is not Normal function: "
-              f"phenotype withheld")
+              f"Normal Metabolizer withheld")
     else:  # concordant | majority
         print(f"Concordance: {verdict['n_agree']}/{verdict['n_called']} tools agree on "
               f"{verdict['consensus_diplotype']}")
+        if verdict.get("dpyd_nonnormal_component"):
+            print(f"Non-Normal component: {verdict.get('dpyd_nonnormal_note', '')}")
     if verdict.get("note"):
         print(f"Note: {verdict['note']}")
 
