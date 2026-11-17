@@ -566,23 +566,70 @@ def blocking_tags(gene: str, tags):
     return out
 
 
+# A caller's own named allele that CPIC's table does not give (a Stargazer `*S` code not in dpyd_notation_map.json, an
+# Aldy `*rsNNN` not mapped) is a variant of unknown function, like the same variant written as a `+rsNNN` tag, so it
+# also blocks a Normal DPYD verdict (owner 2026-11-16). On the 66 stored DPYD calls (198 callers' diplotypes) none has one.
+UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL = True
+
+
+def _walk_components(gene: str, dip: str, allow_vcf_form: bool = False):
+    """[(component as written, cleaned component, key, CPIC function or None, is_tag)] of one caller diplotype, or None
+    when it cannot be read as two haplotypes (or, with allow_vcf_form, as VCF-Check's `*A(het)+*B(het) [unphased]`
+    list of alleles, all of them main alleles). The one place a diplotype is cut into components."""
+    d = (dip or "").strip()
+    if allow_vcf_form and re.search(r"\((?:het|hom)\)", d, re.I):
+        d = re.sub(r"\s*\[unphased\]", "", re.sub(r"\((?:het|hom)\)", "", d, flags=re.I)).strip()
+        haps = [d]
+        main_only = True
+    else:
+        haps = [h.strip() for h in d.split("/")]
+        main_only = False
+        if len(haps) != 2 or not all(haps):
+            return None
+    out = []
+    for hap in haps:
+        for i, comp in enumerate(_COMPONENT_SPLIT.split(hap)):
+            c, key, fn = _component_function(gene, comp)
+            out.append((comp.strip(), c, key, fn, i > 0 and not main_only))
+    return out
+
+
+def nonnormal_components(gene: str, dip: str):
+    """[(component as written, function or "unknown")] of one caller's diplotype that argue against a Normal
+    phenotype: a named allele rated Decreased or No function in CPIC's allele table, a named allele the table does
+    not give (UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL), and any `+` tag that is not Normal function (decreased, no,
+    increased, unknown). A diplotype that cannot be read (not `a/b`, not VCF-Check's allele list) is one unknown
+    component. Empty only for a gene without a CPIC allele-function table or an empty call."""
+    if _allele_functions(gene) is None or not (dip or "").strip() or dip.strip() == "-":
+        return []
+    walked = _walk_components(gene, dip, allow_vcf_form=True)
+    if walked is None:
+        return [(dip.strip(), "unknown")]
+    out = []
+    for written, _, _, fn, is_tag in walked:
+        if is_tag and fn != "Normal function":
+            out.append((written, fn or "unknown"))
+        elif not is_tag and fn in ("Decreased function", "No function"):
+            out.append((written, fn))
+        elif not is_tag and fn is None and UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL:
+            out.append((written, "unknown"))
+    return list(dict.fromkeys(out))
+
+
 def reading_function_profile(gene: str, reading: str):
     """(deviating, unknown) for one diplotype reading: `deviating` counts, per comparable allele key, the components
     whose CPIC function is not "Normal function" (decreased, no, increased); `unknown` lists the components whose
     function CPIC's table does not give (not in it, ambiguous, or Unknown/Uncertain function), or the whole
     reading when the gene has no function table or the reading is not an `a/b` pair."""
-    fns = _allele_functions(gene)
-    haps = [h.strip() for h in (reading or "").split("/")]
-    if fns is None or len(haps) != 2 or not all(haps):
+    walked = _walk_components(gene, reading) if _allele_functions(gene) is not None else None
+    if walked is None:
         return collections.Counter(), [reading]
     deviating, unknown = collections.Counter(), []
-    for hap in haps:
-        for comp in _COMPONENT_SPLIT.split(hap):
-            c, key, fn = _component_function(gene, comp)
-            if fn is None:
-                unknown.append(c)
-            elif fn != "Normal function":
-                deviating[key] += 1
+    for _, c, key, fn, _ in walked:
+        if fn is None:
+            unknown.append(c)
+        elif fn != "Normal function":
+            deviating[key] += 1
     return deviating, unknown
 
 

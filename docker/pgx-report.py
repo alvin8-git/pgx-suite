@@ -159,8 +159,13 @@ for _g, _entry in CPIC_DB.items():
     _entry["diplotype_check"] = DIPLOTYPE_CHECKS.get(_g)
 
 
+WITHHELD_PHENOTYPE = "Normal withheld (non-Normal component)"
+
+
 def _pheno_cat(phenotype: str) -> str:
     """Normalise a phenotype string to a lowercase keyword category."""
+    if (phenotype or "").startswith("Normal withheld"):
+        return "withheld"
     p = (phenotype or "").lower().replace("-", " ").replace("_", " ").strip()
     if not p or p == "-":
         return "unknown"
@@ -200,6 +205,8 @@ def _get_tier(gene: str, pheno_cat: str, diplotype: str,
     # pair is still typed and shown, never raised as a finding.
     if not entry.get("drugs"):
         return None
+    if pheno_cat == "withheld":
+        return "high"       # a withheld Normal (a caller shows a non-Normal component) is never "Normal / Not flagged"
     dc = entry.get("diplotype_check")
     if dc:
         diplos = all_diplotypes if all_diplotypes else ([diplotype] if diplotype else [])
@@ -273,7 +280,7 @@ def build_clinical_findings_section(genes_data: list, sample: str = "",
             # consensus diplotype n_agree filter here — we count lambda hits.
             min_t = entry.get("min_tools", 2)
             n_triggered = sum(1 for d in all_tool_diplos if d and d not in ("-", "") and dc(d))
-            if n_triggered < min_t:
+            if n_triggered < min_t and pheno_cat != "withheld":
                 continue
             tier = _get_tier(gene, pheno_cat, diplo, all_tool_diplos)
             note = _get_landing_note(gene, pheno_cat, diplo, all_tool_diplos)
@@ -523,8 +530,10 @@ def verdict_card(verdict: dict) -> tuple[str, str, str, int, int]:
     # resolved call (e.g. PharmCAT at 1/4 tools) is a confident green, not red.
     # The raw "n/N tools" detail is still shown in the per-card concordance badge.
     card_class = "card-green" if st == "concordant" else "card-amber"
-    return (verdict.get("consensus_diplotype", "-"),
-            verdict.get("consensus_phenotype", "-"), card_class, n_agree, n_called)
+    pheno = verdict.get("consensus_phenotype", "-")
+    if verdict.get("dpyd_nonnormal_component"):
+        pheno = WITHHELD_PHENOTYPE      # shared signal: _pheno_cat -> "withheld", which _get_tier flags (never Normal)
+    return (verdict.get("consensus_diplotype", "-"), pheno, card_class, n_agree, n_called)
 
 
 # ── CSS / JS shared across all pages ──────────────────────────────────────────
@@ -1937,9 +1946,12 @@ def _resolution_badge(verdict: dict) -> str:
     label = {"concordant": "Consensus", "majority": "Majority", "discordant": "Discordant",
              "concordant, diplotype unresolved": "Concordant, diplotype unresolved",
              "majority, diplotype unresolved": "Majority, diplotype unresolved",
+             "concordant, phenotype withheld": "Concordant, phenotype withheld",
+             "majority, phenotype withheld": "Majority, phenotype withheld",
              "no_call": "No call", "no_data": "No data"}.get(st, st or "")
     cls = {"concordant": "badge-green", "majority": "badge-amber", "discordant": "badge-red",
            "concordant, diplotype unresolved": "badge-amber", "majority, diplotype unresolved": "badge-amber",
+           "concordant, phenotype withheld": "badge-amber", "majority, phenotype withheld": "badge-amber",
            "no_call": "badge-grey", "no_data": "badge-grey"}.get(st, "badge-grey")
     return f'<span class="badge {cls}">{label}</span>' if label else ""
 
@@ -1993,6 +2005,9 @@ def _pipeline_narrative(gene: str, verdict: dict, tools_data: dict) -> tuple[str
                "all calls — no diplotype is asserted.")
     elif status == "no_data" or not called:
         res = "No caller produced a call, so no verdict could be formed."
+    elif v.get("dpyd_nonnormal_component"):
+        res = (f"A caller's call carries a DPYD component that CPIC does not rate Normal function, so the callers' "
+               f"Normal Metabolizer is not reported ({v.get('phenotype_note', '')}); confirm with a targeted DPYD assay.")
     elif v.get("phenotype_split"):
         res = ("The callers' diplotype readings differ and CPIC scores them as different phenotypes, so no phenotype "
                "is reported and every reading is listed; confirm with a targeted assay.")

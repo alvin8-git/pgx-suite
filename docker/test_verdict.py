@@ -762,7 +762,8 @@ def test_tag_vote_review_fixes():
     assert "not counted as agreeing" not in same["note"] and "keeps a tag that is not Normal function" in same["note"], same
     alone = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"),
                                  _r("Aldy", "*1/*1+rs67376798", pheno="Intermediate Metabolizer")], no_call=False, gene="DPYD")
-    assert alone["status"] == "majority" and alone["note"].count("not counted as agreeing") == 1 and "Aldy *1/*1+rs67376798" in alone["note"], alone
+    assert alone["status"] == cmp.WITHHELD_STATUS_MAJORITY and alone["consensus_phenotype"] == "-", alone   # DPYD guard
+    assert alone["note"].count("not counted as agreeing") == 1 and "Aldy *1/*1+rs67376798" in alone["note"], alone
     assert "PyPGx *1/*1:" not in alone["note"], alone
     # (6) TPMT: a Normal-function tag does not stop the CPIC lookup; a tag the table does not give does (and is named)
     assert R.thiopurine_phenotype("TPMT", "*1/*3A+*1") == R.thiopurine_phenotype("TPMT", "*1/*3A") is not None
@@ -777,6 +778,112 @@ def test_tag_vote_review_fixes():
     assert R.canonical_tags("DPYD", "*2A(het)") == [] and R.canonical_tags("DPYD", "-") == []
     # (8) the cleaned component is returned by _component_function
     assert R._component_function("DPYD", "rs0000001")[0] == "*rs0000001"
+
+
+def test_dpyd_nonnormal_component_blocks_normal():
+    # owner 2026-11-16: any caller's Decreased / No function component (or unknown-function tag) withdraws a DPYD Normal
+    R = cmp.reconcile
+    assert R.nonnormal_components("DPYD", "*1/*1+rs67376798") == [("rs67376798", "Decreased function")]
+    assert R.nonnormal_components("DPYD", "*1/*1+rs1801159") == [] and R.nonnormal_components("DPYD", "*1/*1") == []
+    assert R.nonnormal_components("DPYD", "*1/c.1905+1G>A (*2A)") == [("c.1905+1G>A (*2A)", "No function")]
+    assert R.nonnormal_components("DPYD", "*1/*1+rs0000001") == [("rs0000001", "unknown")]
+    assert R.nonnormal_components("CYP3A5", "*1/*3") == []                       # no allele-function table
+    # (b) every caller carries the same decreased-function tag and labels Normal
+    v = cmp.compute_verdict([_r(t, "*1/*1+rs67376798") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.WITHHELD_STATUS and v["dpyd_nonnormal_component"], v
+    assert "rs67376798 is Decreased function in CPIC's allele table" in v["note"] and "confirm with a targeted DPYD assay" in v["note"], v
+    assert "authority" not in v and "phenotype_tier" not in v, v
+    # (a) majority Normal, one outvoted caller carries it: the status keeps the majority level
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"),
+                             _r("Aldy", "*1/*1+rs67376798", pheno="Intermediate Metabolizer")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and v["status"] == cmp.WITHHELD_STATUS_MAJORITY, v
+    assert "Aldy *1/*1+rs67376798" in v["note"] and "targeted DPYD assay" in v["note"], v
+    # an Intermediate verdict that already accounts for the component stays
+    v = cmp.compute_verdict([_r(t, "*1/c.1905+1G>A (*2A)", pheno="Intermediate Metabolizer") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")],
+                            no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "Intermediate Metabolizer" and v["status"] == "concordant" and "dpyd_nonnormal_component" not in v, v
+    # all-Normal tags stay Normal
+    v = cmp.compute_verdict([_r(t, "*1/*1+rs1801159") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and v["status"] == "concordant", v
+    # an unknown-function tag on every caller never ends in Normal either
+    v = cmp.compute_verdict([_r(t, "*1/*1+rs0000001") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and "rs0000001 is unknown to CPIC's allele table" in v["note"], v
+    # another gene is unchanged
+    v = cmp.compute_verdict([_r(t, "*1/*1+rs0000001") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="CYP2C19")
+    assert v["consensus_phenotype"] == "Normal Metabolizer" and "dpyd_nonnormal_component" not in v, v
+    # the report does not say the callers agreed on Normal
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pgx_report_g", os.path.join(HERE, "pgx-report.py"))
+    rep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rep)
+    v = cmp.compute_verdict([_r(t, "*1/*1+rs67376798") for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")], no_call=False, gene="DPYD")
+    tools = {t: {"status": "ok", "diplotype": "*1/*1+rs67376798", "phenotype": "Normal Metabolizer"} for t in ("PyPGx", "Stargazer", "PharmCAT", "Aldy")}
+    _, res = rep._pipeline_narrative("DPYD", v, tools)
+    assert "not Normal function" in res or "does not rate Normal" in res, res
+    assert "targeted DPYD assay" in res and "agree" not in res.lower().replace("callers' normal", ""), res
+
+
+def _report_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("pgx_report_w", os.path.join(HERE, "pgx-report.py"))
+    rep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rep)
+    return rep
+
+
+def test_dpyd_guard_review_fixes():
+    R = cmp.reconcile
+    rep = _report_module()
+    four = lambda dips, label="Normal Metabolizer": [_r(t, d, pheno=label) for t, d in zip(("PyPGx", "Stargazer", "PharmCAT", "Aldy"), dips)]
+    # (1) a withdrawn verdict is never rendered "Normal / Not flagged": tier, badge and landing finding (case (a): only one caller carries it)
+    va = cmp.compute_verdict(four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), no_call=False, gene="DPYD")
+    dip, pheno, cls, na, nc = rep.verdict_card(va)
+    assert rep._pheno_cat(pheno) == "withheld" and cls == "card-amber", (pheno, cls)
+    diplos = ["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]
+    assert rep._get_tier("DPYD", rep._pheno_cat(pheno), dip, diplos) == "high"
+    assert "Normal / Not flagged" not in rep.build_gene_cpic_section("DPYD", pheno, dip, diplos)
+    gd = [{"gene": "DPYD", "consensus_diplotype": dip, "consensus_phenotype": pheno, "card_class": cls, "n_agree": na,
+           "n_called": nc, "all_tool_diplotypes": diplos}]
+    assert "DPYD" in rep.build_clinical_findings_section(gd, sample="X")
+    assert rep._get_tier("DPYD", rep._pheno_cat("Normal Metabolizer"), "*1/*1", ["*1/*1", "*1/*1"]) is None   # a real Normal stays unflagged
+    # (2) the unphased multi-allele VCF-Check form is parsed; an unreadable call counts as unknown, never []
+    assert [c for c, _ in R.nonnormal_components("DPYD", "*2A(het)+*13(het) [unphased]")] == ["*2A", "*13"]
+    assert R.nonnormal_components("DPYD", "not a diplotype") == [("not a diplotype", "unknown")]
+    v = cmp.compute_verdict(four(["*1/*1"] * 3 + ["*1(het)+*2A(het) [unphased]"]), no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and "dpyd_nonnormal_component" in v, v
+    # (3) an unknown-function main allele blocks like the same variant as a tag
+    assert R.nonnormal_components("DPYD", "*1/*rs0000001") == R.nonnormal_components("DPYD", "*1/*1+rs0000001")[:0] + [("*rs0000001", "unknown")]
+    v = cmp.compute_verdict(four(["*1/*rs0000001"] * 4), no_call=False, gene="DPYD")
+    assert v["consensus_phenotype"] == "-" and "unknown to CPIC's allele table" in v["note"], v
+    # (4) the Normal test uses the phenotype normaliser ("Extensive" is Normal)
+    g = cmp._dpyd_nonnormal_guard({"status": "concordant", "consensus_phenotype": "Extensive Metabolizer", "note": "",
+                                   "consensus_diplotype": "*1/*1+rs67376798"}, four(["*1/*1+rs67376798"] * 4), "DPYD")
+    assert g["consensus_phenotype"] == "-", g
+    # (5) text that says Normal is cleared when the guard fires after a set-aside
+    stale = {"status": "concordant", "consensus_phenotype": "Normal Metabolizer", "consensus_diplotype": "*1/*1 or *1/*1+rs67376798",
+             "unscorable_readings_ignored": ["*1/*1+rs1801159"], "phenotype_source": "CPIC diplotype table, rows of *1/*1",
+             "note": "x; reading *1/*1+rs1801159 has no CPIC phenotype and was not counted (check); "
+                     "CPIC phenotype of the other readings is Normal Metabolizer"}
+    g = cmp._dpyd_nonnormal_guard(stale, four(["*1/*1", "*1/*1", "*1/*1", "*1/*1+rs67376798"]), "DPYD")
+    assert "unscorable_readings_ignored" not in g and "phenotype_source" not in g, g
+    assert "other readings is Normal" not in g["note"] and "was not counted" not in g["note"] and g["note"].startswith("x;"), g
+    # (6) the status label is its own: parseable by the report and the axiom adjudication, level kept
+    assert va["status"] == cmp.SPLIT_STATUS and va["dpyd_nonnormal_component"], va       # a split keeps its status, gets the flag
+    vm = cmp.compute_verdict([_r("PyPGx", "*1/*1"), _r("Stargazer", "*1/*1"), _r("PharmCAT", "*1/*1"),
+                              _r("Aldy", "*1/*1+rs67376798", pheno="Intermediate Metabolizer")], no_call=False, gene="DPYD")
+    assert vm["status"] == "majority, phenotype withheld" and cmp.WITHHELD_STATUS == "concordant, phenotype withheld", vm
+    assert "Majority, phenotype withheld" in rep._resolution_badge(vm) and "badge-amber" in rep._resolution_badge(vm)
+    # (8) one caller+component is named once
+    v = cmp.compute_verdict(four(["*1/*1+rs67376798"] * 3 + ["*1+rs67376798/*1+rs67376798"]), no_call=False, gene="DPYD")
+    assert v["note"].count("Aldy *1+rs67376798/*1+rs67376798: rs67376798 is Decreased function") == 1, v["note"]
+
+
+def test_tag_vote_majority_on_a_gene_the_dpyd_guard_does_not_touch():
+    # CYP2C19 `*1/*2+rs61737946`: the tag is unknown to CPIC's table, so the caller does not vote for `*1/*2`
+    v = cmp.compute_verdict([_r("PyPGx", "*1/*2"), _r("Stargazer", "*1/*2"), _r("PharmCAT", "*1/*2"),
+                             _r("Aldy", "*1/*2+rs61737946", pheno="Intermediate Metabolizer")], no_call=False, gene="CYP2C19")
+    assert v["status"] == "majority" and (v["n_agree"], v["n_called"]) == (3, 4) and "dpyd_nonnormal_component" not in v, v
+    assert "Aldy *1/*2+rs61737946: tag rs61737946 is unknown in CPIC's allele table" in v["note"], v
 
 
 def test_unscorable_reading_backed_by_more_callers_is_a_split():

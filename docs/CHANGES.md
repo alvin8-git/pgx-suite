@@ -73,6 +73,24 @@ Format: reverse-chronological, grouped by phase/milestone.
   samples, 2767 verdicts, OLD = the commit before this change): 0 rows change, since no stored call carries a tag that is not
   Normal function; the cases are proven by `test_extra_variant_tag_votes_only_when_its_cpic_function_is_normal` and
   `test_tag_vote_review_fixes`.
+- DPYD: a non-Normal component blocks Normal (owner decision 2026-11-16, `_dpyd_nonnormal_guard` in `docker/pgx-compare.py`,
+  `reconcile.nonnormal_components`). If any caller's DPYD call carries a named allele rated Decreased or No function in CPIC's
+  allele table (`cpic_diplotype.json` `allele_function`), a named allele the table does not give (`UNKNOWN_NAMED_ALLELE_BLOCKS_NORMAL`),
+  a `+` tag that is not Normal function (decreased, no, increased, unknown), or a call that cannot be read (VCF-Check's unphased
+  `*A(het)+*B(het)` list is parsed), and the verdict would be Normal Metabolizer, the phenotype is `-` and the status is the new
+  `concordant, phenotype withheld` / `majority, phenotype withheld` (the report maps both as amber; OmniGen reads the summary's
+  phenotype, nAgree, nCalled and DecidedBy and not Status; `build_axiom_concordance` takes the part before the comma). The verdict
+  carries `dpyd_nonnormal_component` and a `phenotype_note`, the note names each caller and component once with its CPIC function and
+  says "confirm with a targeted DPYD assay", and any set-aside text that says Normal is removed. A DPYD verdict that already has no
+  phenotype (a split or discordant call) keeps its status and gets the flag and note. Report: the flag turns the phenotype into a
+  shared "Normal withheld" category that `_get_tier` flags as high priority, so the gene section and the landing findings never show
+  "Normal / Not flagged" (a one-caller case used to, because the diplotype check needs two tools); `print_table` says the phenotype
+  is withheld instead of "N/N tools agree" alone. An Intermediate or Poor verdict is left alone; other genes are unchanged. Reason:
+  one caller showing a reduced-function DPYD variant is evidence against Normal, and a false Normal risks fluoropyrimidine toxicity.
+  Real run (image `wt-dpydblock`, 66 stored samples, 2767 verdicts, OLD = e546f13): see the counts below. 6 of 198 stored DPYD
+  calls (2 samples) carry a Decreased or No function component (`*2A`, c.2279C>T, in every caller of each sample); both verdicts are
+  Intermediate and stay; none of the 198 calls has an unknown-function named allele. Tests: `test_dpyd_nonnormal_component_blocks_normal`,
+  `test_dpyd_guard_review_fixes`, `test_tag_vote_majority_on_a_gene_the_dpyd_guard_does_not_touch`.
 - Tests: `test_verdict.py` (component check, extra deviating component, caller support, ambiguous row, NAT2 Indeterminate, lettered allele, report sentence; the composite-Aldy DPYD case in
   `test_phenotype_tier_rescues_string_discordance` now keeps Normal Metabolizer).
 
