@@ -92,7 +92,9 @@ For one gene only (faster, good for a smoke run), pass a `genes=` subset to the
 container directly:
 
 ```bash
-docker run --privileged --rm \
+# run as your own user (not root): docker/run_as_user.sh builds --user, a generated passwd/group and HOME
+source docker/run_as_user.sh && pgx_user_opts
+docker run --privileged $PGX_USER_OPTS --tmpfs /pgx:mode=0777 --rm \
   -v "$(pwd)/StellarPGx:/pgx/stellarpgx" -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
   -v "$(pwd)/pypgx/pypgx-bundle:/pgx/bundle" -v "/path/to/GRCh38:/pgx/ref" \
   -v "/path/to/data:/pgx/data" -v "$(pwd)/results/one_gene:/pgx/results" \

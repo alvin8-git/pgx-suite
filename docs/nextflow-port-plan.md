@@ -107,8 +107,11 @@ squashfs/FUSE): **[read]**
 | `pharmcat`, `pharmcat_outside` | `apptainer exec --cleanenv pharmcat.sif pharmcat_pipeline` / `java -jar pharmcat.jar -po` |
 | `stellarpgx` | a nested `nextflow run /pgx/stellarpgx/main.nf` whose `nextflow.config` enables Singularity with `stellarpgx-dev.sif` |
 
-Nothing else needs privilege. A side effect: in rootful Docker every output is root-owned, which is why the
-OmniGen batch kit runs a `chown` container after each pgx stage.
+Nothing else needs privilege. Privilege does not mean root: every container (each Nextflow task and the outer
+Snakemake container) runs as the invoking user, `--user UID:GID`, with a generated `/etc/passwd` and `/etc/group` (this user plus root, from `getent`; `docker/run_as_user.sh`) mounted
+read-only (Apptainer fails with "unknown userid" without them) and `HOME=/tmp` (the container's own). Outputs
+are therefore owned by the invoking user and need no `chown` afterwards. `OG_DOCKER_USER` overrides the option;
+set empty it restores the old root behaviour (`nextflow.config` reads `PGX_DOCKER_USER_OPTS`, exported by the launcher).
 
 ### 1.3 Gene configuration and fan-out
 

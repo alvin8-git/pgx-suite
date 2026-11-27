@@ -71,7 +71,8 @@ genes, add the variant(s) to `docker/vcf_check_variants.json` (guarded by
 4. **Run just your gene** to confirm it calls:
 
    ```bash
-   docker run --privileged --rm \
+   source docker/run_as_user.sh && pgx_user_opts   # sets $PGX_USER_OPTS: --user uid:gid, generated passwd/group, HOME=/tmp
+   docker run --privileged $PGX_USER_OPTS --tmpfs /pgx:mode=0777 --rm \
      -v "$(pwd)/StellarPGx:/pgx/stellarpgx" -v "$(pwd)/StellarPGx/containers:/pgx/containers" \
      -v "$(pwd)/pypgx/pypgx-bundle:/pgx/bundle" -v "/path/to/GRCh38:/pgx/ref" \
      -v "/path/to/data:/pgx/data" -v "$(pwd)/results/mygene:/pgx/results" \

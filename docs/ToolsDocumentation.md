@@ -347,7 +347,7 @@ Results are written to `<out_dir>/<gene>/alleles/` (one subdirectory per gene), 
 - **Fewest genes (21)**: Covers only a fraction of the genes supported by PyPGx (88)
   or Stargazer (58). Many clinically important genes (DPYD, TPMT for full panel,
   VKORC1, etc.) are absent.
-- **Requires `--privileged`**: Running Apptainer inside Docker requires elevated
+- **Requires `--privileged`** (not root; run with `--user UID:GID` plus generated read-only `/etc/passwd` and `/etc/group` mounts; `docker/run_as_user.sh` builds them): Running Apptainer inside Docker requires elevated
   permissions. This limits deployment to local workstations or HPC environments where
   `--privileged` or `SYS_ADMIN` capability is available. Managed Kubernetes or
   restricted cloud environments typically prohibit this.

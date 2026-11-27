@@ -27,7 +27,8 @@ First build takes ~15-20 minutes. Subsequent builds use layer cache.
 
 ```bash
 # PyPGx, Aldy, Stargazer (fast, no volumes needed):
-docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
+source docker/run_as_user.sh && pgx_user_opts   # non-root, as docker/test.sh expects
+docker run --privileged $PGX_USER_OPTS --rm pgx-suite:latest bash /opt/pgx/test.sh
 
 # Full suite including StellarPGx (requires volumes):
 ./docker/docker-run.sh -- bash /opt/pgx/test.sh

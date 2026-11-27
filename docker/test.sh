@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # /opt/pgx/test.sh — Phase 1 smoke tests (no user BAM/reference needed)
-# Run: docker run --privileged ... pgx-suite:latest bash /opt/pgx/test.sh
+# Run: source docker/run_as_user.sh && pgx_user_opts && docker run --privileged $PGX_USER_OPTS ... pgx-suite:latest bash /opt/pgx/test.sh
 set -euo pipefail
 
 PASS=0

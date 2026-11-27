@@ -82,7 +82,7 @@ and the ABO/HLA class II contract files. Keep their schemas stable.
 
 | Item | Needed | Checked here |
 |---|---|---|
-| OS | Linux x86-64 with Docker Engine; `docker run --privileged` must be allowed (Apptainer runs inside the container for StellarPGx, OptiType, PharmCAT and arcasHLA) | Ubuntu, kernel 5.15 |
+| OS | Linux x86-64 with Docker Engine; `docker run --privileged` must be allowed (Apptainer runs inside the container for StellarPGx, OptiType, PharmCAT and arcasHLA). Containers run as your own uid:gid, not root: `run_pgx_suite.sh` passes `--user`, mounts a generated `/etc/passwd` and `/etc/group` read-only (this user plus root, from `getent`; Apptainer fails with "unknown userid" otherwise) and sets `HOME=/tmp` (`docker/run_as_user.sh`). `OG_DOCKER_USER` overrides: `--user ...` is used as-is, `uid[:gid]` gets `--user` prepended; set it empty to run as root (outputs then become root-owned). A results folder holding root-owned files from an earlier run stops the launch with the `chown` to run | Ubuntu, kernel 5.15 |
 | Docker image | built from this repo | 1.95 GB |
 | Nextflow engine (default) | Java 17 or later on the host. The `./nextflow` launcher in the repo fetches Nextflow on first use; `main.nf` needs 25.10 or later | OpenJDK 17.0.10, Nextflow 25.10.4 |
 | Snakemake engine | nothing on the host: Snakemake 9.23.0 is inside the image (pinned in the Dockerfile) | yes |
@@ -98,7 +98,8 @@ git clone --recurse-submodules https://github.com/alvin8-git/pgx-suite.git
 cd pgx-suite
 # copy the Stargazer panels into stargazer-grc38-2.0.3/stargazer/1kgp_vcf/grc38/ (see Reference data)
 docker build --build-arg PGX_VERSION=$(git rev-parse --short HEAD) -t pgx-suite:latest .
-docker run --rm pgx-suite:latest bash /opt/pgx/test.sh   # tool checks, no data needed (a few minutes)
+source docker/run_as_user.sh && pgx_user_opts   # non-root, as docker/test.sh expects
+docker run --privileged $PGX_USER_OPTS --rm pgx-suite:latest bash /opt/pgx/test.sh   # tool checks, no data needed (a few minutes)
 ```
 
 The build stops with an error if the Stargazer panels are missing; an image without them would
@@ -148,6 +149,8 @@ samtools faidx GRCh38/hg38.fa
 # PyPGx bundle (matches PyPGx 0.26.0)                                   # not run here
 git clone --branch 0.26.0 --depth 1 https://github.com/sbslee/pypgx-bundle pypgx/pypgx-bundle
 
+# One-off SIF builds below stay root: apptainer build/pull and the apptainer.conf edit need it, and the
+# SIFs are not part of a sample run. chown them to your user afterwards.
 # StellarPGx SIF from the upstream Docker Hub image (unpinned upstream tag) # not run here
 docker run --privileged --rm -v "$PWD/StellarPGx/containers:/pgx/containers" pgx-suite:latest \
   apptainer build /pgx/containers/stellarpgx-dev.sif docker://twesigomwedavid/stellarpgx-dev:latest
@@ -268,7 +271,8 @@ only reorders a step's input files; after editing the merge order in `main.nf`, 
 ### Snakemake directly
 
 ```bash
-docker run --privileged --rm \
+source docker/run_as_user.sh && pgx_user_opts   # sets $PGX_USER_OPTS: --user uid:gid, generated passwd/group, HOME=/tmp
+docker run --privileged $PGX_USER_OPTS --tmpfs /pgx:mode=0777 --rm \
   -v "$PWD/StellarPGx:/pgx/stellarpgx" -v "$PWD/StellarPGx/containers:/pgx/containers" \
   -v "$PWD/pypgx/pypgx-bundle:/pgx/bundle" -v "$PWD/GRCh38:/pgx/ref:ro" \
   -v "/path/to/bams:/pgx/data:ro" -v "$PWD/results/HG002:/pgx/results" \

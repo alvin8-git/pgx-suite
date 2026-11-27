@@ -34,7 +34,11 @@ if [[ "${ENGINE:-nextflow}" == "nextflow" ]]; then
         --outdir "$OUT" -work-dir "$OUT/.nf-work" ) \
         > "$OUT/smoke.log" 2>&1 || { echo "smoke: pipeline failed, see $OUT/smoke.log" >&2; exit 2; }
 else
-docker run --privileged --rm \
+# run-as-user options: docker/run_as_user.sh is the source of truth (same as run_pgx_suite.sh)
+source "$REPO/docker/run_as_user.sh"
+pgx_user_opts || exit 2
+# shellcheck disable=SC2086  # PGX_USER_OPTS is deliberately word-split
+docker run --privileged $PGX_USER_OPTS --tmpfs /pgx:mode=0777 --rm \
     -v "$REPO/StellarPGx:/pgx/stellarpgx" \
     -v "$REPO/StellarPGx/containers:/pgx/containers" \
     -v "$REPO/pypgx/pypgx-bundle:/pgx/bundle" \

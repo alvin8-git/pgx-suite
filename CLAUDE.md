@@ -15,7 +15,8 @@ Callers: **PyPGx** 0.26.0, **Stargazer** 2.0.3, **Aldy** 4.8.3, **StellarPGx** 1
 docker build -t pgx-suite:latest .
 
 # Smoke tests — no BAM/volumes needed (PyPGx/Stargazer/Aldy):
-docker run --rm pgx-suite:latest bash /opt/pgx/test.sh
+source docker/run_as_user.sh && pgx_user_opts   # non-root, as docker/test.sh expects
+docker run --privileged $PGX_USER_OPTS --rm pgx-suite:latest bash /opt/pgx/test.sh
 # Full smoke tests incl. StellarPGx (needs volume mounts):
 ./docker/docker-run.sh -- bash /opt/pgx/test.sh
 

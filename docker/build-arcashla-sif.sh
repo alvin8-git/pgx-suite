@@ -7,6 +7,10 @@
 # bakes into the SIF: (1) the IMGT/HLA reference (dat/ref + dat/IMGTHLA/hla.dat), and
 # (2) kallisto 0.44.0 (+ its libs) ahead of the stock binary.
 #
+# This script deliberately runs its containers as ROOT (no --user): apptainer build needs root to unpack
+# the biocontainer, and the SIF it writes is root-owned. It is a one-off build, not part of a sample run;
+# chown the SIF to your user afterwards (sudo chown $(id -u):$(id -g) <OUT_SIF>).
+#
 # Needs: Docker with the pgx-suite:latest image (apptainer, run --privileged; rootless
 # Docker: do not pass -u), a built arcasHLA clone (ARCAS_DIR; see
 # docs/ToolsDocumentation.md 5b), and a kallisto-0.44.0 conda env (KALLISTO_ENV).

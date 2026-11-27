@@ -108,6 +108,10 @@ Fixed resource directories (expected under ${SCRIPT_DIR}/):
   GRCh38/                  GRCh38 reference FASTA (hg38.fa + hg38.fa.fai)
 
 Note: --privileged is required for Apptainer used by StellarPGx and OptiType.
+      Every container runs as the invoking user (--user UID:GID), never as root, with a generated passwd/group (this user plus root, from getent) mounted read-only (Apptainer refuses
+      an unknown uid) and HOME=/tmp inside the container. OG_DOCKER_USER overrides: "--user ..." as-is,
+      "uid[:gid]" gets --user prepended; an empty string runs as root again (not recommended; outputs
+      become root-owned). Files left root-owned by an earlier run stop the launch with the chown to run.
       mutserve.jar (MT-RNR1 chrM caller) is baked into the image — no extra mount needed.
 EOF
 }
@@ -224,6 +228,39 @@ ${C_BOLD_CYAN}╔═════════════════════
   ${C_BOLD}CPUs   :${C_RESET}  ${JOBS}
   ${C_BOLD}Started:${C_RESET}  ${START_TS}"
 
+# ── Run containers as the invoking user, never root ───────────────────────────
+# docker/run_as_user.sh is the source of truth (OG_DOCKER_USER handling, generated passwd/group, HOME).
+# The generated id files live in a mktemp folder this run owns (under TMPDIR), removed on exit.
+# shellcheck source=docker/run_as_user.sh
+source "${SCRIPT_DIR}/docker/run_as_user.sh"
+pgx_user_opts || { echo "ERROR: cannot set up the run-as-user options" >&2; exit 2; }
+[[ -n "${PGX_IDS_DIR:-}" ]] && trap 'rm -rf "$PGX_IDS_DIR"' EXIT
+PGX_USER_OPTS_VAL="$PGX_USER_OPTS"
+export PGX_DOCKER_USER_OPTS="$PGX_USER_OPTS_VAL"
+echo -e "  ${C_BOLD}User   :${C_RESET}  ${C_DIM}${PGX_USER_OPTS_VAL:-root (OG_DOCKER_USER empty)}${C_RESET}"
+
+# ── Fail fast if earlier root runs left files this user cannot overwrite ──────
+# Only when running as a user: with OG_DOCKER_USER empty (root) ownership is not a problem.
+if [[ -n "$PGX_USER_OPTS_VAL" ]]; then
+    _chk=("$OUTPUT_HOST")
+    [[ "$ENGINE" == "nextflow" ]] && _chk+=("$(dirname "$OUTPUT_HOST")/.nextflow-run/${SAMPLE}")
+    for _d in "${_chk[@]}"; do
+        [[ -d "$_d" ]] || continue
+        if [[ ! -w "$_d" || ! -x "$_d" ]]; then
+            echo "ERROR: $_d is not writable by $(id -un) (uid $(id -u))." >&2
+            echo "  One-off fix: sudo chown -R $(id -u):$(id -g) $_d" >&2
+            exit 2
+        fi
+        _bad="$(find "$_d" -maxdepth 3 ! -user "$(id -u)" -print -quit 2>/dev/null)"
+        if [[ -n "$_bad" ]]; then
+            echo "ERROR: $_bad is not owned by uid $(id -u) (left by an earlier run as root?)." >&2
+            echo "  The container now runs as you and cannot overwrite it." >&2
+            echo "  One-off fix: sudo chown -R $(id -u):$(id -g) $_d" >&2
+            exit 2
+        fi
+    done
+fi
+
 # ── Run the pipeline ──────────────────────────────────────────────────────────
 RC=0
 if [[ "$ENGINE" == "nextflow" ]]; then
@@ -239,8 +276,11 @@ if [[ "$ENGINE" == "nextflow" ]]; then
 else
     _stage "Launching pipeline (Snakemake inside one container)"
     echo -e "  ${C_DIM}Container output follows — gene results stream in as they complete${C_RESET}\n"
+    # shellcheck disable=SC2086  # PGX_USER_OPTS_VAL is deliberately word-split
     docker run \
         --privileged \
+        $PGX_USER_OPTS_VAL \
+        --tmpfs /pgx:mode=0777 \
         --rm \
         -v "${STELLARPGX_DIR}:/pgx/stellarpgx" \
         -v "${CONTAINERS_DIR}:/pgx/containers" \
