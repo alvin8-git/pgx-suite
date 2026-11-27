@@ -150,17 +150,18 @@ rule stellarpgx:
     params:
         real=lambda w: G(w.gene, "stellarpgx"),
         work=lambda w: G(w.gene, "stellarpgx", ".work"),
+        trace=lambda w: G(w.gene, "logs", "stellarpgx.trace"),
         sgene=lambda w: ("cypor" if w.gene.lower() == "por" else w.gene.lower()),
         in_bam=lambda w: f"{BAM_DIR}/{BAM_BASE}*{{{EXT},{IDX_EXT}}}",
-    # (shell) the nested nextflow returns 1 when one of its tasks was killed: the "if [ $rc -ne 0 ]" line keeps that task's kill code
+    # (shell) the nested nextflow returns 1 when one of its tasks was killed: the "if [ $rc -ne 0 ]" line keeps the kill code of the nested task that failed (stellar_kill_code.sh reads its trace)
     shell:
         "mkdir -p $(dirname {output}) {params.real}; rc=0; "
         "nextflow run /pgx/stellarpgx/main.nf --gene {params.sgene} "
         "--in_bam '{params.in_bam}' --ref_file {REF} --out_dir {params.real} "
         "--res_init /pgx/stellarpgx/resources --db_init /pgx/stellarpgx/database "
-        "--caller_init /pgx/stellarpgx/scripts -work-dir {params.work} || rc=$?; "
-        "if [ $rc -ne 0 ]; then k=$(find {params.work} -name .exitcode 2>/dev/null | xargs -r awk 'FNR==1{{print}}' | grep -m1 -x -E '134|137|140|143' || true); [ -n \"$k\" ] && rc=$k; fi; "
-        "rm -rf {params.work} 2>/dev/null || true; echo $rc > {output}"   # F8: drop Nextflow work tree
+        "--caller_init /pgx/stellarpgx/scripts -work-dir {params.work} -with-trace {params.trace} || rc=$?; "
+        "if [ $rc -ne 0 ]; then k=$(/opt/pgx/stellar_kill_code.sh {params.trace}); [ -n \"$k\" ] && rc=$k; fi; "
+        "rm -rf {params.work} {params.trace} 2>/dev/null || true; echo $rc > {output}"   # F8: drop Nextflow work tree
 
 
 # ── Special callers (HLA / MT) — non-fatal ───────────────────────────────────
@@ -501,7 +502,7 @@ rule all_genes_summary:
                 cov = d.get("coverage", {})
                 hc = h2.get(d["gene"].replace("HLA-", ""), {}) if d["gene"].startswith("HLA-D") else {}
                 out.write("\t".join(str(x) for x in [
-                    d["gene"], v.get("status", "?") + (" (caller killed: " + ", ".join(d["killed_tools"]) + ")" if d.get("killed_tools") else ""), v.get("consensus_diplotype", "-"),
+                    d["gene"], v.get("status", "?") + (" (" + v.get("killed_note", "caller killed") + ")" if d.get("killed_tools") else ""), v.get("consensus_diplotype", "-"),
                     v.get("consensus_phenotype", "-"), v.get("n_agree", 0),
                     v.get("n_called", 0), cov.get("mean_depth", "-"),
                     hc.get("agreement", "-"),

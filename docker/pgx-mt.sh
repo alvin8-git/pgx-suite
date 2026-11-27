@@ -81,7 +81,7 @@ RESULT_JSON="${OUTDIR}/${SAMPLE}_mtrna1_result.json"
 rm -f "$MUTSERVE_RAW" "$RESULT_JSON"
 
 rc=0
-java -Xmx2g -jar "$MUTSERVE_JAR" call "${TMP}/chrM_sorted.bam" \
+java -Xmx"${PGX_JAVA_XMX:-2g}" -jar "$MUTSERVE_JAR" call "${TMP}/chrM_sorted.bam" \
         --output    "$MUTSERVE_RAW" \
         --reference "${TMP}/chrM_ref.fa" \
         --level     0.01 \
@@ -89,7 +89,8 @@ java -Xmx2g -jar "$MUTSERVE_JAR" call "${TMP}/chrM_sorted.bam" \
         > "${OUTDIR}/mutserve.log" 2>&1 || rc=$?
 if [[ $rc -ne 0 ]]; then
     log_status "ERROR mutserve failed (exit $rc) — see ${OUTDIR}/mutserve.log (no result written; MT-RNR1 stays untyped)"
-    case $rc in 134|137|140|143) exit "$rc" ;; esac   # killed (137 = OOM): keep the kill code so the caller sees it
+    . "$(dirname "$(readlink -f "$0")")/kill_codes.sh"
+    if is_kill_code "$rc"; then exit "$rc"; fi   # killed (137 = OOM): keep the kill code so the caller sees it
     exit 1
 fi
 if [[ ! -s "$MUTSERVE_RAW" ]]; then

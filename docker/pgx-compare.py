@@ -219,9 +219,14 @@ def _parse_stargazer_core(core_str: str) -> tuple[list[dict], list[str]]:
     return variants, effects
 
 
-# Tool -> sentinel name (logs/<key>.status) and the exit codes that mean "killed", not "failed".
-_TOOL_KEYS = {"PyPGx": "pypgx", "Stargazer": "stargazer", "Aldy": "aldy", "StellarPGx": "stellarpgx",
-              "Cyrius": "cyrius", "mutserve": "mutserve"}
+# Tool -> sentinel path relative to the gene's output dir (OUT/genes/<GENE>); the sample-level callers
+# (one run for all genes) keep theirs under OUT. KILL_CODES is the one list of "killed, not failed" exit
+# codes (134 abort, 137 SIGKILL/OOM, 140 time limit, 143 SIGTERM); the shell side is bin/nf_kill_gate.sh.
+_TOOL_STATUS = {"PyPGx": "logs/pypgx.status", "Stargazer": "logs/stargazer.status", "Aldy": "logs/aldy.status",
+                "StellarPGx": "logs/stellarpgx.status", "Cyrius": "logs/cyrius.status",
+                "mutserve": "logs/mutserve.status",
+                "OptiType": "../../optitype/optitype.status", "arcasHLA": "../../hla2/hla2.status",
+                "PharmCAT": "../../pharmcat/pharmcat.status"}
 KILL_CODES = ("134", "137", "140", "143")
 
 
@@ -2509,7 +2514,11 @@ def print_table(
     if alt_block and verdict.get("status") == "no_call":
         verdict["reason"] = alt_block
 
-    if killed:
+    if killed:   # a killed caller is a lost vote: show the denominator including it (same text in both engines)
+        _k = len(killed)
+        verdict["n_killed"] = _k
+        verdict["killed_note"] = (f"caller killed: {', '.join(killed)} "
+                                  f"({verdict.get('n_agree', 0)} of {verdict.get('n_called', 0) + _k} callers agree, {_k} killed)")
         print("\n  !! caller killed (OOM/signal), not an ordinary failure: "
               + ", ".join(f"{t} (exit {c})" for t, c in killed.items()))
     print()
@@ -2680,8 +2689,8 @@ def main() -> None:
     # partial output it left, in both engines (read here from the sentinel, so Snakemake needs no gate).
     killed = {}
     for r in results:
-        key = _TOOL_KEYS.get(r.tool)
-        sf = os.path.join(args.output_dir, "logs", f"{key}.status") if key else ""
+        rel = _TOOL_STATUS.get(r.tool)
+        sf = os.path.normpath(os.path.join(args.output_dir, rel)) if rel else ""
         try:
             code = open(sf).read().strip() if sf and os.path.exists(sf) else ""
         except OSError:

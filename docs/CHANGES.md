@@ -5,6 +5,29 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-27 (review fixes: kill detection complete, killed caller visible, retry policy)
+
+- STARGAZER base memory is 8 GB x attempt (DPYD peaks at 6.3 GB and was always killed at 4 GB on attempt 1).
+- `pgx-compare.py` now reads the sample-level sentinels too (`optitype/optitype.status`, `hla2/hla2.status`,
+  `pharmcat/pharmcat.status`): a killed OptiType, arcasHLA or PharmCAT shows "caller killed" in comparison.tsv,
+  `killed_tools` in detail.json and the summary, in both engines.
+- A gene that lost a caller to a kill keeps its verdict but shows the denominator including the killed caller,
+  `caller killed: Stargazer (3 of 4 callers agree, 1 killed)` (`verdict.killed_note`, summary status column, landing
+  card badge, red banner on the gene panel). Same text in both engines.
+- `errorStrategy` retries only 134 and 137 (memory). 143 (SIGTERM from qdel or a soft limit) and 140 fail the run at
+  once without a retry, and are still gated as a kill.
+- PHARMCAT_OUTSIDE has PHARMCAT's memory (6 GB x attempt) and is retried on 134/137; after the last attempt it stays
+  non-fatal. `pgx-pharmcat-outside.sh` removes a stale `pharmcat_outside_run` note from provenance.json at the start of a run.
+- `executor.memory` (Nextflow) is set from `--mem GB` / `PGX_MEM_GB` (`--max_mem_total`, default `--max_memory`), so the local executor
+  cannot over-commit host RAM. The batch kit should pass its pgx budget with `--mem`.
+- MUTSERVE declares 4 GB x attempt and `java -Xmx` is the task memory minus 1 GB (`PGX_JAVA_XMX`; 2g under Snakemake).
+- Nested StellarPGx: the kill code is that of the nested task that made the run fail (last attempt FAILED in the nested
+  `-with-trace`; `docker/stellar_kill_code.sh`), not any stale 137 from a task that was retried and completed or from a sibling aborted at stop.
+- `pgx-hla.sh`: the no-chr retry pipeline keeps a kill instead of `|| true`.
+- One list of kill codes: `docker/kill_codes.sh` (shell, sourced by the wrappers and `bin/nf_kill_gate.sh`) and `KILL_CODES` in `pgx-compare.py`.
+
+---
+
 ## 2026-11-27 (Nextflow engine: caller memory, killed caller stops the run)
 
 - Under the Nextflow engine the default step memory was 2 GB. Stargazer's Beagle phasing (java -Xmx2g plus the

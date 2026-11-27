@@ -196,6 +196,8 @@ COPY docker/dpyd_notation_map.json  /opt/pgx/dpyd_notation_map.json
 COPY docker/vcf_check_variants.json /opt/pgx/vcf_check_variants.json
 COPY docker/pgx_outside_calls.py   /opt/pgx/pgx_outside_calls.py
 COPY docker/pgx-pharmcat-outside.sh /opt/pgx/pgx-pharmcat-outside.sh
+COPY docker/kill_codes.sh          /opt/pgx/kill_codes.sh
+COPY docker/stellar_kill_code.sh   /opt/pgx/stellar_kill_code.sh
 COPY docker/pharmcat_positions.vcf.bgz     /opt/pgx/pharmcat_positions.vcf.bgz
 COPY docker/pharmcat_positions.vcf.bgz.csi /opt/pgx/pharmcat_positions.vcf.bgz.csi
 COPY docker/Snakefile             /opt/pgx/Snakefile
@@ -207,7 +209,7 @@ ARG PGX_VERSION=dev
 RUN echo "pgx-suite ${PGX_VERSION} (image built $(date -u +%Y-%m-%dT%H:%M:%SZ))" > /opt/pgx/VERSION
 RUN chmod +x /opt/pgx/test.sh \
              /opt/pgx/pgx-bamstats.sh /opt/pgx/pgx-report.py /opt/pgx/pgx-hla.sh \
-             /opt/pgx/pgx-mt.sh /opt/pgx/pgx-hla2.sh /opt/pgx/pgx-pharmcat-outside.sh \
+             /opt/pgx/pgx-mt.sh /opt/pgx/pgx-hla2.sh /opt/pgx/pgx-pharmcat-outside.sh /opt/pgx/stellar_kill_code.sh \
     && ln -s /opt/pgx/pgx-bamstats.sh  /usr/local/bin/pgx-bamstats.sh \
     && ln -s /opt/pgx/pgx-report.py    /usr/local/bin/pgx-report.py \
     && ln -s /opt/pgx/pgx-hla.sh       /usr/local/bin/pgx-hla.sh \

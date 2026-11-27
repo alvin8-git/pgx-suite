@@ -78,10 +78,10 @@ process STELLARPGX {
     nextflow run /pgx/stellarpgx/main.nf --gene ${sgene} \
         --in_bam '${s.bam_glob}' --ref_file ${s.ref} --out_dir ${G}/stellarpgx \
         --res_init /pgx/stellarpgx/resources --db_init /pgx/stellarpgx/database \
-        --caller_init /pgx/stellarpgx/scripts -work-dir ${G}/stellarpgx/.work || rc=\$?
-    # the nested nextflow returns 1 when one of its tasks was killed: keep the kill code of that task
-    if [ \$rc -ne 0 ]; then k=\$(find ${G}/stellarpgx/.work -name .exitcode 2>/dev/null | xargs -r awk 'FNR==1{print}' | grep -m1 -x -E '134|137|140|143' || true); [ -n "\$k" ] && rc=\$k; fi
-    rm -rf ${G}/stellarpgx/.work 2>/dev/null || true
+        --caller_init /pgx/stellarpgx/scripts -work-dir ${G}/stellarpgx/.work -with-trace ${G}/logs/stellarpgx.trace || rc=\$?
+    # the nested nextflow returns 1 when one of its tasks was killed: keep the kill code of the nested task that failed
+    if [ \$rc -ne 0 ]; then k=\$(/opt/pgx/stellar_kill_code.sh ${G}/logs/stellarpgx.trace); [ -n "\$k" ] && rc=\$k; fi
+    rm -rf ${G}/stellarpgx/.work ${G}/logs/stellarpgx.trace 2>/dev/null || true
     echo \$rc > ${G}/logs/stellarpgx.status
     nf_kill_gate.sh \$rc
     """
@@ -148,7 +148,7 @@ process PYPGX {
 
 process STARGAZER {
     tag "${g.gene}"
-    memory { 4.GB * task.attempt }
+    memory { 8.GB * task.attempt }   // DPYD (Beagle) peaks at 6.3 GB: always killed at 4 GB on attempt 1
     input:  tuple val(g), val(s), path(ups, stageAs: 'up*/*')
     output: tuple val(g), path('res')
     script:
@@ -215,6 +215,7 @@ process ABO_PILEUP {   // ABO from read-level evidence; the declared input of th
 
 process MUTSERVE {
     tag "${g.gene}"
+    memory { 4.GB * task.attempt }
     input:  tuple val(g), val(s)
     output: tuple val(g), path('res')
     script:
@@ -222,7 +223,7 @@ process MUTSERVE {
     """
     nf_stage.sh
     mkdir -p ${G}/logs; rc=0
-    pgx-mt.sh ${s.bam} ${s.id} ${G} --ref ${s.ref} || rc=\$?
+    PGX_JAVA_XMX=${task.memory.toMega() - 1024}m pgx-mt.sh ${s.bam} ${s.id} ${G} --ref ${s.ref} || rc=\$?   # java heap = task memory - 1 GB
     echo \$rc > ${G}/logs/mutserve.status
     nf_kill_gate.sh \$rc
     """
@@ -304,6 +305,7 @@ process PROVENANCE {
 
 process PHARMCAT_OUTSIDE {   // non-fatal; edits provenance.json and pharmcat/ on its own copy of the tree
     label 'nested_apptainer'
+    memory { 6.GB * task.attempt }   // same as PHARMCAT
     input:
     val s
     path ups, stageAs: 'up*/*'
@@ -314,6 +316,8 @@ process PHARMCAT_OUTSIDE {   // non-fatal; edits provenance.json and pharmcat/ o
     rc=0; PHARMCAT_SIF=/pgx/containers/pharmcat.sif pgx-pharmcat-outside.sh ${OUT} \
         > ${OUT}/pharmcat/outside.log 2>&1 || rc=\$?
     echo \$rc > ${OUT}/pharmcat/outside.status   # not gated: non-fatal by design; a kill is recorded by the script (pharmcat/outside.killed, provenance.json) and shown in the report
+    # killed by memory (134/137): fail the task so it is retried with more memory; on the last attempt it stays non-fatal (exit 0)
+    if [ ${task.attempt} -le ${task.maxRetries} ]; then case \$rc in 134|137) exit \$rc ;; esac; fi
     """
 }
 

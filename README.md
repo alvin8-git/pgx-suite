@@ -87,7 +87,7 @@ and the ABO/HLA class II contract files. Keep their schemas stable.
 | Nextflow engine (default) | Java 17 or later on the host. The `./nextflow` launcher in the repo fetches Nextflow on first use; `main.nf` needs 25.10 or later | OpenJDK 17.0.10, Nextflow 25.10.4 |
 | Snakemake engine | nothing on the host: Snakemake 9.23.0 is inside the image (pinned in the Dockerfile) | yes |
 | CPU | `--jobs N` sets the CPUs used (default 4) | 16 per run in the validation |
-| RAM | the largest steps declare 8 GB (HLA class II, Aldy); Stargazer 4 GB, PyPGx 6 GB. Every step has a base memory and is retried with 2x and then 3x of it, up to `--max_memory` (default 32 GB), when it is killed (exit 134, 137 or 143); a step still killed after the retries stops the run. A time-limit kill (140) is not retried: raise `--max_time` | measured per step (trace) |
+| RAM | the largest steps declare 8 GB (HLA class II, Aldy, Stargazer); PyPGx and PharmCAT 6 GB. Every step has a base memory and is retried with 2x and then 3x of it, up to `--max_memory` (default 32 GB), when it is killed by memory (exit 134 or 137); a step still killed after the retries stops the run. A SIGTERM (143, qdel) or time-limit kill (140) is not retried, it stops the run at once (raise `--max_time` for 140). `--mem GB` (env `PGX_MEM_GB`) caps the memory of all concurrent steps (default 32 GB), so the local executor does not over-commit the host | measured per step (trace) |
 | Disk | image 2 GB + resources about 6 GB (table below) + about 45 MB output per sample; Nextflow also keeps a work folder per sample | yes |
 | Input | GRCh38 BAM or CRAM with index, aligned by bwa-mem against a reference with ALT contigs | yes |
 

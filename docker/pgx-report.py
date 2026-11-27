@@ -1109,6 +1109,8 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
         n_agree = gd["n_agree"]
         n_called = gd["n_called"]
         badge_text = f"{n_agree}/{n_called} tools" if n_called else "No data"
+        if gd.get("killed_note"):   # a caller was killed: show the denominator including it
+            badge_text = f"{n_agree}/{n_called + gd['n_killed']} tools ({gd['n_killed']} killed)"
         pill_color = phenotype_color(pheno)
         pheno_short = pheno if pheno != "-" else "—"
 
@@ -2194,6 +2196,14 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
         if locus else ""
     )
 
+    _kt = detail.get("killed_tools") or {}
+    killed_html = ""
+    if _kt:   # never silent: a caller killed by the infrastructure is a lost vote, not a clean consensus
+        killed_html = ('<div class="section" style="border-left:4px solid #cf222e"><strong>Caller killed:</strong> '
+                       + escape(", ".join(f"{t} (exit {c})" for t, c in _kt.items()))
+                       + ' &#8212; out of memory or signal. '
+                       + escape((detail.get("verdict") or {}).get("killed_note", ""))
+                       + '. Re-run this sample; do not read this gene as a full consensus.</div>')
     sv_note_html = f'<div class="sv-note">&#128202; {sv_note}</div>' if sv_note and sv_note != "-" else ""
 
     # PharmCAT cross-check (informational; not part of the verdict).
@@ -2259,6 +2269,7 @@ def _build_gene_inner(sample: str, gene: str, detail: dict, gene_depth: dict | N
             {depth_detail_html}
         </div>
     </div>
+    {killed_html}
     {narrative_html}
     {xcheck_detail_html}
 
@@ -2456,6 +2467,8 @@ def main():
             "authority": (_v or {}).get("authority"),
             "phenotype_tier": bool((_v or {}).get("phenotype_tier")),
             "cross_check": detail.get("cross_check", {}),
+            "killed_note": (_v or {}).get("killed_note", ""),
+            "n_killed": int((_v or {}).get("n_killed", 0) or 0),
         })
 
         fragment = _build_gene_inner(

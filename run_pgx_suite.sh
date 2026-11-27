@@ -72,6 +72,7 @@ REF_DIR="${SCRIPT_DIR}/GRCh38"
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 JOBS=4
+MEM_GB="${PGX_MEM_GB:-}"   # empty: the Nextflow default (--max_memory, 32 GB)
 IMAGE="pgx-suite:latest"
 OUTPUT_HOST=""
 ENGINE="nextflow"
@@ -88,6 +89,7 @@ Options:
   --output DIR       Parent output directory on host; results go into DIR/<SAMPLE>/
                      (default parent: <repo>/results/)
   --jobs N           CPUs to use               (default: 4)
+  --mem GB           nextflow: memory budget for all concurrent steps (default: 32; env PGX_MEM_GB)
   --image NAME       Docker image to use       (default: pgx-suite:latest)
   --engine NAME      nextflow (default) or snakemake
   --resume           nextflow only: reuse finished steps of an earlier run of the same sample
@@ -125,6 +127,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --output) OUTPUT_HOST="$2"; shift 2 ;;
         --jobs)   JOBS="$2";        shift 2 ;;
+        --mem)    MEM_GB="$2";      shift 2 ;;
         --image)  IMAGE="$2";       shift 2 ;;
         --engine) ENGINE="$2";      shift 2 ;;
         --resume) RESUME="-resume"; shift ;;
@@ -271,7 +274,7 @@ if [[ "$ENGINE" == "nextflow" ]]; then
     mkdir -p "$NF_HOME"
     ( cd "$NF_HOME" && "${SCRIPT_DIR}/nextflow" run "${SCRIPT_DIR}/main.nf" -profile docker $RESUME \
         --bam "$INPUT_HOST" --sample "$SAMPLE" --ref "${REF_DIR}/hg38.fa" \
-        --pgx_image "$IMAGE" --max_cpus "$JOBS" --outdir "$(dirname "$OUTPUT_HOST")" \
+        --pgx_image "$IMAGE" --max_cpus "$JOBS" ${MEM_GB:+--max_mem_total "$MEM_GB"} --outdir "$(dirname "$OUTPUT_HOST")" \
         -work-dir "${NF_HOME}/work" ) || RC=$?
 else
     _stage "Launching pipeline (Snakemake inside one container)"

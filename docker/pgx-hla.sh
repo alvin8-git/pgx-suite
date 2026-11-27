@@ -88,7 +88,8 @@ mkdir -p "$OPTITYPE_OUT"
 # ── Timing helper ────────────────────────────────────────────────────────────
 _t0()      { date +%s%3N; }
 # A child killed by a signal (134, 137 OOM, 140, 143) keeps its code, so the caller sees a kill, not a plain failure.
-_kill() { local s; for s in "$@"; do if [[ $s == 134 || $s == 137 || $s == 140 || $s == 143 ]]; then echo "[hla] ERROR: a step was killed (exit $s)" >&2; exit "$s"; fi; done; }
+. "$(dirname "$(readlink -f "$0")")/kill_codes.sh"
+_kill() { local s; for s in "$@"; do if is_kill_code "$s"; then echo "[hla] ERROR: a step was killed (exit $s)" >&2; exit "$s"; fi; done; }
 _elapsed() { echo "$(( $(date +%s%3N) - $1 )) ms"; }
 
 # ── Dependency checks ────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ if [[ "$n_reads" -eq 0 ]]; then
         | samtools sort -n -@ "$NCPU" \
         | samtools fastq -@ "$NCPU" \
             -1 "$FASTQ_1" -2 "$FASTQ_2" -s "$FASTQ_S" -0 /dev/null -n 2>/dev/null \
-        || true
+        || _kill "${PIPESTATUS[@]}"   # an ordinary failure falls through (0 reads is reported below); a kill is not swallowed
     n_reads=$(wc -l < "${FASTQ_1:-$FASTQ_S}" 2>/dev/null || echo 0)
     n_reads=$(( n_reads / 4 ))
     echo "[hla] Retry (no-chr prefix): ${n_reads} reads"
