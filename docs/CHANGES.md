@@ -5,6 +5,28 @@ Format: reverse-chronological, grouped by phase/milestone.
 
 ---
 
+## 2026-11-27 (Nextflow engine: caller memory, killed caller stops the run)
+
+- Under the Nextflow engine the default step memory was 2 GB. Stargazer's Beagle phasing (java -Xmx2g plus the
+  JVM and Python) was killed (exit 137) on 9 to 10 genes per sample, and Aldy on DPYD (4 GB cap, peak 4.0 GB).
+  The caller wrote `137` to its `.status` file and the task exited 0, so the gene lost a caller and the
+  summary read 3/3 instead of 4/4. The Snakemake engine never enforced `mem_mb`, so it never showed this.
+- New memory: STARGAZER 4 GB, ALDY 8 GB, PYPGX 6 GB, BAMSTATS 4 GB, each multiplied by the attempt number.
+  Measured peaks (peak_rss) of the other steps are well below their limits.
+- Every step's memory is now `base x attempt` (default 2 GB x attempt). `errorStrategy` retries 134/137/143 up to
+  2 times; 140 (time limit) is not retried because more memory does not help: the run stops, raise `--max_time`.
+- New `bin/nf_kill_gate.sh`: after a caller writes its sentinel, rc 134/137/140/143 makes the task exit non-zero,
+  so it is retried or the run stops (non-zero pgx exit). PHARMCAT_OUTSIDE is not gated (non-fatal by design):
+  `pgx-pharmcat-outside.sh` writes `pharmcat/outside.killed` and `pharmcat_outside_run` in provenance.json, which
+  the report shows as "outside call not run (killed, exit N)".
+- Wrappers keep a child's kill code instead of turning it into 1: `pgx-hla.sh`, `pgx-mt.sh`, `pgx-hla2.sh`, and the
+  nested StellarPGx `nextflow run` (it reads the killed task's `.exitcode`). `bcftools mpileup | call` runs with
+  `pipefail`, so a killed mpileup is a failure, not a truncated VCF.
+- Both engines: `pgx-compare.py` reads each caller's sentinel; 134/137/140/143 shows as "caller killed (OOM/signal,
+  exit N)" in `comparison.tsv`, `detail.json` (`killed_tools`) and the summary Status ("... (caller killed: Stargazer)").
+  An ordinary failure (rc 1, 2, ...) is unchanged. Tests: `docker/test_killed_caller.py`, `tests/test_kill_gate.sh`.
+- Dockerfile: NXF_HOME framework is read-only (a+rX); only `plugins/` and `tmp/` are writable.
+
 ## 2026-11-17 (test.sh ABO checks; ignore rules)
 
 - `test.sh` ABO checks follow the pileup-based ABO typer: an empty pileup gives "Not typed", an

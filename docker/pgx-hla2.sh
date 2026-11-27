@@ -91,9 +91,12 @@ fi
 
 # ── 3. arcasHLA genotype (class I + II) ──────────────────────────────────────
 log_status "arcasHLA genotype (${GENES})"
+rc=0
 "${APPTAINER_EXEC[@]}" arcasHLA genotype ${FASTQS} \
     -g "$GENES" -o "${TMP}/geno" -t "$THREADS" --temp "${TMP}/gt" --verbose \
-    > "${OUTDIR}/arcashla_genotype.log" 2>&1 || log_status "WARN arcasHLA genotype non-zero"
+    > "${OUTDIR}/arcashla_genotype.log" 2>&1 || rc=$?
+case $rc in 134|137|140|143) log_status "ERROR arcasHLA killed (exit $rc)"; exit "$rc" ;; esac   # keep the kill code
+if [[ $rc -ne 0 ]]; then log_status "WARN arcasHLA genotype non-zero"; fi
 
 # arcasHLA writes <prefix>.genotype.json; normalise its filename to <SAMPLE>.genotype.json.
 SRC=$(ls "${TMP}/geno"/*.genotype.json 2>/dev/null | head -1 || true)

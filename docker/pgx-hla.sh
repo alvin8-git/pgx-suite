@@ -87,6 +87,8 @@ mkdir -p "$OPTITYPE_OUT"
 
 # ── Timing helper ────────────────────────────────────────────────────────────
 _t0()      { date +%s%3N; }
+# A child killed by a signal (134, 137 OOM, 140, 143) keeps its code, so the caller sees a kill, not a plain failure.
+_kill() { local s; for s in "$@"; do if [[ $s == 134 || $s == 137 || $s == 140 || $s == 143 ]]; then echo "[hla] ERROR: a step was killed (exit $s)" >&2; exit "$s"; fi; done; }
 _elapsed() { echo "$(( $(date +%s%3N) - $1 )) ms"; }
 
 # ── Dependency checks ────────────────────────────────────────────────────────
@@ -139,12 +141,14 @@ if [[ "$paired_count" -gt 0 ]]; then
             -s "$FASTQ_S" \
             -0 /dev/null \
             -n 2>/dev/null
+    _kill "${PIPESTATUS[@]}"
     echo "[hla] MHC extraction (paired-end): $(_elapsed $_T)"
     OPTITYPE_INPUT="-i $FASTQ_1 $FASTQ_2"
 else
     # Single-end: stream directly to FASTQ
     samtools view -b -@ "$NCPU" "$BAM" "${REGIONS[@]}" 2>/dev/null \
         | samtools fastq -@ "$NCPU" - > "$FASTQ_S" 2>/dev/null
+    _kill "${PIPESTATUS[@]}"
     echo "[hla] MHC extraction (single-end): $(_elapsed $_T)"
     OPTITYPE_INPUT="-i $FASTQ_S"
 fi
@@ -180,6 +184,7 @@ apptainer exec \
         -o "$OPTITYPE_OUT" \
         -p "$SAMPLE" \
         -v
+_kill $?
 
 echo "[hla] OptiType: $(_elapsed $_T)"
 

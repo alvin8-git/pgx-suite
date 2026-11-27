@@ -80,13 +80,16 @@ MUTSERVE_RAW="${OUTDIR}/${SAMPLE}_mutserve_raw.txt"
 RESULT_JSON="${OUTDIR}/${SAMPLE}_mtrna1_result.json"
 rm -f "$MUTSERVE_RAW" "$RESULT_JSON"
 
-if ! java -Xmx2g -jar "$MUTSERVE_JAR" call "${TMP}/chrM_sorted.bam" \
+rc=0
+java -Xmx2g -jar "$MUTSERVE_JAR" call "${TMP}/chrM_sorted.bam" \
         --output    "$MUTSERVE_RAW" \
         --reference "${TMP}/chrM_ref.fa" \
         --level     0.01 \
         --threads   "$THREADS" \
-        > "${OUTDIR}/mutserve.log" 2>&1; then
-    log_status "ERROR mutserve failed — see ${OUTDIR}/mutserve.log (no result written; MT-RNR1 stays untyped)"
+        > "${OUTDIR}/mutserve.log" 2>&1 || rc=$?
+if [[ $rc -ne 0 ]]; then
+    log_status "ERROR mutserve failed (exit $rc) — see ${OUTDIR}/mutserve.log (no result written; MT-RNR1 stays untyped)"
+    case $rc in 134|137|140|143) exit "$rc" ;; esac   # killed (137 = OOM): keep the kill code so the caller sees it
     exit 1
 fi
 if [[ ! -s "$MUTSERVE_RAW" ]]; then

@@ -219,6 +219,12 @@ def _parse_stargazer_core(core_str: str) -> tuple[list[dict], list[str]]:
     return variants, effects
 
 
+# Tool -> sentinel name (logs/<key>.status) and the exit codes that mean "killed", not "failed".
+_TOOL_KEYS = {"PyPGx": "pypgx", "Stargazer": "stargazer", "Aldy": "aldy", "StellarPGx": "stellarpgx",
+              "Cyrius": "cyrius", "mutserve": "mutserve"}
+KILL_CODES = ("134", "137", "140", "143")
+
+
 # ── Parser: PyPGx ─────────────────────────────────────────────────────────────
 def parse_pypgx(output_dir: str, gene: str, sample: str) -> CallerResult:
     result = CallerResult(tool="PyPGx", phasing_method="Beagle (1KGP reference panel)")
@@ -2485,6 +2491,7 @@ def print_table(
     region_depth: float | None = None,
     min_depth: float = DEFAULT_MIN_DEPTH,
     alt_block: str = "",
+    killed: dict | None = None,
 ) -> None:
     W = 72
     SEP = "─" * W
@@ -2502,6 +2509,9 @@ def print_table(
     if alt_block and verdict.get("status") == "no_call":
         verdict["reason"] = alt_block
 
+    if killed:
+        print("\n  !! caller killed (OOM/signal), not an ordinary failure: "
+              + ", ".join(f"{t} (exit {c})" for t, c in killed.items()))
     print()
     print("=" * W)
     print(f" PGx Star Allele Results")
@@ -2589,6 +2599,8 @@ def print_table(
         # when the gene is NO_CALL (the TSV/headline above are suppressed).
         "tools":   {r.tool: r.to_dict(sample, gene) for r in results},
     }
+    if killed:   # only present when a caller was killed, so healthy detail files are unchanged
+        detail["killed_tools"] = killed
     # Informational PharmCAT cross-check (never feeds the verdict above).
     _xc = pharmcat_cross_check(output_dir, gene, sample, verdict)
     if _xc:
@@ -2663,6 +2675,23 @@ def main() -> None:
             r.status = "failed"
             r.diplotype = "tool failed (see log)"
 
+    # A caller KILLED by the infrastructure (sentinel 134 abort, 137 SIGKILL/OOM, 140 time limit, 143 SIGTERM)
+    # never ran to a verdict. It is an infrastructure error, not an ordinary missing caller: name it, whatever
+    # partial output it left, in both engines (read here from the sentinel, so Snakemake needs no gate).
+    killed = {}
+    for r in results:
+        key = _TOOL_KEYS.get(r.tool)
+        sf = os.path.join(args.output_dir, "logs", f"{key}.status") if key else ""
+        try:
+            code = open(sf).read().strip() if sf and os.path.exists(sf) else ""
+        except OSError:
+            code = ""
+        if code in KILL_CODES:
+            r.status = "failed"
+            r.diplotype = f"caller killed (OOM/signal, exit {code})"
+            r.phenotype = r.activity_score = "-"
+            killed[r.tool] = code
+
     # ALT-awareness gate: paralog/SV genes are unreliable from a non-ALT-aware
     # alignment (reads mis-distributed across 2D6/2D7 + ALT contigs).
     alt_sensitive = (bool(support.get("cyrius"))
@@ -2674,7 +2703,7 @@ def main() -> None:
 
     print_table(gene, args.sample, results, args.output_dir,
                 region_depth=args.region_depth, min_depth=args.min_depth,
-                alt_block=alt_block)
+                alt_block=alt_block, killed=killed)
 
 
 if __name__ == "__main__":

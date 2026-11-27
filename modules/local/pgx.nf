@@ -3,8 +3,9 @@
 // points /pgx/results at it (bin/nf_stage.sh) and emits ./res. OUT is therefore
 // /pgx/results everywhere, exactly as in docker/Snakefile.
 // Caller processes always exit 0 and write the tool's exit code to a .status file
-// (a failed tool is reported as failed, never as a negative); infrastructure failures
-// and the hard-dependency steps stop the run.
+// (a failed tool is reported as failed, never as a negative); a caller killed by the infrastructure
+// (134/137/143 killed, 140 time) exits non-zero (bin/nf_kill_gate.sh): retried with more memory, then the
+// run stops. The hard-dependency steps stop the run.
 
 // Every process takes the sample map `s` [id, bam, ref, bam_glob, depth_bam, sex, min_depth] as a
 // declared input so it is part of the task hash. (Values from helper functions are not hashed:
@@ -36,16 +37,17 @@ process BCFTOOLS {
     """
     nf_stage.sh
     mkdir -p ${G}/logs; rc=0
-    ( bcftools mpileup -r ${g.region} -f ${s.ref} -a AD,DP --max-depth 500 -o - ${s.bam} \
+    ( set -o pipefail; bcftools mpileup -r ${g.region} -f ${s.ref} -a AD,DP --max-depth 500 -o - ${s.bam} \
       | bcftools call -m -v --output-type z -o ${G}/${g.gene}.vcf.gz && tabix -p vcf ${G}/${g.gene}.vcf.gz ) || rc=\$?
     echo \$rc > ${G}/logs/bcftools.status
+    nf_kill_gate.sh \$rc
     """
 }
 
 process ALDY {
     tag "${g.gene}"
     cpus 2
-    memory '4 GB'
+    memory { 8.GB * task.attempt }
     input:  tuple val(g), val(s)
     output: tuple val(g), path('res')
     script:
@@ -55,6 +57,7 @@ process ALDY {
     mkdir -p ${G}/logs ${G}/aldy; rc=0
     aldy genotype -g ${g.gene} -p illumina ${s.bam} -o ${G}/aldy/${g.gene}.aldy || rc=\$?
     echo \$rc > ${G}/logs/aldy.status
+    nf_kill_gate.sh \$rc
     """
 }
 
@@ -62,7 +65,7 @@ process STELLARPGX {
     tag "${g.gene}"
     label 'nested_apptainer'
     cpus 2
-    memory '4 GB'
+    memory { 4.GB * task.attempt }
     input:  tuple val(g), val(s)
     output: tuple val(g), path('res')
     script:
@@ -76,8 +79,11 @@ process STELLARPGX {
         --in_bam '${s.bam_glob}' --ref_file ${s.ref} --out_dir ${G}/stellarpgx \
         --res_init /pgx/stellarpgx/resources --db_init /pgx/stellarpgx/database \
         --caller_init /pgx/stellarpgx/scripts -work-dir ${G}/stellarpgx/.work || rc=\$?
+    # the nested nextflow returns 1 when one of its tasks was killed: keep the kill code of that task
+    if [ \$rc -ne 0 ]; then k=\$(find ${G}/stellarpgx/.work -name .exitcode 2>/dev/null | xargs -r awk 'FNR==1{print}' | grep -m1 -x -E '134|137|140|143' || true); [ -n "\$k" ] && rc=\$k; fi
     rm -rf ${G}/stellarpgx/.work 2>/dev/null || true
     echo \$rc > ${G}/logs/stellarpgx.status
+    nf_kill_gate.sh \$rc
     """
 }
 
@@ -124,7 +130,7 @@ process STARGAZER_GDF {   // hard dependency
 process PYPGX {
     tag "${g.gene}"
     cpus 2
-    memory '4 GB'
+    memory { 6.GB * task.attempt }
     input:  tuple val(g), val(s), path(ups, stageAs: 'up*/*')
     output: tuple val(g), path('res')
     script:
@@ -136,11 +142,13 @@ process PYPGX {
     mkdir -p ${G}/logs; rc=0
     pypgx run-ngs-pipeline ${g.gene} ${G}/pypgx --assembly GRCh38 --force ${variants} ${sv} || rc=\$?
     echo \$rc > ${G}/logs/pypgx.status
+    nf_kill_gate.sh \$rc
     """
 }
 
 process STARGAZER {
     tag "${g.gene}"
+    memory { 4.GB * task.attempt }
     input:  tuple val(g), val(s), path(ups, stageAs: 'up*/*')
     output: tuple val(g), path('res')
     script:
@@ -153,13 +161,14 @@ process STARGAZER {
     mkdir -p ${G}/logs; rc=0
     stargazer -t ${gl} -d wgs -a grc38 -i ${G}/${g.gene}.vcf.gz -o ${G}/stargazer ${mode} || rc=\$?
     echo \$rc > ${G}/logs/stargazer.status
+    nf_kill_gate.sh \$rc
     """
 }
 
 process CYRIUS {
     tag "${g.gene}"
     cpus 2
-    memory '4 GB'
+    memory { 4.GB * task.attempt }
     input:  tuple val(g), val(s)
     output: tuple val(g), path('res')
     script:
@@ -172,13 +181,14 @@ process CYRIUS {
         --genome 38 --reference ${s.ref} --prefix ${s.id} --outDir ${G}/cyrius \
         --threads ${task.cpus} || rc=\$?
     echo \$rc > ${G}/logs/cyrius.status
+    nf_kill_gate.sh \$rc
     """
 }
 
 process OPTITYPE {   // sample level: one run types HLA-A/B/C
     label 'nested_apptainer'
     cpus 2
-    memory '4 GB'
+    memory { 4.GB * task.attempt }
     input:  val s
     output: path 'res'
     script:
@@ -187,6 +197,7 @@ process OPTITYPE {   // sample level: one run types HLA-A/B/C
     mkdir -p ${OUT}/optitype; rc=0
     pgx-hla.sh ${s.bam} ${s.id} ${OUT} || rc=\$?
     echo \$rc > ${OUT}/optitype/optitype.status
+    nf_kill_gate.sh \$rc
     """
 }
 
@@ -213,13 +224,14 @@ process MUTSERVE {
     mkdir -p ${G}/logs; rc=0
     pgx-mt.sh ${s.bam} ${s.id} ${G} --ref ${s.ref} || rc=\$?
     echo \$rc > ${G}/logs/mutserve.status
+    nf_kill_gate.sh \$rc
     """
 }
 
 process HLA2 {   // sample level: one arcasHLA run types DQA1/DQB1/DRB1
     label 'nested_apptainer'
     cpus 4
-    memory '8 GB'
+    memory { 8.GB * task.attempt }
     input:  val s
     output: path 'res'
     script:
@@ -229,6 +241,7 @@ process HLA2 {   // sample level: one arcasHLA run types DQA1/DQB1/DRB1
     mkdir -p ${h}; rc=0
     pgx-hla2.sh ${s.bam} ${s.id} ${h} --ref ${s.ref} --sif /pgx/containers/arcashla.sif || rc=\$?
     echo \$rc > ${h}/hla2.status
+    nf_kill_gate.sh \$rc   # killed (134/137/143/140): the task is retried or the run stops, so the next line only sees ordinary failures
     if [ \$rc -ne 0 ]; then echo "ERROR: HLA class II (arcasHLA) typing FAILED rc=\$rc -- DQA1/DQB1/DRB1 will be reported as failed, not clean. See hla2/ logs." >&2; fi
     """
 }
@@ -236,7 +249,7 @@ process HLA2 {   // sample level: one arcasHLA run types DQA1/DQB1/DRB1
 process PHARMCAT {   // sample level
     label 'nested_apptainer'
     cpus 4
-    memory '6 GB'
+    memory { 6.GB * task.attempt }
     input:  val s
     output: path 'res'
     script:
@@ -244,12 +257,13 @@ process PHARMCAT {   // sample level
     """
     nf_stage.sh
     mkdir -p ${pc}; rc=0
-    ( bcftools mpileup -R /opt/pgx/pharmcat_positions.vcf.bgz -f ${s.ref} --max-depth 500 -Ou ${s.bam} 2>/dev/null \
+    ( set -o pipefail; bcftools mpileup -R /opt/pgx/pharmcat_positions.vcf.bgz -f ${s.ref} --max-depth 500 -Ou ${s.bam} 2>/dev/null \
       | bcftools call -m --output-type z -o ${pc}/pgx.vcf.gz \
       && tabix -f -p vcf ${pc}/pgx.vcf.gz \
       && apptainer exec --cleanenv --bind ${pc}:${pc} /pgx/containers/pharmcat.sif \
          pharmcat_pipeline ${pc}/pgx.vcf.gz --missing-to-ref -reporterJson -o ${pc} ) || rc=\$?
     echo \$rc > ${pc}/pharmcat.status
+    nf_kill_gate.sh \$rc
     """
 }
 
@@ -299,7 +313,7 @@ process PHARMCAT_OUTSIDE {   // non-fatal; edits provenance.json and pharmcat/ o
     nf_stage.sh
     rc=0; PHARMCAT_SIF=/pgx/containers/pharmcat.sif pgx-pharmcat-outside.sh ${OUT} \
         > ${OUT}/pharmcat/outside.log 2>&1 || rc=\$?
-    echo \$rc > ${OUT}/pharmcat/outside.status
+    echo \$rc > ${OUT}/pharmcat/outside.status   # not gated: non-fatal by design; a kill is recorded by the script (pharmcat/outside.killed, provenance.json) and shown in the report
     """
 }
 
@@ -318,7 +332,7 @@ process ALL_GENES_SUMMARY {
 
 process BAMSTATS {
     cpus 4
-    memory '2 GB'
+    memory { 4.GB * task.attempt }
     input:  val s
     output: path 'res'
     script:

@@ -141,8 +141,15 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:${PATH}"
 
 # ── 6. Nextflow ──────────────────────────────────────────────────────────────
 COPY nextflow /usr/local/bin/nextflow
+# NXF_HOME: containers run as the invoking user, who cannot read /root/.nextflow (mode 700), and the nested
+# StellarPGx `nextflow run` would then re-download the framework, which fails offline. The framework is
+# read-only for everyone (a+rX); only plugins/, tmp/ and secrets/, which nextflow writes as the invoking user, are writable.
+ENV NXF_HOME=/opt/nextflow-home
 RUN chmod +x /usr/local/bin/nextflow \
-    && nextflow -version
+    && nextflow -version \
+    && mkdir -p /opt/nextflow-home/plugins /opt/nextflow-home/tmp /opt/nextflow-home/secrets \
+    && chmod -R a+rX /opt/nextflow-home \
+    && chmod a+rwx /opt/nextflow-home/plugins /opt/nextflow-home/tmp /opt/nextflow-home/secrets
 
 # ── 7. Stargazer ─────────────────────────────────────────────────────────────
 # NOTE: Non-commercial academic licence (University of Washington).

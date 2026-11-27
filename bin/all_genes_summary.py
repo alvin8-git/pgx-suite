@@ -35,7 +35,7 @@ with open(output, "w") as out:
         cov = d.get("coverage", {})
         hc = h2.get(d["gene"].replace("HLA-", ""), {}) if d["gene"].startswith("HLA-D") else {}
         out.write("\t".join(str(x) for x in [
-            d["gene"], v.get("status", "?"), v.get("consensus_diplotype", "-"),
+            d["gene"], v.get("status", "?") + (" (caller killed: " + ", ".join(d["killed_tools"]) + ")" if d.get("killed_tools") else ""), v.get("consensus_diplotype", "-"),
             v.get("consensus_phenotype", "-"), v.get("n_agree", 0),
             v.get("n_called", 0), cov.get("mean_depth", "-"),
             hc.get("agreement", "-"),

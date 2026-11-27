@@ -1296,6 +1296,7 @@ def build_landing(sample: str, bam: str, genes_data: list, bs: dict | None, out_
             ("Generated",  provenance.get("generated_utc", "")),
             ("Reference",  f'{ref.get("path","")} ({ref.get("n_contigs","?")} contigs, {ref.get("bytes","?")} bytes)' if ref else ""),
             ("Tools",      tool_bits),
+            ("PharmCAT outside calls", provenance.get("pharmcat_outside_run", "")),
         ]
         cells = "".join(
             f'<div><span class="prov-k">{k}:</span> <span class="prov-v">{escape(str(v))}</span></div>'

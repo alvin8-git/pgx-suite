@@ -281,7 +281,7 @@ changing `pgx-compare.py`:
 | Snakemake mechanism | Nextflow equivalent |
 |---|---|
 | Caller rule always exits 0 and writes `rc` to a sentinel | Same script body (`cmd \|\| rc=$?; echo $rc > status/<tool>.status`); `errorStrategy 'terminate'`. The task only fails for infrastructure reasons (OOM kill, container missing), and that **must** stop the run, because a tool that never ran must not become a "failed" verdict either. |
-| Infrastructure kill (exit 137/140) | `errorStrategy { task.exitStatus in [137,140] && task.attempt <= 2 ? 'retry' : 'terminate' }` with `memory { base * task.attempt }`, as SVcaller's `DELLY_CALL_SVTYPE` does |
+| Infrastructure kill (exit 137/140) | `errorStrategy { task.exitStatus in [137,140] && task.attempt <= 2 ? 'retry' : 'terminate' }` with `memory { base * task.attempt }`, as SVcaller's `DELLY_CALL_SVTYPE` does. Implemented by `bin/nf_kill_gate.sh` (a caller whose sentinel is 134, 137, 140 or 143 exits non-zero after writing it; 140 is not retried); memory sizes come from measured `peak_rss`, because Snakemake never enforced `mem_mb` |
 | Hard deps (`pypgx_depth`, `stargazer_gdf`, `altcheck`, `compare`, `bamstats`, `report`) fail the run | Default `terminate`, with no sentinel |
 | Missing output = tool not run | Never inferred from a missing file. `COMPARE` only gets the tools the gene's flags route to, and checks that every expected sentinel is present (it aborts if one is not). |
 | `hla2` stderr warning | Kept, and `HLA2` also emits `hla2.status` as a value channel, so `ALL_GENES_SUMMARY` gets the same "ran, but the consensus is missing" check |

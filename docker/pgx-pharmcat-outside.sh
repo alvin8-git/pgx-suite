@@ -15,13 +15,26 @@ HERE=$(dirname "$(readlink -f "$0")")
 n=$(python3 "$HERE/pgx_outside_calls.py" --out "$OUT" --update-provenance) || { echo "[outside-calls] builder failed; stage-1 report kept" >&2; exit 0; }
 [ "$n" -gt 0 ] || { echo "[outside-calls] no calls to pass; stage-1 report kept" >&2; exit 0; }
 [ -s "$PC/pgx.preprocessed.vcf.bgz" ] || { echo "[outside-calls] no preprocessed VCF; stage-1 report kept" >&2; exit 0; }
-T=$PC/outside_run; rm -rf "$T"; mkdir -p "$T"
-if $RUN -vcf "$PC/pgx.preprocessed.vcf.bgz" -po "$PC/outside_calls.pharmcat.tsv" \
-        -reporterJson -o "$T" -bf pgx > "$PC/outside_run.log" 2>&1 && [ -s "$T/pgx.report.json" ]; then
+T=$PC/outside_run; rm -rf "$T" "$PC/outside.killed"; mkdir -p "$T"
+rc=0
+$RUN -vcf "$PC/pgx.preprocessed.vcf.bgz" -po "$PC/outside_calls.pharmcat.tsv" \
+        -reporterJson -o "$T" -bf pgx > "$PC/outside_run.log" 2>&1 || rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$T/pgx.report.json" ]; then
   [ -e "$PC/pgx.report.no_outside.json" ] || cp "$PC/pgx.report.json" "$PC/pgx.report.no_outside.json"
   cp "$T/pgx.report.json" "$PC/pgx.report.json.tmp" && mv "$PC/pgx.report.json.tmp" "$PC/pgx.report.json"
   [ -s "$T/pgx.phenotype.json" ] && cp "$T/pgx.phenotype.json" "$PC/pgx.phenotype.json"
   echo "[outside-calls] PharmCAT re-run with $n outside call(s)" >&2
+elif [ "$rc" = 134 ] || [ "$rc" = 137 ] || [ "$rc" = 140 ] || [ "$rc" = 143 ]; then
+  # Killed (137 = OOM or SIGKILL): still non-fatal, but never silent. The marker is read by the report (provenance.json).
+  echo "outside call not run (killed, exit $rc)" > "$PC/outside.killed"
+  python3 - "$OUT/provenance.json" "$rc" <<'PY' || true
+import json, os, sys
+p, rc = sys.argv[1], sys.argv[2]
+if os.path.exists(p):
+    d = json.load(open(p)); d["pharmcat_outside_run"] = f"outside call not run (killed, exit {rc})"
+    json.dump(d, open(p + ".tmp", "w"), indent=2); os.replace(p + ".tmp", p)
+PY
+  echo "[outside-calls] outside call not run (killed, exit $rc); stage-1 report kept" >&2
 else
   echo "[outside-calls] PharmCAT -po run failed (see $PC/outside_run.log); stage-1 report kept" >&2
 fi
